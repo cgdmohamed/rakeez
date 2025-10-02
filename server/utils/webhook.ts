@@ -96,7 +96,7 @@ export const processWebhookWithIdempotency = async (
       await storage.updateWebhookEventStatus(webhookEvent.id, 'processed');
 
       return { success: true };
-    } catch (processingError) {
+    } catch (processingError: any) {
       console.error('Webhook processing error:', processingError);
 
       // Update webhook event with error
@@ -108,7 +108,7 @@ export const processWebhookWithIdempotency = async (
 
       return { success: false, error: processingError.message };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Webhook idempotency error:', error);
     return { success: false, error: error.message };
   }

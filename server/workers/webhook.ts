@@ -82,7 +82,7 @@ class WebhookWorker {
         success = true;
         console.log(`Successfully processed ${provider} webhook:`, event.id || event.event_id);
         
-      } catch (processingError) {
+      } catch (processingError: any) {
         error = processingError.message;
         console.error(`Error processing ${provider} webhook:`, processingError);
         
@@ -260,7 +260,7 @@ class WebhookWorker {
       await this.logWebhookResult(provider, event, true, null);
       return true;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error manually processing ${provider} webhook:`, error);
       await this.logWebhookResult(provider, event, false, error.message);
       return false;

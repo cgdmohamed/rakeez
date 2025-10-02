@@ -1,13 +1,13 @@
-import { Twilio } from 'twilio';
+import twilio from 'twilio';
 
 class TwilioService {
-  private client: Twilio;
+  private client: ReturnType<typeof twilio>;
 
   constructor() {
     const accountSid = process.env.TWILIO_ACCOUNT_SID || 'AC_test_account_sid';
     const authToken = process.env.TWILIO_AUTH_TOKEN || 'test_auth_token';
     
-    this.client = new Twilio(accountSid, authToken);
+    this.client = twilio(accountSid, authToken);
   }
 
   async sendOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
@@ -51,7 +51,7 @@ class TwilioService {
 
   async sendOrderUpdate(phone: string, orderNumber: string, status: string, language: string = 'ar'): Promise<boolean> {
     try {
-      const statusMessages = {
+      const statusMessages: Record<string, Record<string, string>> = {
         ar: {
           confirmed: 'تم تأكيد طلبك',
           en_route: 'الفني في الطريق إليك',
@@ -66,7 +66,7 @@ class TwilioService {
         }
       };
 
-      const statusText = statusMessages[language][status] || status;
+      const statusText = statusMessages[language]?.[status] || status;
       const message = language === 'ar'
         ? `تحديث الطلب ${orderNumber}: ${statusText}`
         : `Order ${orderNumber} update: ${statusText}`;

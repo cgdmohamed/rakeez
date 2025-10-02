@@ -39,7 +39,7 @@ export default function Dashboard() {
     enabled: true,
   });
 
-  const { data: systemHealth } = useQuery({
+  const { data: systemHealth } = useQuery<{ healthy: boolean }>({
     queryKey: ['/api/v2/admin/system-health'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -169,7 +169,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-secondary">{stats?.completed_orders || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.total_orders > 0 
+                {stats && stats.total_orders > 0 
                   ? `${Math.round((stats.completed_orders / stats.total_orders) * 100)}% ${selectedLanguage === 'ar' ? 'معدل الإكمال' : 'completion rate'}`
                   : selectedLanguage === 'ar' ? 'لا توجد طلبات' : 'No orders yet'
                 }
@@ -200,7 +200,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{stats?.cancelled_orders || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.total_orders > 0 
+                {stats && stats.total_orders > 0 
                   ? `${Math.round((stats.cancelled_orders / stats.total_orders) * 100)}% ${selectedLanguage === 'ar' ? 'معدل الإلغاء' : 'cancellation rate'}`
                   : selectedLanguage === 'ar' ? 'لا إلغاءات' : 'No cancellations'
                 }

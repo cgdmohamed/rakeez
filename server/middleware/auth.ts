@@ -238,15 +238,15 @@ export const validateOwnership = (resourceType: 'booking' | 'address' | 'payment
       switch (resourceType) {
         case 'booking':
           resource = await storage.getBooking(resourceId);
-          isOwner = resource?.userId === req.user.id || resource?.technicianId === req.user.id;
+          isOwner = resource?.userId === req.user?.id || resource?.technicianId === req.user?.id;
           break;
         case 'address':
           resource = await storage.getAddress(resourceId);
-          isOwner = resource?.userId === req.user.id;
+          isOwner = resource?.userId === req.user?.id;
           break;
         case 'payment':
           const payments = await storage.getBookingPayments(resourceId);
-          isOwner = payments.some(p => p.userId === req.user.id);
+          isOwner = payments.some(p => p.userId === req.user?.id);
           break;
         default:
           return res.status(400).json({

@@ -597,7 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentResult = { success: false, error: 'Tabby not supported for top-up' };
       }
       
-      if (paymentResult.success) {
+      if (paymentResult && paymentResult.success) {
         // Update wallet balance
         const transaction = await storage.updateWalletBalance(
           req.user.id,
@@ -623,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json({
           success: false,
           message: bilingual.getMessage('payment.creation_failed', language),
-          error: paymentResult.error,
+          error: paymentResult?.error || 'Payment method not specified',
         });
       }
       
@@ -1069,7 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add spare parts to quotation
       if (spare_parts.length > 0) {
         const sparePartsData = await Promise.all(
-          spare_parts.map(async (item) => {
+          spare_parts.map(async (item: any) => {
             const sparePart = await storage.getSparePart(item.spare_part_id);
             if (!sparePart) throw new Error(`Spare part ${item.spare_part_id} not found`);
             
@@ -1519,7 +1519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Update booking payment status
-      if (!gatewayPayment || gatewayPayment.status === 'paid') {
+      if (!gatewayPayment || (gatewayPayment && 'status' in gatewayPayment && gatewayPayment.status === 'paid')) {
         await storage.updateBookingStatus(booking_id, 'confirmed', req.user.id);
         
         // Update payment status
@@ -1542,7 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: payment.status,
           wallet_transaction_id: walletTransaction?.id,
           gateway_payment_id: gatewayPayment?.payment?.id,
-          gateway_checkout_url: gatewayPayment?.configuration?.available_products?.installments?.[0]?.web_url,
+          gateway_checkout_url: (gatewayPayment && 'configuration' in gatewayPayment) ? gatewayPayment.configuration?.available_products?.installments?.[0]?.web_url : undefined,
           total_amount: totalAmount,
           wallet_used: wallet_amount,
           gateway_charged: gateway_amount,

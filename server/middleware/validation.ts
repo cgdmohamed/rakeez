@@ -151,7 +151,7 @@ function formatZodErrors(error: ZodError, language: string = 'en'): any[] {
     return {
       field: err.path.join('.'),
       message,
-      received: err.received || undefined,
+      received: (err as any).received || undefined,
     };
   });
 }
@@ -194,17 +194,18 @@ export const validateFileUpload = (options: {
   
   return (req: Request, res: Response, next: NextFunction) => {
     const language = req.headers['accept-language'] || 'en';
+    const file = (req as any).file;
     
-    if (!req.file && required) {
+    if (!file && required) {
       return res.status(400).json({
         success: false,
         message: language === 'ar' ? 'الملف مطلوب' : 'File is required',
       });
     }
     
-    if (req.file) {
+    if (file) {
       // Check file size
-      if (req.file.size > maxSize) {
+      if (file.size > maxSize) {
         return res.status(400).json({
           success: false,
           message: language === 'ar' 
@@ -214,7 +215,7 @@ export const validateFileUpload = (options: {
       }
       
       // Check file type
-      if (allowedTypes.length > 0 && !allowedTypes.includes(req.file.mimetype)) {
+      if (allowedTypes.length > 0 && !allowedTypes.includes(file.mimetype)) {
         return res.status(400).json({
           success: false,
           message: language === 'ar'

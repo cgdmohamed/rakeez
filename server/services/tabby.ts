@@ -107,7 +107,7 @@ class TabbyService {
 
       console.log('Tabby checkout session created:', response.data.payment.id);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Tabby checkout creation failed:', error.response?.data || error.message);
       throw new Error(`Checkout creation failed: ${error.response?.data?.message || error.message}`);
     }
@@ -123,7 +123,7 @@ class TabbyService {
       );
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch Tabby payment:', error.response?.data || error.message);
       throw new Error(`Payment fetch failed: ${error.response?.data?.message || error.message}`);
     }
@@ -141,7 +141,7 @@ class TabbyService {
 
       console.log('Tabby payment captured:', paymentId);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Tabby capture failed:', error.response?.data || error.message);
       throw new Error(`Capture failed: ${error.response?.data?.message || error.message}`);
     }
@@ -159,7 +159,7 @@ class TabbyService {
 
       console.log('Tabby refund processed:', paymentId);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Tabby refund failed:', error.response?.data || error.message);
       throw new Error(`Refund failed: ${error.response?.data?.message || error.message}`);
     }
@@ -177,7 +177,7 @@ class TabbyService {
 
       console.log('Tabby payment closed:', paymentId);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Tabby close payment failed:', error.response?.data || error.message);
       throw new Error(`Close payment failed: ${error.response?.data?.message || error.message}`);
     }

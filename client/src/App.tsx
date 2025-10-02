@@ -1,9 +1,15 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Route, Switch } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import Dashboard from '@/pages/dashboard';
 import ApiDocumentation from '@/components/api-documentation';
 import NotFound from '@/pages/not-found';
+
+// Custom error type
+interface HttpError extends Error {
+  status?: number;
+  data?: any;
+}
 
 // Create a client with error handling
 const queryClient = new QueryClient({
@@ -11,7 +17,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error) => {
         // Don't retry on 404s
-        if (error?.status === 404) return false;
+        const httpError = error as HttpError;
+        if (httpError?.status === 404) return false;
         return failureCount < 3;
       },
       staleTime: 1000 * 60 * 5, // 5 minutes
@@ -20,7 +27,8 @@ const queryClient = new QueryClient({
     mutations: {
       retry: (failureCount, error) => {
         // Don't retry on client errors (4xx)
-        if (error?.status >= 400 && error?.status < 500) return false;
+        const httpError = error as HttpError;
+        if (httpError?.status && httpError.status >= 400 && httpError.status < 500) return false;
         return failureCount < 2;
       },
     },
@@ -114,17 +122,15 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="min-h-screen bg-background">
-          <Routes>
-            <Route path="/" element={<ApiDocumentation />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/docs" element={<ApiDocumentation />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster />
-        </div>
-      </Router>
+      <div className="min-h-screen bg-background">
+        <Switch>
+          <Route path="/" component={ApiDocumentation} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/docs" component={ApiDocumentation} />
+          <Route component={NotFound} />
+        </Switch>
+        <Toaster />
+      </div>
     </QueryClientProvider>
   );
 }

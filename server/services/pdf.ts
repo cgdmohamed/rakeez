@@ -121,7 +121,8 @@ class PDFService {
        .text(`${isArabic ? 'رقم الفاتورة:' : 'Invoice #'} ${invoiceNumber}`, textX, 85, { align: isArabic ? 'right' : 'left' });
     
     // Date
-    doc.text(`${isArabic ? 'التاريخ:' : 'Date:'} ${bilingual.formatDate(new Date(), language)}`, textX, 105, { align: isArabic ? 'right' : 'left' });
+    const lang = isArabic ? 'ar' : 'en';
+    doc.text(`${isArabic ? 'التاريخ:' : 'Date:'} ${bilingual.formatDate(new Date(), lang)}`, textX, 105, { align: isArabic ? 'right' : 'left' });
   }
 
   private addCompanyInfo(doc: PDFKit.PDFDocument, isArabic: boolean): void {

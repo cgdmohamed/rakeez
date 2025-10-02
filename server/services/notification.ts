@@ -124,7 +124,7 @@ class NotificationService {
         } else {
           failed++;
         }
-      } catch (error) {
+      } catch (error: any) {
         failed++;
         errors.push(`User ${notification.user_id}: ${error.message}`);
       }
@@ -137,7 +137,7 @@ class NotificationService {
    * Send order status update notification
    */
   async sendOrderStatusNotification(userId: string, bookingId: string, status: string, language: string = 'en'): Promise<boolean> {
-    const statusMessages = {
+    const statusMessages: Record<string, Record<string, { title: string; body: string }>> = {
       en: {
         confirmed: {
           title: 'Order Confirmed',
@@ -192,7 +192,7 @@ class NotificationService {
       }
     };
 
-    const message = statusMessages[language][status];
+    const message = statusMessages[language]?.[status];
     if (!message) {
       console.error(`No message template found for status: ${status}`);
       return false;
@@ -201,9 +201,9 @@ class NotificationService {
     return await this.sendNotification({
       user_id: userId,
       title: message.title,
-      title_ar: statusMessages.ar[status]?.title,
+      title_ar: statusMessages.ar?.[status]?.title,
       body: message.body,
-      body_ar: statusMessages.ar[status]?.body,
+      body_ar: statusMessages.ar?.[status]?.body,
       type: 'order_update',
       data: {
         booking_id: bookingId,

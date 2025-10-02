@@ -291,10 +291,10 @@ export const generateTemporaryToken = (
   };
 
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn,
+    expiresIn: expiresIn as string,
     issuer: 'cleanserve-api',
     audience: 'cleanserve-app',
-  });
+  } as jwt.SignOptions);
 };
 
 /**
