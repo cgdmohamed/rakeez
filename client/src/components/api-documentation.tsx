@@ -511,7 +511,7 @@ export default function ApiDocumentation() {
                             {isArabic ? 'يُستخدم لطلبات الخادم إلى الخادم' : 'Use for server-to-server requests'}
                           </p>
                           <div className="bg-white rounded px-3 py-2 font-mono text-xs break-all">
-                            sk_test_4eC39HqLyjWDarjtT1zdp7dc
+                            sk_test_your_secret_key_here
                           </div>
                         </div>
                         
@@ -524,7 +524,7 @@ export default function ApiDocumentation() {
                             {isArabic ? 'يُستخدم لتطبيقات الجانب العميل' : 'Use for client-side applications'}
                           </p>
                           <div className="bg-white rounded px-3 py-2 font-mono text-xs break-all">
-                            pk_test_51HqLyjWDarjtT1zdp7dc
+                            pk_test_your_public_key_here
                           </div>
                         </div>
                       </div>
