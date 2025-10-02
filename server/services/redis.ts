@@ -6,16 +6,21 @@ class RedisService {
 
   constructor() {
     this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-      maxRetriesPerRequest: 1,
-      lazyConnect: true,
+      maxRetriesPerRequest: 3,
+      lazyConnect: false, // Connect immediately
       enableOfflineQueue: false,
-      retryStrategy: () => null,
+      retryStrategy: (times) => {
+        // Retry with backoff in production, give up in development
+        if (process.env.NODE_ENV !== 'production') return null;
+        const delay = Math.min(times * 100, 3000);
+        return delay;
+      },
     });
 
     this.client.on('error', (err) => {
       this.isAvailable = false;
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('Redis unavailable (optional in development):', err.message);
+        // Silently fail in development
       } else {
         console.error('Redis connection error:', err);
       }
@@ -24,6 +29,11 @@ class RedisService {
     this.client.on('connect', () => {
       this.isAvailable = true;
       console.log('Connected to Redis');
+    });
+
+    this.client.on('ready', () => {
+      this.isAvailable = true;
+      console.log('Redis ready');
     });
   }
 
@@ -280,6 +290,68 @@ class RedisService {
     } catch (error) {
       console.warn('Redis llen failed (optional in development)');
       return 0;
+    }
+  }
+
+  // Pub/Sub for WebSocket broadcasting
+  async publish(channel: string, message: any): Promise<void> {
+    // Skip if Redis unavailable to avoid connection errors
+    if (!this.isAvailable) {
+      return;
+    }
+
+    try {
+      await this.client.publish(channel, JSON.stringify(message));
+    } catch (error) {
+      this.isAvailable = false; // Mark as unavailable on error
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Redis publish failed:', error);
+      }
+    }
+  }
+
+  subscribe(channel: string, callback: (message: any) => void): void {
+    // Skip subscription setup in development when Redis is not available
+    if (process.env.NODE_ENV !== 'production' && !this.isAvailable) {
+      return;
+    }
+
+    try {
+      // Create a separate subscriber client
+      const subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+        maxRetriesPerRequest: 1,
+        lazyConnect: false,
+        enableOfflineQueue: false,
+        retryStrategy: () => null,
+      });
+
+      subscriber.on('error', (err) => {
+        if (process.env.NODE_ENV !== 'production') {
+          // Silently fail in development
+        } else {
+          console.error('Redis subscriber error:', err);
+        }
+      });
+
+      subscriber.subscribe(channel, (err) => {
+        if (err && process.env.NODE_ENV === 'production') {
+          console.error('Redis subscribe failed:', err.message);
+        }
+      });
+
+      subscriber.on('message', (chan, msg) => {
+        if (chan === channel) {
+          try {
+            callback(JSON.parse(msg));
+          } catch (error) {
+            console.warn('Redis message parse failed:', error);
+          }
+        }
+      });
+    } catch (error) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Redis subscribe setup failed:', error);
+      }
     }
   }
 

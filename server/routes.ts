@@ -16,6 +16,7 @@ import { validateRequest } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
+import { websocketService } from "./services/websocket";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { 
@@ -1087,6 +1088,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update booking status
       await storage.updateBookingStatus(booking_id, 'quotation_pending', req.user.id);
       
+      // Broadcast status update via WebSocket (to booking owner, not technician)
+      await websocketService.broadcastBookingStatus(booking_id, booking.userId, 'quotation_pending');
+      
       // Send notification to customer
       await notificationService.sendQuotationNotification(booking.userId, quotation.id, language);
       
@@ -1204,6 +1208,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update booking status back to in_progress
       await storage.updateBookingStatus(booking.id, 'in_progress', req.user.id);
+      
+      // Broadcast status update via WebSocket
+      await websocketService.broadcastBookingStatus(booking.id, req.user.id, 'in_progress');
       
       await auditLog({
         userId: req.user.id,
@@ -1522,6 +1529,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!gatewayPayment || (gatewayPayment && 'status' in gatewayPayment && gatewayPayment.status === 'paid')) {
         await storage.updateBookingStatus(booking_id, 'confirmed', req.user.id);
         
+        // Broadcast status update via WebSocket
+        await websocketService.broadcastBookingStatus(booking_id, req.user.id, 'confirmed');
+        
         // Update payment status
         await storage.updatePaymentStatus(payment.id, 'paid');
       }
@@ -1781,11 +1791,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create initial message
-      await storage.createSupportMessage({
+      const initialMessage = await storage.createSupportMessage({
         ticketId: ticket.id,
         senderId: req.user.id,
         message,
       });
+      
+      // Broadcast message via WebSocket
+      await websocketService.broadcastSupportMessage(ticket.id, req.user.id, initialMessage);
       
       res.status(201).json({
         success: true,
@@ -1855,6 +1868,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message,
         attachments: attachments as any,
       });
+      
+      // Broadcast message via WebSocket
+      await websocketService.broadcastSupportMessage(ticket_id, req.user.id, supportMessage);
       
       res.status(201).json({
         success: true,
@@ -1964,6 +1980,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Export Analytics (CSV/Excel)
+  app.get('/api/v2/admin/analytics/export', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { start_date, end_date, format = 'csv', type = 'analytics' } = req.query;
+      
+      const validTypes = ['analytics', 'technicians', 'bookings', 'payments'];
+      const validFormats = ['csv', 'excel'];
+      
+      if (!validTypes.includes(type as string)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid type. Must be one of: ${validTypes.join(', ')}`,
+        });
+      }
+      
+      if (!validFormats.includes(format as string)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid format. Must be 'csv' or 'excel'`,
+        });
+      }
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      let exportData: any = {};
+      
+      switch (type) {
+        case 'analytics': {
+          const [orderStats, revenueStats, technicianStats] = await Promise.all([
+            storage.getOrderStats(startDate, endDate),
+            storage.getRevenueStats(startDate, endDate),
+            storage.getTechnicianStats(),
+          ]);
+          exportData = {
+            summary: { ...orderStats, ...revenueStats },
+            technicianPerformance: technicianStats,
+          };
+          break;
+        }
+        
+        case 'technicians': {
+          const technicianStats = await storage.getTechnicianStats();
+          exportData = {
+            summary: {},
+            technicianPerformance: technicianStats,
+          };
+          break;
+        }
+        
+        case 'bookings': {
+          const rawBookings = await storage.getBookings(startDate, endDate);
+          const bookings = await Promise.all(rawBookings.map(async (b) => {
+            const user = await storage.getUser(b.userId);
+            const service = await storage.getService(b.serviceId);
+            return {
+              id: b.id,
+              customer_name: user?.username || 'N/A',
+              service: service?.name?.en || service?.name?.ar || 'N/A',
+              status: b.status,
+              total_amount: b.totalAmount,
+              created_at: b.createdAt?.toISOString() || '',
+              completed_at: b.completedAt?.toISOString() || '',
+            };
+          }));
+          exportData = {
+            summary: {},
+            bookings: bookings,
+          };
+          break;
+        }
+        
+        case 'payments': {
+          const rawPayments = await storage.getPayments(startDate, endDate);
+          const payments = rawPayments.map((p) => ({
+            id: p.id,
+            booking_id: p.bookingId,
+            amount: p.amount,
+            payment_method: p.paymentMethod,
+            status: p.status,
+            created_at: p.createdAt?.toISOString() || '',
+          }));
+          exportData = {
+            summary: {},
+            payments: payments,
+          };
+          break;
+        }
+      }
+
+      if (format === 'excel') {
+        const { exportToExcel } = await import('./utils/export');
+        const buffer = await exportToExcel(exportData, type as string);
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${type}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        res.send(buffer);
+      } else {
+        const { exportToCSV } = await import('./utils/export');
+        const csv = await exportToCSV(exportData, type as string);
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=${type}_${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csv);
+      }
+      
+    } catch (error) {
+      console.error('Export analytics error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Export Financial Audit
+  app.get('/api/v2/admin/analytics/financial/export', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { start_date, end_date, format = 'csv' } = req.query;
+      
+      const validFormats = ['csv', 'excel'];
+      if (!validFormats.includes(format as string)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid format. Must be 'csv' or 'excel'`,
+        });
+      }
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      const revenueStats = await storage.getRevenueStats(startDate, endDate);
+      const auditLogs = await storage.getAuditLogs('payment', undefined, 1000);
+
+      const exportData = {
+        summary: revenueStats,
+        auditLogs: auditLogs,
+      };
+
+      if (format === 'excel') {
+        const { exportToExcel } = await import('./utils/export');
+        const buffer = await exportToExcel(exportData, 'financial');
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=financial_audit_${new Date().toISOString().split('T')[0]}.xlsx`);
+        res.send(buffer);
+      } else {
+        const { exportToCSV } = await import('./utils/export');
+        const csv = await exportToCSV(exportData, 'financial');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=financial_audit_${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csv);
+      }
+      
+    } catch (error) {
+      console.error('Export financial audit error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
   
   // Create Service (Admin)
   app.post('/api/v2/admin/services', authenticateToken, authorizeRoles(['admin']), validateRequest({
@@ -2065,6 +2245,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.updateBookingStatus(id, 'confirmed', req.user.id);
       
+      // Broadcast status update via WebSocket
+      await websocketService.broadcastBookingStatus(id, booking.userId, 'confirmed');
+      
       // Send notification to customer
       await notificationService.sendOrderStatusNotification(booking.userId, id, 'confirmed', language);
       
@@ -2103,6 +2286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.updateBookingStatus(id, status, req.user.id);
+      
+      // Broadcast status update via WebSocket
+      await websocketService.broadcastBookingStatus(id, booking.userId, status);
       
       // Send notification to customer
       await notificationService.sendOrderStatusNotification(booking.userId, id, status, language);

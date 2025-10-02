@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { webhookWorker } from "./workers/webhook";
+import { websocketService } from "./services/websocket";
 
 const app = express();
 
@@ -79,6 +80,10 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
+    // Initialize WebSocket server
+    websocketService.initialize(server);
+    
+    // Start webhook worker
     webhookWorker.start();
   });
   

@@ -339,6 +339,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(bookings.createdAt));
   }
 
+  async getBookings(startDate?: Date, endDate?: Date): Promise<Booking[]> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(bookings.createdAt, startDate));
+    if (endDate) conditions.push(lte(bookings.createdAt, endDate));
+    
+    return await db
+      .select()
+      .from(bookings)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(bookings.createdAt));
+  }
+
   async updateBookingStatus(id: string, status: string, updatedBy?: string): Promise<void> {
     // Get current status
     const currentBooking = await this.getBooking(id);
