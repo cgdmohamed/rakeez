@@ -25,44 +25,50 @@ export class AdminController {
       }
 
       const {
+        category_id,
         name_ar,
         name_en,
         description_ar,
         description_en,
-        icon,
         base_price,
         vat_percentage,
         duration_minutes,
         is_active
       } = req.body;
 
-      if (!name_ar || !name_en || !base_price) {
+      if (!category_id || !name_ar || !name_en || !base_price || !duration_minutes) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('validation.required_fields', userLanguage)
         });
       }
 
-      // In production, this would use proper service creation method
-      // For now, return success structure
-      const serviceData = {
-        id: `svc_${Date.now()}`,
-        name: { ar: name_ar, en: name_en },
-        description: { ar: description_ar, en: description_en },
-        icon: icon || null,
-        base_price: parseFloat(base_price),
-        vat_percentage: parseFloat(vat_percentage || '15'),
-        duration_minutes: parseInt(duration_minutes || '120'),
-        is_active: is_active !== false,
-        created_at: new Date().toISOString()
-      };
+      const service = await this.storage.createService({
+        categoryId: category_id,
+        name: JSON.stringify({ ar: name_ar, en: name_en }),
+        description: JSON.stringify({ ar: description_ar || '', en: description_en || '' }),
+        basePrice: parseFloat(base_price).toString(),
+        vatPercentage: vat_percentage ? parseFloat(vat_percentage).toString() : '15',
+        durationMinutes: parseInt(duration_minutes),
+        isActive: is_active !== false,
+      });
 
-      console.log('Admin: Creating service category:', serviceData);
+      console.log('Admin: Created service:', service.id);
 
       return res.status(201).json({
         success: true,
         message: bilingual.getMessage('admin.service_created', userLanguage),
-        data: serviceData
+        data: {
+          id: service.id,
+          category_id: service.categoryId,
+          name: { ar: name_ar, en: name_en },
+          description: { ar: description_ar, en: description_en },
+          base_price: service.basePrice,
+          vat_percentage: service.vatPercentage,
+          duration_minutes: service.durationMinutes,
+          is_active: service.isActive,
+          created_at: service.createdAt
+        }
       });
 
     } catch (error) {
@@ -88,8 +94,8 @@ export class AdminController {
 
       const updateData = req.body;
 
-      // Verify service exists
-      const service = await this.storage.getServiceCategory(serviceId);
+      // Verify service exists - getService handles both categories and services
+      const service = await this.storage.getService(serviceId);
       if (!service) {
         return res.status(404).json({
           success: false,
@@ -147,26 +153,34 @@ export class AdminController {
         });
       }
 
-      const sparePartData = {
-        id: `part_${Date.now()}`,
-        name_ar,
-        name_en,
-        description_ar: description_ar || null,
-        description_en: description_en || null,
+      const sparePart = await this.storage.createSparePart({
+        name: JSON.stringify({ ar: name_ar, en: name_en }),
+        description: JSON.stringify({ ar: description_ar || '', en: description_en || '' }),
         category,
-        price: parseFloat(price),
+        price: parseFloat(price).toString(),
         stock: parseInt(stock || '0'),
         image: image || null,
-        is_active: true,
-        created_at: new Date().toISOString()
-      };
+        isActive: true,
+      });
 
-      console.log('Admin: Creating spare part:', sparePartData);
+      console.log('Admin: Created spare part:', sparePart.id);
 
       return res.status(201).json({
         success: true,
         message: bilingual.getMessage('admin.spare_part_created', userLanguage),
-        data: sparePartData
+        data: {
+          id: sparePart.id,
+          name_ar,
+          name_en,
+          description_ar: description_ar || null,
+          description_en: description_en || null,
+          category: sparePart.category,
+          price: sparePart.price,
+          stock: sparePart.stock,
+          image: sparePart.image,
+          is_active: sparePart.isActive,
+          created_at: sparePart.createdAt
+        }
       });
 
     } catch (error) {
@@ -193,7 +207,7 @@ export class AdminController {
       const updateData = req.body;
 
       // Verify spare part exists
-      const part = await this.storage.getSparePartById(partId);
+      const part = await this.storage.getSparePart(partId);
       if (!part) {
         return res.status(404).json({
           success: false,
@@ -236,60 +250,21 @@ export class AdminController {
       const startDate = req.query.start_date ? new Date(req.query.start_date as string) : undefined;
       const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
 
-      // Get analytics data
-      const totalOrders = await this.storage.getOrdersCount(startDate, endDate);
-      const totalRevenue = await this.storage.getRevenue(startDate, endDate);
-      const revenueByPaymentMethod = await this.storage.getRevenueByPaymentMethod(startDate, endDate);
+      // Get analytics data using existing storage methods
+      const orderStats = await this.storage.getOrderStats(startDate, endDate);
+      const revenueStats = await this.storage.getRevenueStats(startDate, endDate);
 
       // Get service categories for popularity analysis
-      const services = await this.storage.getServiceCategories(true);
+      const services = await this.storage.getServiceCategories();
 
-      // Mock top services data (in production, this would come from proper queries)
-      const topServices = services.slice(0, 5).map((service, index) => {
-        const nameData = service.name as any;
-        return {
-          service_id: service.id,
-          name: nameData?.en || 'Service',
-          name_ar: nameData?.ar || 'خدمة',
-          orders: Math.max(1, Math.floor(totalOrders * (0.5 - index * 0.1))),
-          revenue: Math.max(1000, totalRevenue * (0.4 - index * 0.08))
-        };
-      });
-
-      // Mock technician performance (in production, would query actual data)
-      const technicianPerformance = [
-        {
-          technician_id: 'tech_001',
-          name: 'محمد علي',
-          completed_orders: Math.floor(totalOrders * 0.15),
-          avg_rating: 4.8,
-          total_revenue: totalRevenue * 0.12
-        },
-        {
-          technician_id: 'tech_002', 
-          name: 'أحمد سالم',
-          completed_orders: Math.floor(totalOrders * 0.12),
-          avg_rating: 4.7,
-          total_revenue: totalRevenue * 0.10
-        }
-      ];
+      const technicianStats = await this.storage.getTechnicianStats();
 
       const analytics = {
         summary: {
-          total_orders: totalOrders,
-          completed_orders: Math.floor(totalOrders * 0.85),
-          cancelled_orders: Math.floor(totalOrders * 0.15),
-          total_revenue: totalRevenue,
-          revenue_by_payment_method: revenueByPaymentMethod
+          ...orderStats,
+          ...revenueStats
         },
-        top_services: topServices,
-        technician_performance: technicianPerformance,
-        financial_audit: {
-          total_payments: totalRevenue,
-          total_refunds: totalRevenue * 0.05,
-          net_revenue: totalRevenue * 0.95,
-          vat_collected: totalRevenue * 0.15
-        },
+        technician_performance: technicianStats,
         period: {
           start_date: startDate?.toISOString() || null,
           end_date: endDate?.toISOString() || null,
@@ -415,39 +390,15 @@ export class AdminController {
       const startDate = req.query.start_date ? new Date(req.query.start_date as string) : undefined;
       const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
 
-      // Get financial data
-      const totalRevenue = await this.storage.getRevenue(startDate, endDate);
-      const revenueByMethod = await this.storage.getRevenueByPaymentMethod(startDate, endDate);
+      // Get financial data using existing revenue stats method
+      const revenueStats = await this.storage.getRevenueStats(startDate, endDate);
+      
+      // Get audit logs for transactions
+      const auditLogs = await this.storage.getAuditLogs('payment', undefined, 100);
 
-      // Mock detailed audit data (in production, would query actual transaction logs)
       const auditData = {
-        summary: {
-          total_transactions: Math.floor(totalRevenue / 150), // Average transaction size
-          total_amount: totalRevenue,
-          successful_payments: Math.floor(totalRevenue / 150 * 0.95),
-          failed_payments: Math.floor(totalRevenue / 150 * 0.05),
-          refunds_count: Math.floor(totalRevenue / 150 * 0.03),
-          refunds_amount: totalRevenue * 0.02
-        },
-        payment_methods: revenueByMethod,
-        transaction_logs: [
-          // Mock recent transactions for audit
-          {
-            id: 'txn_001',
-            order_id: 'ord_001',
-            amount: 347.88,
-            method: 'moyasar',
-            status: 'paid',
-            created_at: new Date().toISOString(),
-            audit_trail: 'Payment processed via Moyasar gateway'
-          }
-        ],
-        reconciliation: {
-          gateway_total: totalRevenue * 0.7,
-          wallet_total: totalRevenue * 0.3,
-          variance: 0.0,
-          last_reconciled: new Date().toISOString()
-        },
+        summary: revenueStats,
+        audit_logs: auditLogs,
         period: {
           start_date: startDate?.toISOString() || null,
           end_date: endDate?.toISOString() || null,
