@@ -1644,10 +1644,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== WEBHOOK ENDPOINTS ====================
   
   // Moyasar Webhook
-  app.post('/api/v2/webhooks/moyasar', express.raw({type: 'application/json'}), async (req: any, res: any) => {
+  app.post('/api/v2/webhooks/moyasar', async (req: any, res: any) => {
     try {
       const signature = req.headers['x-moyasar-signature'];
-      const payload = req.body.toString();
+      // Use rawBody saved by express.json() verify function
+      const payload = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
       
       if (!verifyMoyasarSignature(payload, signature)) {
         return res.status(401).json({ error: 'Invalid signature' });
@@ -1667,10 +1668,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Tabby Webhook
-  app.post('/api/v2/webhooks/tabby', express.raw({type: 'application/json'}), async (req: any, res: any) => {
+  app.post('/api/v2/webhooks/tabby', async (req: any, res: any) => {
     try {
       const signature = req.headers['x-tabby-signature'];
-      const payload = req.body.toString();
+      // Use rawBody saved by express.json() verify function
+      const payload = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
       
       if (!verifyTabbySignature(payload, signature)) {
         return res.status(401).json({ error: 'Invalid signature' });

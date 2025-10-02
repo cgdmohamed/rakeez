@@ -12,6 +12,11 @@ export const verifyWebhookSignature = (
   algorithm: string = 'sha256'
 ): boolean => {
   try {
+    if (!signature) {
+      console.error('Webhook signature missing');
+      return false;
+    }
+    
     const expectedSignature = crypto
       .createHmac(algorithm, secret)
       .update(payload)
