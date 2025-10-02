@@ -15,7 +15,7 @@ import { authenticateToken, authorizeRoles } from "./middleware/auth";
 import { validateRequest } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
-import { verifyWebhookSignature } from "./utils/webhook";
+import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { 
@@ -1649,7 +1649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const signature = req.headers['x-moyasar-signature'];
       const payload = req.body.toString();
       
-      if (!verifyWebhookSignature(payload, signature, process.env.MOYASAR_WEBHOOK_SECRET!)) {
+      if (!verifyMoyasarSignature(payload, signature)) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
       
@@ -1672,7 +1672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const signature = req.headers['x-tabby-signature'];
       const payload = req.body.toString();
       
-      if (!tabbyService.verifyWebhookSignature(payload, signature)) {
+      if (!verifyTabbySignature(payload, signature)) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
       

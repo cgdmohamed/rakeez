@@ -292,23 +292,3 @@ class WebhookWorker {
 
 // Create singleton instance
 export const webhookWorker = new WebhookWorker();
-
-// Auto-start worker if running as main process
-if (require.main === module) {
-  console.log('Starting webhook worker as standalone process...');
-  
-  webhookWorker.start();
-
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('Received SIGTERM, shutting down webhook worker...');
-    webhookWorker.stop();
-    process.exit(0);
-  });
-
-  process.on('SIGINT', () => {
-    console.log('Received SIGINT, shutting down webhook worker...');
-    webhookWorker.stop();
-    process.exit(0);
-  });
-}

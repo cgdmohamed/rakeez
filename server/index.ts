@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { webhookWorker } from "./workers/webhook";
 
 const app = express();
 
@@ -77,5 +78,19 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    webhookWorker.start();
+  });
+  
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down...');
+    webhookWorker.stop();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    console.log('Received SIGINT, shutting down...');
+    webhookWorker.stop();
+    process.exit(0);
   });
 })();
