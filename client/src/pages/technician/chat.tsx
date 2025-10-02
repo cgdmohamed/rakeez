@@ -16,7 +16,8 @@ export default function TechnicianChat() {
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${token}`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
     
     const websocket = new WebSocket(wsUrl);
 

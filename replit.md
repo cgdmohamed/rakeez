@@ -25,6 +25,29 @@ Preferred communication style: Simple, everyday language.
 - Path aliases configured for clean imports (`@/`, `@shared/`, `@assets/`)
 - Centralized query client configuration with custom error handling for 404s and unauthorized requests
 - Bilingual support baked into the UI layer
+- Role-based dashboard interfaces for Admin and Technician portals
+
+**Dashboard Interfaces:**
+- **Admin Dashboard** (`/admin/*`): Complete management portal with sidebar navigation
+  - Overview: Revenue stats, order metrics, payment method breakdown
+  - Bookings: View and manage all bookings with status filtering and updates
+  - Quotations: Track quotations with amounts, VAT, and approval status
+  - Payments: Monitor payment transactions across all gateways
+  - Customers: Manage customer accounts and verification status
+  - Technicians: Track technician performance, ratings, and assignments
+  - Analytics: View performance metrics with CSV/Excel export capabilities
+
+- **Technician Dashboard** (`/technician/*`): Job-focused interface for field technicians
+  - Overview: Personal stats showing pending, in-progress, and completed jobs
+  - My Bookings: View assigned jobs with customer details and navigation info
+  - Status Updates: Update job status (confirmed, en route, in progress, completed)
+  - Uploads: Upload invoices (PDF) and spare part images for bookings
+  - Real-time Chat: WebSocket-based chat with customers for job coordination
+
+- **Authentication**: Unified login page (`/login`) with role-based routing
+  - Detects user role (admin/technician) and redirects to appropriate dashboard
+  - JWT token storage and session management
+  - Demo credentials: admin@rakeez.sa/admin123, tech@rakeez.sa/tech123
 
 ### Backend Architecture
 
