@@ -363,6 +363,11 @@ class RedisService {
       console.warn('Redis disconnect failed (optional in development)');
     }
   }
+
+  // Check if Redis is available
+  get available(): boolean {
+    return this.isAvailable;
+  }
 }
 
 export const redisService = new RedisService();

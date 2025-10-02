@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { webhookWorker } from "./workers/webhook";
 import { websocketService } from "./services/websocket";
+import { redisService } from "./services/redis";
 
 const app = express();
 
@@ -83,8 +84,12 @@ app.use((req, res, next) => {
     // Initialize WebSocket server
     websocketService.initialize(server);
     
-    // Start webhook worker
-    webhookWorker.start();
+    // Start webhook worker only if Redis is available
+    if (redisService.available) {
+      webhookWorker.start();
+    } else {
+      console.log('Webhook worker not started (Redis unavailable)');
+    }
   });
   
   process.on('SIGTERM', () => {
