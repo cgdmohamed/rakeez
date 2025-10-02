@@ -12,21 +12,32 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('SMTP credentials not configured. Email notifications will be disabled. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
+      this.transporter = null as any;
+      return;
+    }
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER || 'noreply@cleanserve.sa',
-        pass: process.env.SMTP_PASS || 'smtp_password',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     });
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
+    if (!this.transporter) {
+      console.warn('Email transporter not configured. Skipping email send.');
+      return false;
+    }
+
     try {
       const mailOptions = {
-        from: `"CleanServe" <${process.env.SMTP_USER || 'noreply@cleanserve.sa'}>`,
+        from: `"CleanServe" <${process.env.SMTP_USER}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -351,6 +362,82 @@ class EmailService {
       subject,
       html,
     });
+  }
+
+  async sendTechnicianAssignedEmail(email: string, bookingData: any, language: string = 'en'): Promise<boolean> {
+    const isArabic = language === 'ar';
+    const subject = isArabic ? 'تم تعيين فني لحجزك - كلين سيرف' : 'Technician Assigned - CleanServe';
+    
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}" lang="${language}">
+      <body>
+          <h1>${isArabic ? 'تم تعيين فني لحجزك!' : 'Technician Assigned to Your Booking!'}</h1>
+          <p>${isArabic ? 'رقم الحجز:' : 'Booking ID:'} ${bookingData.id}</p>
+          <p>${isArabic ? 'الفني:' : 'Technician:'} ${bookingData.technicianName}</p>
+          <p>${isArabic ? 'سيتصل بك الفني قريباً.' : 'The technician will contact you shortly.'}</p>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({ to: email, subject, html });
+  }
+
+  async sendQuotationCreatedEmail(email: string, quotationData: any, language: string = 'en'): Promise<boolean> {
+    const isArabic = language === 'ar';
+    const subject = isArabic ? 'عرض سعر جديد - كلين سيرف' : 'New Quotation - CleanServe';
+    
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}" lang="${language}">
+      <body>
+          <h1>${isArabic ? 'تم إنشاء عرض سعر جديد' : 'New Quotation Created'}</h1>
+          <p>${isArabic ? 'رقم الحجز:' : 'Booking ID:'} ${quotationData.bookingId}</p>
+          <p>${isArabic ? 'الإجمالي:' : 'Total:'} ${quotationData.totalAmount} ${isArabic ? 'ريال' : 'SAR'}</p>
+          <p>${isArabic ? 'يرجى مراجعة العرض والموافقة عليه.' : 'Please review and approve the quotation.'}</p>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({ to: email, subject, html });
+  }
+
+  async sendPaymentReceivedEmail(email: string, paymentData: any, language: string = 'en'): Promise<boolean> {
+    const isArabic = language === 'ar';
+    const subject = isArabic ? 'تم استلام الدفع - كلين سيرف' : 'Payment Received - CleanServe';
+    
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}" lang="${language}">
+      <body>
+          <h1>${isArabic ? 'تم استلام دفعتك بنجاح!' : 'Payment Received Successfully!'}</h1>
+          <p>${isArabic ? 'رقم الحجز:' : 'Booking ID:'} ${paymentData.bookingId}</p>
+          <p>${isArabic ? 'المبلغ:' : 'Amount:'} ${paymentData.amount} ${isArabic ? 'ريال' : 'SAR'}</p>
+          <p>${isArabic ? 'طريقة الدفع:' : 'Payment Method:'} ${paymentData.paymentMethod}</p>
+          <p>${isArabic ? 'شكراً لك!' : 'Thank you!'}</p>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({ to: email, subject, html });
+  }
+
+  async sendBookingCompletedEmail(email: string, bookingData: any, language: string = 'en'): Promise<boolean> {
+    const isArabic = language === 'ar';
+    const subject = isArabic ? 'اكتملت الخدمة - كلين سيرف' : 'Service Completed - CleanServe';
+    
+    const html = `
+      <!DOCTYPE html>
+      <html dir="${isArabic ? 'rtl' : 'ltr'}" lang="${language}">
+      <body>
+          <h1>${isArabic ? 'تم إكمال خدمتك!' : 'Your Service is Complete!'}</h1>
+          <p>${isArabic ? 'رقم الحجز:' : 'Booking ID:'} ${bookingData.id}</p>
+          <p>${isArabic ? 'نأمل أن تكون راضياً عن خدمتنا. يرجى تقييم تجربتك!' : 'We hope you are satisfied with our service. Please rate your experience!'}</p>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({ to: email, subject, html });
   }
 }
 

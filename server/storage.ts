@@ -455,6 +455,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(payments.createdAt));
   }
 
+  async getPayments(startDate?: Date, endDate?: Date): Promise<Payment[]> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(payments.createdAt, startDate));
+    if (endDate) conditions.push(lte(payments.createdAt, endDate));
+    
+    return await db
+      .select()
+      .from(payments)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(payments.createdAt));
+  }
+
   async updatePaymentStatus(id: string, status: string, gatewayData?: any): Promise<void> {
     await db
       .update(payments)

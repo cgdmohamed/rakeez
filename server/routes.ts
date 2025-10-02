@@ -2005,7 +2005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      await storage.updateUserProfile(req.user.id, { avatar: objectPath });
+      await storage.updateUser(req.user.id, { avatar: objectPath });
 
       res.json({
         success: true,
@@ -2054,10 +2054,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const sparePart = await storage.createSparePart({
-        quotationId: id,
+        quotation_id: id,
         name,
         quantity,
-        unitPrice: unit_price.toString(),
+        price: unit_price.toString(),
         image: objectPath,
       });
 
@@ -2068,6 +2068,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Add spare part error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language)
+      });
+    }
+  });
+
+  // Upload invoice for booking
+  app.post('/api/v2/bookings/:id/invoice', authenticateToken, authorizeRoles(['technician', 'admin']), async (req: any, res: any) => {
+    const { id } = req.params;
+    const { invoice_url } = req.body;
+    const language = req.headers['accept-language'] || 'en';
+
+    if (!invoice_url) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invoice URL is required'
+      });
+    }
+
+    try {
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('bookings.not_found', language)
+        });
+      }
+
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        invoice_url,
+        {
+          owner: req.user.id,
+          visibility: 'private',
+        }
+      );
+
+      await storage.updateBooking(id, { invoice: objectPath });
+
+      res.json({
+        success: true,
+        message: bilingual.getMessage('bookings.invoice_uploaded', language),
+        data: { invoice: objectPath }
+      });
+    } catch (error) {
+      console.error('Upload invoice error:', error);
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', language)
@@ -2168,8 +2216,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const service = await storage.getService(b.serviceId);
             return {
               id: b.id,
-              customer_name: user?.username || 'N/A',
-              service: service?.name?.en || service?.name?.ar || 'N/A',
+              customer_name: user?.name || 'N/A',
+              service: (service?.name as any)?.en || (service?.name as any)?.ar || 'N/A',
               status: b.status,
               total_amount: b.totalAmount,
               created_at: b.createdAt?.toISOString() || '',
@@ -2185,7 +2233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         case 'payments': {
           const rawPayments = await storage.getPayments(startDate, endDate);
-          const payments = rawPayments.map((p) => ({
+          const payments = rawPayments.map((p: any) => ({
             id: p.id,
             booking_id: p.bookingId,
             amount: p.amount,
