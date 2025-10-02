@@ -19,10 +19,8 @@ export default function AdminBookings() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest(`/api/v2/admin/bookings/${id}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiRequest('PUT', `/api/v2/admin/bookings/${id}/status`, { status });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });

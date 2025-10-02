@@ -26,10 +26,20 @@ export default function TechnicianUploads() {
         ? `/api/v2/bookings/${bookingId}/invoice`
         : `/api/v2/quotations/${bookingId}/spare-parts`;
 
-      return await apiRequest(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
         body: formData,
       });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Upload failed');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
