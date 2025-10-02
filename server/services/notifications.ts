@@ -250,8 +250,8 @@ class NotificationService {
       user_id: userId,
       title: `Welcome ${userName}!`,
       title_ar: `مرحباً ${userName}!`,
-      body: 'Welcome to CleanServe! Book your first cleaning service now.',
-      body_ar: 'مرحباً بك في كلين سيرف! احجز أول خدمة تنظيف الآن.',
+      body: 'Welcome to Rakeez! Book your first cleaning service now.',
+      body_ar: 'مرحباً بك في ركيز! احجز أول خدمة تنظيف الآن.',
       type: 'welcome',
       data: {
         action: 'browse_services',

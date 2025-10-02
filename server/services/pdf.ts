@@ -84,7 +84,7 @@ class PDFService {
         doc.end();
 
         stream.on('finish', () => {
-          const baseUrl = process.env.APP_URL || 'https://api.cleanserve.sa';
+          const baseUrl = process.env.APP_URL || 'https://api.rakeez.sa';
           resolve({
             invoice_number: invoiceNumber,
             pdf_url: `${baseUrl}/uploads/invoices/${filename}`,
@@ -109,7 +109,7 @@ class PDFService {
        .fillColor('#2563eb')
        .text('🧽', logoX, 50)
        .fontSize(20)
-       .text(isArabic ? 'كلين سيرف' : 'CleanServe', logoX + 30, 55);
+       .text(isArabic ? 'ركيز' : 'Rakeez', logoX + 30, 55);
 
     // Invoice title and number
     doc.fontSize(28)
@@ -130,10 +130,10 @@ class PDFService {
     
     doc.fontSize(12)
        .fillColor('#1f2937')
-       .text(isArabic ? 'كلين سيرف للخدمات المنزلية' : 'CleanServe Home Services', startX, 150, { align: isArabic ? 'right' : 'left' })
+       .text(isArabic ? 'ركيز للخدمات المنزلية' : 'Rakeez Home Services', startX, 150, { align: isArabic ? 'right' : 'left' })
        .text(isArabic ? 'الرياض، المملكة العربية السعودية' : 'Riyadh, Saudi Arabia', startX, 165, { align: isArabic ? 'right' : 'left' })
        .text(isArabic ? 'هاتف: +966 11 234 5678' : 'Phone: +966 11 234 5678', startX, 180, { align: isArabic ? 'right' : 'left' })
-       .text('support@cleanserve.sa', startX, 195, { align: isArabic ? 'right' : 'left' })
+       .text('support@rakeez.sa', startX, 195, { align: isArabic ? 'right' : 'left' })
        .text(isArabic ? 'الرقم الضريبي: 300123456789003' : 'VAT Number: 300123456789003', startX, 210, { align: isArabic ? 'right' : 'left' });
   }
 
@@ -315,8 +315,8 @@ class PDFService {
        .fillColor('#6b7280')
        .text(
          isArabic 
-           ? 'شكراً لك لاختيار خدماتنا. لأي استفسارات، يرجى الاتصال بنا على support@cleanserve.sa'
-           : 'Thank you for choosing our services. For any inquiries, please contact us at support@cleanserve.sa',
+           ? 'شكراً لك لاختيار خدماتنا. لأي استفسارات، يرجى الاتصال بنا على support@rakeez.sa'
+           : 'Thank you for choosing our services. For any inquiries, please contact us at support@rakeez.sa',
          50,
          footerY,
          { align: 'center', width: doc.page.width - 100 }
@@ -362,7 +362,7 @@ class PDFService {
         doc.end();
 
         stream.on('finish', () => {
-          const baseUrl = process.env.APP_URL || 'https://api.cleanserve.sa';
+          const baseUrl = process.env.APP_URL || 'https://api.rakeez.sa';
           resolve(`${baseUrl}/uploads/invoices/${filename}`);
         });
 
@@ -401,7 +401,7 @@ class PDFService {
         doc.end();
 
         stream.on('finish', () => {
-          const baseUrl = process.env.APP_URL || 'https://api.cleanserve.sa';
+          const baseUrl = process.env.APP_URL || 'https://api.rakeez.sa';
           resolve(`${baseUrl}/uploads/invoices/${filename}`);
         });
 

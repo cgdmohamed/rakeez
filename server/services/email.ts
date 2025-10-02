@@ -37,7 +37,7 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: `"CleanServe" <${process.env.SMTP_USER}>`,
+        from: `"Rakeez" <${process.env.SMTP_USER}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -56,7 +56,7 @@ class EmailService {
   async sendOTPEmail(email: string, otp: string, language: string = 'en', name: string = ''): Promise<boolean> {
     const isArabic = language === 'ar';
     
-    const subject = isArabic ? 'رمز التحقق - كلين سيرف' : 'Verification Code - CleanServe';
+    const subject = isArabic ? 'رمز التحقق - ركيز' : 'Verification Code - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -119,7 +119,7 @@ class EmailService {
       <body>
           <div class="container">
               <div class="header">
-                  <div class="logo">🧽 ${isArabic ? 'كلين سيرف' : 'CleanServe'}</div>
+                  <div class="logo">🧽 ${isArabic ? 'ركيز' : 'Rakeez'}</div>
                   <p>${isArabic ? 'خدمات التنظيف المهنية' : 'Professional Cleaning Services'}</p>
               </div>
               
@@ -146,8 +146,8 @@ class EmailService {
               <div class="footer">
                   <p>
                       ${isArabic 
-                        ? '© 2024 كلين سيرف. جميع الحقوق محفوظة.'
-                        : '© 2024 CleanServe. All rights reserved.'
+                        ? '© 2024 ركيز. جميع الحقوق محفوظة.'
+                        : '© 2024 Rakeez. All rights reserved.'
                       }
                   </p>
                   <p>
@@ -173,7 +173,7 @@ class EmailService {
       }
       
       ${isArabic ? 'شكراً لك' : 'Thank you'},
-      ${isArabic ? 'فريق كلين سيرف' : 'CleanServe Team'}
+      ${isArabic ? 'فريق ركيز' : 'Rakeez Team'}
     `;
 
     return await this.sendEmail({
@@ -188,7 +188,7 @@ class EmailService {
     const isArabic = language === 'ar';
     const resetUrl = `${process.env.APP_URL || 'https://cleanserve.sa'}/reset-password?token=${resetToken}`;
     
-    const subject = isArabic ? 'إعادة تعيين كلمة المرور - كلين سيرف' : 'Password Reset - CleanServe';
+    const subject = isArabic ? 'إعادة تعيين كلمة المرور - ركيز' : 'Password Reset - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -233,8 +233,8 @@ class EmailService {
               
               <p>
                   ${isArabic 
-                    ? 'تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في كلين سيرف.'
-                    : 'We received a request to reset your password for your CleanServe account.'
+                    ? 'تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في ركيز.'
+                    : 'We received a request to reset your password for your Rakeez account.'
                   }
               </p>
               
@@ -271,7 +271,7 @@ class EmailService {
   async sendBookingConfirmationEmail(email: string, bookingData: any, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
     
-    const subject = isArabic ? 'تأكيد الحجز - كلين سيرف' : 'Booking Confirmation - CleanServe';
+    const subject = isArabic ? 'تأكيد الحجز - ركيز' : 'Booking Confirmation - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -315,7 +315,7 @@ class EmailService {
   async sendWelcomeEmail(email: string, name: string, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
     
-    const subject = isArabic ? 'مرحباً بك في كلين سيرف!' : 'Welcome to CleanServe!';
+    const subject = isArabic ? 'مرحباً بك في ركيز!' : 'Welcome to Rakeez!';
     
     const html = `
       <!DOCTYPE html>
@@ -331,8 +331,8 @@ class EmailService {
               
               <p>
                   ${isArabic 
-                    ? 'نشكرك على انضمامك إلى كلين سيرف، منصة خدمات التنظيف المهنية الرائدة في المملكة العربية السعودية.'
-                    : 'Thank you for joining CleanServe, Saudi Arabia\'s leading professional cleaning services platform.'
+                    ? 'نشكرك على انضمامك إلى ركيز، منصة خدمات التنظيف المهنية الرائدة في المملكة العربية السعودية.'
+                    : 'Thank you for joining Rakeez, Saudi Arabia\'s leading professional cleaning services platform.'
                   }
               </p>
               
@@ -366,7 +366,7 @@ class EmailService {
 
   async sendTechnicianAssignedEmail(email: string, bookingData: any, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
-    const subject = isArabic ? 'تم تعيين فني لحجزك - كلين سيرف' : 'Technician Assigned - CleanServe';
+    const subject = isArabic ? 'تم تعيين فني لحجزك - ركيز' : 'Technician Assigned - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -385,7 +385,7 @@ class EmailService {
 
   async sendQuotationCreatedEmail(email: string, quotationData: any, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
-    const subject = isArabic ? 'عرض سعر جديد - كلين سيرف' : 'New Quotation - CleanServe';
+    const subject = isArabic ? 'عرض سعر جديد - ركيز' : 'New Quotation - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -404,7 +404,7 @@ class EmailService {
 
   async sendPaymentReceivedEmail(email: string, paymentData: any, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
-    const subject = isArabic ? 'تم استلام الدفع - كلين سيرف' : 'Payment Received - CleanServe';
+    const subject = isArabic ? 'تم استلام الدفع - ركيز' : 'Payment Received - Rakeez';
     
     const html = `
       <!DOCTYPE html>
@@ -424,7 +424,7 @@ class EmailService {
 
   async sendBookingCompletedEmail(email: string, bookingData: any, language: string = 'en'): Promise<boolean> {
     const isArabic = language === 'ar';
-    const subject = isArabic ? 'اكتملت الخدمة - كلين سيرف' : 'Service Completed - CleanServe';
+    const subject = isArabic ? 'اكتملت الخدمة - ركيز' : 'Service Completed - Rakeez';
     
     const html = `
       <!DOCTYPE html>

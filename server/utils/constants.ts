@@ -245,10 +245,10 @@ export const VALIDATION_CONSTANTS = {
 
 export const BUSINESS_CONSTANTS = {
   // Company information
-  COMPANY_NAME: 'CleanServe',
-  COMPANY_NAME_AR: 'كلين سيرف',
+  COMPANY_NAME: 'Rakeez',
+  COMPANY_NAME_AR: 'ركيز',
   COMPANY_PHONE: '+966 11 234 5678',
-  COMPANY_EMAIL: 'info@cleanserve.sa',
+  COMPANY_EMAIL: 'info@rakeez.sa',
   VAT_NUMBER: '300123456789003',
   
   // Business hours

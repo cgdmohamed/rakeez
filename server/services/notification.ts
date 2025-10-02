@@ -317,9 +317,9 @@ class NotificationService {
       title: isArabic ? `مرحباً ${userName}!` : `Welcome ${userName}!`,
       title_ar: `مرحباً ${userName}!`,
       body: isArabic 
-        ? 'مرحباً بك في كلين سيرف! احجز أول خدمة تنظيف لك الآن'
-        : 'Welcome to CleanServe! Book your first cleaning service now',
-      body_ar: 'مرحباً بك في كلين سيرف! احجز أول خدمة تنظيف لك الآن',
+        ? 'مرحباً بك في ركيز! احجز أول خدمة تنظيف لك الآن'
+        : 'Welcome to Rakeez! Book your first cleaning service now',
+      body_ar: 'مرحباً بك في ركيز! احجز أول خدمة تنظيف لك الآن',
       type: 'promotional',
       data: {
         action: 'browse_services'

@@ -1,8 +1,8 @@
-# CleanServe - Bilingual Cleaning Services API
+# Rakeez - Bilingual Cleaning Services API
 
 ## Overview
 
-CleanServe is a comprehensive Node.js + Express RESTful API backend for a bilingual (Arabic/English) cleaning services mobile application. The platform enables customers to book various cleaning and maintenance services, manage appointments, process payments through multiple gateways (Moyasar, Tabby), track orders in real-time, and engage with technicians. The system supports a complete booking workflow including quotations for spare parts, wallet management, referral rewards, and multi-role access (customers, technicians, admins).
+Rakeez is a comprehensive Node.js + Express RESTful API backend for a bilingual (Arabic/English) cleaning services mobile application. The platform enables customers to book various cleaning and maintenance services, manage appointments, process payments through multiple gateways (Moyasar, Tabby), track orders in real-time, and engage with technicians. The system supports a complete booking workflow including quotations for spare parts, wallet management, referral rewards, and multi-role access (customers, technicians, admins).
 
 ## User Preferences
 
