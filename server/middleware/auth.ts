@@ -44,7 +44,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     // Verify JWT token
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     
-    // Check if token is blacklisted in Redis
+    // Check if token is blacklisted in Redis (optional in development)
     const isBlacklisted = await redisService.exists(`blacklist:${token}`);
     if (isBlacklisted) {
       return res.status(401).json({
@@ -53,12 +53,21 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    // Check if session exists in Redis
+    // Check if session exists in Redis (optional in development, required in production)
     const sessionToken = await redisService.getSession(decoded.user_id);
-    if (!sessionToken || sessionToken !== token) {
+    if (sessionToken !== null && sessionToken !== token) {
       return res.status(401).json({
         success: false,
         message: bilingual.getMessage('auth.token_invalid', language),
+      });
+    }
+    
+    // In production, require Redis session validation
+    if (process.env.NODE_ENV === 'production' && sessionToken === null) {
+      console.error('Redis unavailable in production - rejecting authentication');
+      return res.status(503).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
       });
     }
 
