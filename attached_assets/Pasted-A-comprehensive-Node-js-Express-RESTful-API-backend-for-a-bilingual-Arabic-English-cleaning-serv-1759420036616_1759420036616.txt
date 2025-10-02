@@ -1,0 +1,15 @@
+A comprehensive Node.js + Express RESTful API backend for a bilingual (Arabic/English) cleaning services mobile app with Moyasar payment integration, spare parts management, and complete booking workflow
+I'll include the following features:
+
+Authentication & Onboarding APIs: register/login with email/phone, JWT token generation, OTP verification via Twilio integration, password reset flow, bilingual error responses (Arabic/English)
+Profile & Account Management: CRUD endpoints for user profiles, multiple address management, payment methods storage, wallet transactions (top-up/deduct/balance/history)
+Referral System: generate unique referral links, track inviter/invitee relationships, automatic reward distribution logic with wallet credits
+Services & Packages APIs: list service categories (cleaning, laundry, AC maintenance) with VAT calculations, package tiers (basic/premium) with inclusions/discounts, promotions and offers endpoints
+Products & Spare Parts Module: CRUD endpoints for spare parts catalog (name, description, price, category, stock), link products to quotations, include spare parts in invoice calculations with VAT
+Booking Flow: available dates/times listing, create booking with address/service/package selection, spare parts quotation system with approval/rejection, dynamic order cost updates (service + approved spare parts + VAT)
+Orders & History Management: order status tracking (received, technician en route, in progress, completed, canceled), quotation approval workflow, invoice generation with service + spare parts + VAT breakdown, invoice download, order history listing, re-order functionality, rating and review submission
+Moyasar Payment Integration: payment gateway interface design for extensibility, Moyasar API integration (cards, mada, Apple Pay) with sandbox support, charge creation with API key authentication, payment verification after callback, refund processing API, wallet-based payments, hybrid payment support (wallet + Moyasar), store all transaction details with invoice records
+Notifications System: push notification endpoints for order status updates, technician assignments, promotional offers, notification history storage and retrieval
+Support & Chat: ticket-based support system, chat message APIs with conversation threading, message history persistence, FAQ management endpoints
+Admin & Technician APIs: service/package/pricing management, products/spare parts CRUD, quotation approval/rejection workflows, technician assignment tracking, analytics dashboard (orders count, revenue reports, service popularity)
+Modular Architecture: organized controllers/services/middleware structure, JWT authentication middleware, role-based authorization (user/technician/admin), Payment Gateway interface for multiple providers, comprehensive bilingual validation messages, inline code documentation explaining Moyasar integration and business logic
