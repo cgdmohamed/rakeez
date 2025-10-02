@@ -1,0 +1,2074 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import express from "express";
+import cors from "cors";
+import { storage } from "./storage";
+import { bilingual } from "./utils/bilingual";
+import { redisService } from "./services/redis";
+import { twilioService } from "./services/twilio";
+import { tabbyService } from "./services/tabby";
+import { moyasarService } from "./services/moyasar";
+import { emailService } from "./services/email";
+import { pdfService } from "./services/pdf";
+import { notificationService } from "./services/notification";
+import { authenticateToken, authorizeRoles } from "./middleware/auth";
+import { validateRequest } from "./middleware/validation";
+import { auditLog } from "./utils/audit";
+import { generateToken, generateRefreshToken } from "./utils/jwt";
+import { verifyWebhookSignature } from "./utils/webhook";
+import bcrypt from "bcrypt";
+import { z } from "zod";
+import { 
+  AUTH_CONSTANTS, 
+  PAYMENT_CONSTANTS, 
+  ORDER_CONSTANTS, 
+  REFERRAL_CONSTANTS,
+  HELPERS 
+} from "./utils/constants";
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting middleware
+const rateLimit = async (req: any, res: any, next: any) => {
+  const key = `rate_limit:${req.ip}`;
+  const { allowed } = await redisService.checkRateLimit(key, 1000, 3600); // 1000 requests per hour
+  
+  if (!allowed) {
+    return res.status(429).json({
+      success: false,
+      message: bilingual.getMessage('auth.rate_limit_exceeded', req.headers['accept-language']),
+    });
+  }
+  
+  next();
+};
+
+app.use('/api', rateLimit);
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // ==================== AUTH & ONBOARDING ENDPOINTS ====================
+  
+  // Register
+  app.post('/api/v2/auth/register', validateRequest({
+    body: z.object({
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      password: z.string().min(AUTH_CONSTANTS.MIN_PASSWORD_LENGTH),
+      name: z.string().min(2),
+      name_ar: z.string().optional(),
+      language: z.enum(['en', 'ar']).default('en'),
+      device_token: z.string().optional(),
+    }).refine(data => data.email || data.phone, {
+      message: "Either email or phone is required"
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { email, phone, password, name, name_ar, language, device_token } = req.body;
+      const identifier = email || phone;
+      
+      // Check if user exists
+      const existingUser = email 
+        ? await storage.getUserByEmail(email)
+        : await storage.getUserByPhone(phone!);
+        
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_already_exists', language),
+        });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        email,
+        phone: phone ? HELPERS.formatSaudiPhone(phone) : undefined,
+        password: hashedPassword,
+        name,
+        nameAr: name_ar,
+        language,
+        deviceToken: device_token,
+      });
+      
+      // Generate and send OTP
+      const otp = twilioService.generateOTP();
+      const otpKey = phone || email!;
+      await redisService.setOTP(otpKey, otp, AUTH_CONSTANTS.OTP_EXPIRY);
+      
+      let otpSent = false;
+      if (phone) {
+        otpSent = await twilioService.sendOTP(phone, otp, language);
+      } else if (email) {
+        otpSent = await emailService.sendOTPEmail(email, otp, language, name);
+      }
+      
+      await auditLog({
+        userId: user.id,
+        action: 'user_registered',
+        resourceType: 'user',
+        resourceId: user.id,
+        newValues: { email, phone, name }
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: otpSent 
+          ? bilingual.getMessage('auth.user_created_verify_otp', language)
+          : bilingual.getMessage('auth.user_created_otp_failed', language),
+        data: {
+          user_id: user.id,
+          requires_verification: true,
+          verification_method: phone ? 'phone' : 'email'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', req.body.language),
+      });
+    }
+  });
+  
+  // Login
+  app.post('/api/v2/auth/login', validateRequest({
+    body: z.object({
+      identifier: z.string().min(1),
+      password: z.string().min(1),
+      language: z.enum(['en', 'ar']).default('en'),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { identifier, password, language } = req.body;
+      
+      // Find user by email or phone
+      const user = identifier.includes('@')
+        ? await storage.getUserByEmail(identifier)
+        : await storage.getUserByPhone(HELPERS.formatSaudiPhone(identifier));
+        
+      if (!user || !await bcrypt.compare(password, user.password)) {
+        return res.status(401).json({
+          success: false,
+          message: bilingual.getMessage('auth.invalid_credentials', language),
+        });
+      }
+      
+      if (!user.isVerified) {
+        return res.status(401).json({
+          success: false,
+          message: bilingual.getMessage('auth.account_not_verified', language),
+        });
+      }
+      
+      // Generate tokens
+      const token = generateToken(user);
+      const refreshToken = generateRefreshToken(user);
+      
+      // Store session in Redis
+      await redisService.setSession(user.id, token, AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY);
+      
+      await auditLog({
+        userId: user.id,
+        action: 'user_login',
+        resourceType: 'user',
+        resourceId: user.id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('auth.login_successful', language),
+        data: {
+          token,
+          refresh_token: refreshToken,
+          expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            language: user.language,
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', req.body.language),
+      });
+    }
+  });
+  
+  // Verify OTP
+  app.post('/api/v2/auth/verify-otp', validateRequest({
+    body: z.object({
+      identifier: z.string().min(1),
+      otp_code: z.string().length(6),
+      language: z.enum(['en', 'ar']).default('en'),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { identifier, otp_code, language } = req.body;
+      
+      // Check OTP attempts
+      const attempts = await redisService.getOTPAttempts(identifier);
+      if (attempts >= AUTH_CONSTANTS.MAX_OTP_ATTEMPTS) {
+        return res.status(429).json({
+          success: false,
+          message: bilingual.getMessage('auth.otp_max_attempts', language),
+        });
+      }
+      
+      // Get stored OTP
+      const storedOTP = await redisService.getOTP(identifier);
+      if (!storedOTP) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('auth.otp_expired', language),
+        });
+      }
+      
+      if (storedOTP !== otp_code) {
+        await redisService.incrementOTPAttempts(identifier);
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('auth.otp_invalid', language),
+        });
+      }
+      
+      // Find and verify user
+      const user = identifier.includes('@')
+        ? await storage.getUserByEmail(identifier)
+        : await storage.getUserByPhone(HELPERS.formatSaudiPhone(identifier));
+        
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      // Update user as verified
+      await storage.updateUser(user.id, { isVerified: true });
+      
+      // Clean up OTP
+      await redisService.deleteOTP(identifier);
+      
+      // Generate tokens
+      const token = generateToken(user);
+      const refreshToken = generateRefreshToken(user);
+      
+      await auditLog({
+        userId: user.id,
+        action: 'otp_verified',
+        resourceType: 'user',
+        resourceId: user.id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('auth.verification_successful', language),
+        data: {
+          token,
+          refresh_token: refreshToken,
+          expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            language: user.language,
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', req.body.language),
+      });
+    }
+  });
+  
+  // Resend OTP
+  app.post('/api/v2/auth/resend-otp', validateRequest({
+    body: z.object({
+      identifier: z.string().min(1),
+      language: z.enum(['en', 'ar']).default('en'),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { identifier, language } = req.body;
+      
+      // Generate new OTP
+      const otp = twilioService.generateOTP();
+      await redisService.setOTP(identifier, otp, AUTH_CONSTANTS.OTP_EXPIRY);
+      
+      let otpSent = false;
+      if (identifier.includes('@')) {
+        const user = await storage.getUserByEmail(identifier);
+        if (user) {
+          otpSent = await emailService.sendOTPEmail(identifier, otp, language, user.name);
+        }
+      } else {
+        otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(identifier), otp, language);
+      }
+      
+      res.json({
+        success: true,
+        message: otpSent 
+          ? bilingual.getMessage('auth.otp_resent', language)
+          : bilingual.getMessage('auth.otp_send_failed', language),
+      });
+      
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', req.body.language),
+      });
+    }
+  });
+  
+  // ==================== PROFILE & ACCOUNT ENDPOINTS ====================
+  
+  // Get Profile
+  app.get('/api/v2/profile', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      const language = req.headers['accept-language'] || user?.language || 'en';
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('profile.retrieved_successfully', language),
+        data: {
+          id: user.id,
+          name: user.name,
+          name_ar: user.nameAr,
+          email: user.email,
+          phone: user.phone,
+          language: user.language,
+          avatar: user.avatar,
+          role: user.role,
+          created_at: user.createdAt,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Profile
+  app.put('/api/v2/profile', authenticateToken, validateRequest({
+    body: z.object({
+      name: z.string().min(2).optional(),
+      name_ar: z.string().optional(),
+      language: z.enum(['en', 'ar']).optional(),
+      device_token: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const updates = req.body;
+      const user = await storage.getUser(req.user.id);
+      const language = req.headers['accept-language'] || user?.language || 'en';
+      
+      const updatedUser = await storage.updateUser(req.user.id, updates);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'profile_updated',
+        resourceType: 'user',
+        resourceId: req.user.id,
+        oldValues: user,
+        newValues: updates,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('profile.updated_successfully', language),
+        data: updatedUser,
+      });
+      
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Addresses
+  app.get('/api/v2/addresses', authenticateToken, async (req: any, res: any) => {
+    try {
+      const addresses = await storage.getUserAddresses(req.user.id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.retrieved_successfully', language),
+        data: addresses,
+      });
+      
+    } catch (error) {
+      console.error('Get addresses error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Create Address
+  app.post('/api/v2/addresses', authenticateToken, validateRequest({
+    body: z.object({
+      label: z.string().min(1),
+      label_ar: z.string().optional(),
+      address: z.string().min(10),
+      address_ar: z.string().optional(),
+      city: z.string().min(1),
+      city_ar: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      is_default: z.boolean().default(false),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const addressData = { ...req.body, userId: req.user.id };
+      const address = await storage.createAddress(addressData);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('addresses.created_successfully', language),
+        data: address,
+      });
+      
+    } catch (error) {
+      console.error('Create address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Address
+  app.put('/api/v2/addresses/:id', authenticateToken, validateRequest({
+    body: z.object({
+      label: z.string().min(1).optional(),
+      label_ar: z.string().optional(),
+      address: z.string().min(10).optional(),
+      address_ar: z.string().optional(),
+      city: z.string().min(1).optional(),
+      city_ar: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      is_default: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const address = await storage.updateAddress(id, updates);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.updated_successfully', language),
+        data: address,
+      });
+      
+    } catch (error) {
+      console.error('Update address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('addresses.update_failed', 'en'),
+      });
+    }
+  });
+  
+  // Delete Address
+  app.delete('/api/v2/addresses/:id', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteAddress(id);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.deleted_successfully', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('addresses.delete_failed', 'en'),
+      });
+    }
+  });
+  
+  // Get Wallet
+  app.get('/api/v2/wallet', authenticateToken, async (req: any, res: any) => {
+    try {
+      const wallet = await storage.getWallet(req.user.id);
+      const transactions = await storage.getWalletTransactions(req.user.id, 10);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('wallet.retrieved_successfully', language),
+        data: {
+          balance: wallet?.balance || '0.00',
+          currency: 'SAR',
+          total_earned: wallet?.totalEarned || '0.00',
+          total_spent: wallet?.totalSpent || '0.00',
+          recent_transactions: transactions,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get wallet error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Wallet Top-up
+  app.post('/api/v2/wallet/topup', authenticateToken, validateRequest({
+    body: z.object({
+      amount: z.number().min(PAYMENT_CONSTANTS.WALLET_MIN_TOPUP),
+      payment_method: z.enum(['moyasar', 'tabby']),
+      payment_source: z.object({
+        type: z.string(),
+        // Add other payment source fields as needed
+      }),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { amount, payment_method, payment_source } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Create payment for top-up
+      let paymentResult;
+      if (payment_method === 'moyasar') {
+        paymentResult = await moyasarService.createPayment({
+          amount: amount * 100, // Convert to halalas
+          currency: 'SAR',
+          description: `Wallet top-up - ${amount} SAR`,
+          source: payment_source,
+          metadata: {
+            user_id: req.user.id,
+            type: 'wallet_topup'
+          }
+        });
+      } else if (payment_method === 'tabby') {
+        // Implement Tabby top-up logic
+        paymentResult = { success: false, error: 'Tabby not supported for top-up' };
+      }
+      
+      if (paymentResult.success) {
+        // Update wallet balance
+        const transaction = await storage.updateWalletBalance(
+          req.user.id,
+          amount,
+          'credit',
+          `Wallet top-up via ${payment_method}`,
+          'topup',
+          paymentResult.payment_id
+        );
+        
+        res.json({
+          success: true,
+          message: bilingual.getMessage('wallet.topup_successful', language),
+          data: {
+            transaction_id: transaction.id,
+            old_balance: transaction.balanceBefore,
+            new_balance: transaction.balanceAfter,
+            amount: transaction.amount,
+            payment_id: paymentResult.payment_id,
+          }
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('payment.creation_failed', language),
+          error: paymentResult.error,
+        });
+      }
+      
+    } catch (error) {
+      console.error('Wallet topup error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== REFERRAL SYSTEM ENDPOINTS ====================
+  
+  // Generate Referral Code
+  app.post('/api/v2/referrals/generate', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      // Check if user already has a referral code
+      const existingReferrals = await storage.getUserReferrals(req.user.id);
+      if (existingReferrals.length > 0) {
+        const existing = existingReferrals[0];
+        const stats = {
+          total_invites: existingReferrals.length,
+          successful_referrals: existingReferrals.filter(r => r.status === 'completed').length,
+          total_earned: existingReferrals
+            .filter(r => r.status === 'rewarded')
+            .reduce((sum, r) => sum + parseFloat(r.inviterReward.toString()), 0),
+        };
+        
+        return res.json({
+          success: true,
+          message: bilingual.getMessage('referral.existing_code', language),
+          data: {
+            referral_code: existing.referralCode,
+            referral_link: `${process.env.APP_URL || 'https://cleanserve.sa'}/ref/${existing.referralCode}`,
+            stats,
+          }
+        });
+      }
+      
+      // Generate new referral code
+      const referralCode = HELPERS.generateReferralCode(user.name);
+      const referral = await storage.createReferral({
+        inviterId: req.user.id,
+        referralCode,
+        inviterReward: REFERRAL_CONSTANTS.INVITER_REWARD.toString(),
+        inviteeReward: REFERRAL_CONSTANTS.INVITEE_REWARD.toString(),
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('referral.code_generated', language),
+        data: {
+          referral_code: referral.referralCode,
+          referral_link: `${process.env.APP_URL || 'https://cleanserve.sa'}/ref/${referral.referralCode}`,
+          stats: {
+            total_invites: 0,
+            successful_referrals: 0,
+            total_earned: 0,
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('Generate referral error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Referral Stats
+  app.get('/api/v2/referrals/stats', authenticateToken, async (req: any, res: any) => {
+    try {
+      const referrals = await storage.getUserReferrals(req.user.id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      const stats = {
+        total_invites: referrals.length,
+        successful_referrals: referrals.filter(r => r.status === 'completed' || r.status === 'rewarded').length,
+        total_earned: referrals
+          .filter(r => r.status === 'rewarded')
+          .reduce((sum, r) => sum + parseFloat(r.inviterReward.toString()), 0),
+        pending_referrals: referrals.filter(r => r.status === 'pending').length,
+      };
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('referral.stats_retrieved', language),
+        data: stats,
+      });
+      
+    } catch (error) {
+      console.error('Get referral stats error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== SERVICES & PACKAGES ENDPOINTS ====================
+  
+  // Get Service Categories
+  app.get('/api/v2/services/categories', async (req: any, res: any) => {
+    try {
+      const categories = await storage.getServiceCategories();
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('services.categories_retrieved', language),
+        data: categories.map(category => ({
+          id: category.id,
+          name: (category.name as any)[language] || (category.name as any).en,
+          description: (category.description as any)[language] || (category.description as any).en,
+          icon: category.icon,
+          sort_order: category.sortOrder,
+        }))
+      });
+      
+    } catch (error) {
+      console.error('Get categories error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Services by Category
+  app.get('/api/v2/services/categories/:categoryId/services', async (req: any, res: any) => {
+    try {
+      const { categoryId } = req.params;
+      const services = await storage.getServicesByCategory(categoryId);
+      const language = req.headers['accept-language'] || 'en';
+      
+      const servicesWithPackages = await Promise.all(
+        services.map(async (service) => {
+          const packages = await storage.getServicePackages(service.id);
+          return {
+            id: service.id,
+            name: (service.name as any)[language] || (service.name as any).en,
+            description: (service.description as any)[language] || (service.description as any).en,
+            base_price: service.basePrice,
+            duration_minutes: service.durationMinutes,
+            vat_percentage: service.vatPercentage,
+            packages: packages.map(pkg => ({
+              id: pkg.id,
+              tier: pkg.tier,
+              name: (pkg.name as any)[language] || (pkg.name as any).en,
+              price: pkg.price,
+              discount_percentage: pkg.discountPercentage,
+              inclusions: (pkg.inclusions as any)[language] || (pkg.inclusions as any).en,
+            }))
+          };
+        })
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('services.packages_retrieved', language),
+        data: servicesWithPackages,
+      });
+      
+    } catch (error) {
+      console.error('Get services error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Spare Parts
+  app.get('/api/v2/spare-parts', async (req: any, res: any) => {
+    try {
+      const { category } = req.query;
+      const spareParts = await storage.getSpareParts(category as string);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('spare_parts.retrieved_successfully', language),
+        data: spareParts.map(part => ({
+          id: part.id,
+          name: (part.name as any)[language] || (part.name as any).en,
+          description: (part.description as any)[language] || (part.description as any).en,
+          category: part.category,
+          price: part.price,
+          stock: part.stock,
+          image: part.image,
+        }))
+      });
+      
+    } catch (error) {
+      console.error('Get spare parts error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== BOOKING FLOW ENDPOINTS ====================
+  
+  // Get Available Slots
+  app.get('/api/v2/bookings/available-slots', async (req: any, res: any) => {
+    try {
+      const { date, service_id } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!date || !service_id) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('validation.schedule_required', language),
+        });
+      }
+      
+      // Get service duration
+      const service = await storage.getService(service_id as string);
+      if (!service) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('services.category_not_found', language),
+        });
+      }
+      
+      // Generate available slots (simplified logic)
+      const slots = [];
+      for (let hour = ORDER_CONSTANTS.WORKING_HOURS_START; hour < ORDER_CONSTANTS.WORKING_HOURS_END; hour++) {
+        if (hour >= ORDER_CONSTANTS.LUNCH_BREAK_START && hour < ORDER_CONSTANTS.LUNCH_BREAK_END) {
+          continue;
+        }
+        
+        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+        if (HELPERS.isWithinBusinessHours(timeSlot)) {
+          slots.push({
+            time: timeSlot,
+            available: true, // In real implementation, check technician availability
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('booking.available_slots_retrieved', language),
+        data: {
+          date,
+          service_duration: service.durationMinutes,
+          slots,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get available slots error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Create Booking
+  app.post('/api/v2/bookings/create', authenticateToken, validateRequest({
+    body: z.object({
+      service_id: z.string().uuid(),
+      package_id: z.string().uuid().optional(),
+      address_id: z.string().uuid(),
+      scheduled_date: z.string(),
+      scheduled_time: z.string(),
+      notes: z.string().optional(),
+      notes_ar: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { service_id, package_id, address_id, scheduled_date, scheduled_time, notes, notes_ar } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Validate scheduled date is not in the past
+      const scheduledDateTime = new Date(`${scheduled_date}T${scheduled_time}`);
+      const now = new Date();
+      const minBookingTime = new Date(now.getTime() + (ORDER_CONSTANTS.BOOKING_ADVANCE_HOURS * 60 * 60 * 1000));
+      
+      if (scheduledDateTime < minBookingTime) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('booking.past_date_not_allowed', language),
+        });
+      }
+      
+      // Get service and package details
+      const service = await storage.getService(service_id);
+      if (!service) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('services.category_not_found', language),
+        });
+      }
+      
+      let servicePackage;
+      if (package_id) {
+        const packages = await storage.getServicePackages(service_id);
+        servicePackage = packages.find(p => p.id === package_id);
+      }
+      
+      // Calculate pricing
+      const basePrice = servicePackage ? parseFloat(servicePackage.price.toString()) : parseFloat(service.basePrice.toString());
+      const discountPercentage = servicePackage ? parseFloat(servicePackage.discountPercentage.toString()) : 0;
+      const discountAmount = (basePrice * discountPercentage) / 100;
+      const subtotal = basePrice - discountAmount;
+      const vatAmount = HELPERS.calculateVAT(subtotal);
+      const totalAmount = subtotal + vatAmount;
+      
+      // Create booking
+      const booking = await storage.createBooking({
+        userId: req.user.id,
+        serviceId: service_id,
+        packageId: package_id,
+        addressId: address_id,
+        scheduledDate: scheduledDateTime,
+        scheduledTime: scheduled_time,
+        notes,
+        notesAr: notes_ar,
+        serviceCost: basePrice.toString(),
+        discountAmount: discountAmount.toString(),
+        vatAmount: vatAmount.toString(),
+        totalAmount: totalAmount.toString(),
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'booking_created',
+        resourceType: 'booking',
+        resourceId: booking.id,
+        newValues: booking,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('booking.created_successfully', language),
+        data: {
+          booking_id: booking.id,
+          status: booking.status,
+          service_cost: booking.serviceCost,
+          discount_amount: booking.discountAmount,
+          vat_amount: booking.vatAmount,
+          total_amount: booking.totalAmount,
+          currency: 'SAR',
+          scheduled_date: booking.scheduledDate,
+          scheduled_time: booking.scheduledTime,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Create booking error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Booking Details
+  app.get('/api/v2/bookings/:id', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('booking.not_found', language),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('booking.retrieved_successfully', language),
+        data: booking,
+      });
+      
+    } catch (error) {
+      console.error('Get booking error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== QUOTATION ENDPOINTS ====================
+  
+  // Create Quotation (Technician only)
+  app.post('/api/v2/quotations/create', authenticateToken, authorizeRoles(['technician']), validateRequest({
+    body: z.object({
+      booking_id: z.string().uuid(),
+      additional_cost: z.number().min(0).default(0),
+      notes: z.string().optional(),
+      notes_ar: z.string().optional(),
+      spare_parts: z.array(z.object({
+        spare_part_id: z.string().uuid(),
+        quantity: z.number().min(1),
+      })).default([]),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { booking_id, additional_cost, notes, notes_ar, spare_parts } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Verify booking exists and is assigned to this technician
+      const booking = await storage.getBooking(booking_id);
+      if (!booking || booking.technicianId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('booking.not_assigned', language),
+        });
+      }
+      
+      // Create quotation
+      const expiresAt = new Date(Date.now() + (ORDER_CONSTANTS.QUOTATION_EXPIRY_HOURS * 60 * 60 * 1000));
+      const quotation = await storage.createQuotation({
+        bookingId: booking_id,
+        technicianId: req.user.id,
+        additionalCost: additional_cost.toString(),
+        notes,
+        notesAr: notes_ar,
+        expiresAt,
+      });
+      
+      // Add spare parts to quotation
+      if (spare_parts.length > 0) {
+        const sparePartsData = await Promise.all(
+          spare_parts.map(async (item) => {
+            const sparePart = await storage.getSparePart(item.spare_part_id);
+            if (!sparePart) throw new Error(`Spare part ${item.spare_part_id} not found`);
+            
+            return {
+              sparePartId: item.spare_part_id,
+              quantity: item.quantity,
+              unitPrice: parseFloat(sparePart.price.toString()),
+            };
+          })
+        );
+        
+        await storage.addQuotationSpareParts(quotation.id, sparePartsData);
+      }
+      
+      // Update booking status
+      await storage.updateBookingStatus(booking_id, 'quotation_pending', req.user.id);
+      
+      // Send notification to customer
+      await notificationService.sendQuotationNotification(booking.userId, quotation.id, language);
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('quotation.created_successfully', language),
+        data: quotation,
+      });
+      
+    } catch (error) {
+      console.error('Create quotation error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Approve Quotation
+  app.put('/api/v2/quotations/:id/approve', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const quotation = await storage.getQuotation(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!quotation) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('quotation.not_found', language),
+        });
+      }
+      
+      // Verify user owns the booking
+      const booking = await storage.getBooking(quotation.bookingId);
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('auth.access_denied', language),
+        });
+      }
+      
+      if (quotation.status !== 'pending') {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('quotation.already_processed', language),
+        });
+      }
+      
+      // Update quotation status
+      await storage.updateQuotationStatus(id, 'approved', req.user.id);
+      
+      // Update booking with additional costs
+      const additionalCost = parseFloat(quotation.additionalCost.toString());
+      const currentTotal = parseFloat(booking.totalAmount.toString());
+      const vatAmount = HELPERS.calculateVAT(additionalCost);
+      const newTotal = currentTotal + additionalCost + vatAmount;
+      
+      await storage.updateBooking(booking.id, {
+        sparePartsCost: additionalCost.toString(),
+        totalAmount: newTotal.toString(),
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'quotation_approved',
+        resourceType: 'quotation',
+        resourceId: id,
+        newValues: { status: 'approved' },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('quotation.approved_successfully', language),
+        data: {
+          quotation_id: id,
+          additional_cost: additionalCost,
+          new_total: newTotal,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Approve quotation error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Reject Quotation
+  app.put('/api/v2/quotations/:id/reject', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const quotation = await storage.getQuotation(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!quotation) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('quotation.not_found', language),
+        });
+      }
+      
+      // Verify user owns the booking
+      const booking = await storage.getBooking(quotation.bookingId);
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('auth.access_denied', language),
+        });
+      }
+      
+      // Update quotation status
+      await storage.updateQuotationStatus(id, 'rejected', req.user.id);
+      
+      // Update booking status back to in_progress
+      await storage.updateBookingStatus(booking.id, 'in_progress', req.user.id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'quotation_rejected',
+        resourceType: 'quotation',
+        resourceId: id,
+        newValues: { status: 'rejected' },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('quotation.rejected_successfully', language),
+      });
+      
+    } catch (error) {
+      console.error('Reject quotation error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== ORDERS & HISTORY ENDPOINTS ====================
+  
+  // Get User Orders
+  app.get('/api/v2/orders', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { status } = req.query;
+      const orders = await storage.getUserBookings(req.user.id, status as string);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.retrieved_successfully', language),
+        data: orders,
+      });
+      
+    } catch (error) {
+      console.error('Get orders error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Order Status
+  app.get('/api/v2/orders/:id/status', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('orders.not_found', language),
+        });
+      }
+      
+      // Get status history
+      const statusLogs = await storage.getBookingStatusLogs(id);
+      
+      // Get technician info if assigned
+      let technician;
+      if (booking.technicianId) {
+        technician = await storage.getUser(booking.technicianId);
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.status_retrieved', language),
+        data: {
+          current_status: booking.status,
+          current_status_ar: booking.status, // Add translation mapping
+          technician: technician ? {
+            name: technician.name,
+            phone: technician.phone,
+          } : null,
+          status_history: statusLogs.map(log => ({
+            status: log.toStatus,
+            timestamp: log.createdAt,
+            message: log.notes || '',
+          })),
+          scheduled_date: booking.scheduledDate,
+          scheduled_time: booking.scheduledTime,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get order status error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Generate Invoice
+  app.get('/api/v2/orders/:id/invoice', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('orders.not_found', language),
+        });
+      }
+      
+      if (booking.status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('orders.invoice_not_available', language),
+        });
+      }
+      
+      // Generate invoice PDF
+      const invoiceData = await pdfService.generateInvoice(booking, language);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.invoice_generated', language),
+        data: invoiceData,
+      });
+      
+    } catch (error) {
+      console.error('Generate invoice error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('orders.invoice_generation_failed', 'en'),
+      });
+    }
+  });
+  
+  // Submit Review
+  app.post('/api/v2/orders/:id/review', authenticateToken, validateRequest({
+    body: z.object({
+      service_rating: z.number().min(1).max(5),
+      technician_rating: z.number().min(1).max(5),
+      comment: z.string().optional(),
+      comment_ar: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { service_rating, technician_rating, comment, comment_ar } = req.body;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('orders.not_found', language),
+        });
+      }
+      
+      if (booking.status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('orders.review_not_allowed', language),
+        });
+      }
+      
+      // Check if already reviewed
+      const existingReview = await storage.getBookingReview(id);
+      if (existingReview) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('orders.already_reviewed', language),
+        });
+      }
+      
+      // Create review
+      const review = await storage.createReview({
+        bookingId: id,
+        userId: req.user.id,
+        technicianId: booking.technicianId!,
+        serviceRating: service_rating,
+        technicianRating: technician_rating,
+        comment,
+        commentAr: comment_ar,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('orders.review_submitted', language),
+        data: review,
+      });
+      
+    } catch (error) {
+      console.error('Submit review error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== PAYMENT ENDPOINTS ====================
+  
+  // Create Payment
+  app.post('/api/v2/payments/create', authenticateToken, validateRequest({
+    body: z.object({
+      booking_id: z.string().uuid(),
+      payment_method: z.enum(['wallet', 'moyasar', 'tabby']),
+      wallet_amount: z.number().min(0).default(0),
+      gateway_amount: z.number().min(0).default(0),
+      payment_source: z.object({
+        type: z.string(),
+      }).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { booking_id, payment_method, wallet_amount, gateway_amount, payment_source } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(booking_id);
+      if (!booking || booking.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('orders.not_found', language),
+        });
+      }
+      
+      const totalAmount = parseFloat(booking.totalAmount.toString());
+      const paymentTotal = wallet_amount + gateway_amount;
+      
+      // Verify amounts match
+      if (Math.abs(paymentTotal - totalAmount) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('payment.amounts_mismatch', language),
+        });
+      }
+      
+      // Process wallet payment if applicable
+      let walletTransaction;
+      if (wallet_amount > 0) {
+        const wallet = await storage.getWallet(req.user.id);
+        const currentBalance = parseFloat(wallet?.balance.toString() || '0');
+        
+        if (currentBalance < wallet_amount) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('wallet.insufficient_balance', language),
+          });
+        }
+        
+        walletTransaction = await storage.updateWalletBalance(
+          req.user.id,
+          wallet_amount,
+          'debit',
+          `Payment for order ${booking.id}`,
+          'booking',
+          booking.id
+        );
+      }
+      
+      // Process gateway payment if applicable
+      let gatewayPayment;
+      if (gateway_amount > 0) {
+        if (payment_method === 'moyasar') {
+          gatewayPayment = await moyasarService.createPayment({
+            amount: gateway_amount * 100, // Convert to halalas
+            currency: 'SAR',
+            description: `Order payment - ${booking.id}`,
+            source: payment_source,
+            metadata: {
+              booking_id: booking.id,
+              user_id: req.user.id,
+            }
+          });
+        } else if (payment_method === 'tabby') {
+          const user = await storage.getUser(req.user.id);
+          const address = await storage.getAddress(booking.addressId);
+          
+          const tabbyData = tabbyService.createCheckoutFromBooking(
+            booking.id,
+            gateway_amount,
+            {
+              name: user!.name,
+              email: user!.email || '',
+              phone: user!.phone || '',
+            },
+            [{
+              title: 'Cleaning Service',
+              quantity: 1,
+              unit_price: gateway_amount,
+              category: 'Services',
+            }]
+          );
+          
+          gatewayPayment = await tabbyService.createCheckoutSession(tabbyData);
+        }
+      }
+      
+      // Create payment record
+      const payment = await storage.createPayment({
+        bookingId: booking_id,
+        userId: req.user.id,
+        paymentMethod: payment_method,
+        amount: totalAmount.toString(),
+        currency: 'SAR',
+        status: gatewayPayment ? 'pending' : 'paid',
+        gatewayPaymentId: gatewayPayment?.payment?.id,
+        gatewayResponse: gatewayPayment,
+        walletAmount: wallet_amount.toString(),
+        gatewayAmount: gateway_amount.toString(),
+      });
+      
+      // Update booking payment status
+      if (!gatewayPayment || gatewayPayment.status === 'paid') {
+        await storage.updateBookingStatus(booking_id, 'confirmed', req.user.id);
+        
+        // Update payment status
+        await storage.updatePaymentStatus(payment.id, 'paid');
+      }
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'payment_created',
+        resourceType: 'payment',
+        resourceId: payment.id,
+        newValues: payment,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('payment.created_successfully', language),
+        data: {
+          payment_id: payment.id,
+          status: payment.status,
+          wallet_transaction_id: walletTransaction?.id,
+          gateway_payment_id: gatewayPayment?.payment?.id,
+          gateway_checkout_url: gatewayPayment?.configuration?.available_products?.installments?.[0]?.web_url,
+          total_amount: totalAmount,
+          wallet_used: wallet_amount,
+          gateway_charged: gateway_amount,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Create payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('payment.creation_failed', 'en'),
+      });
+    }
+  });
+  
+  // ==================== MOYASAR ENDPOINTS ====================
+  
+  // Verify Moyasar Payment
+  app.get('/api/v2/payments/moyasar/verify', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { payment_id } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!payment_id) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('validation.payment_id_required', language),
+        });
+      }
+      
+      const moyasarPayment = await moyasarService.verifyPayment(payment_id as string);
+      
+      if (moyasarPayment.status === 'paid') {
+        // Update local payment record
+        const payments = await storage.getBookingPayments(moyasarPayment.metadata?.booking_id);
+        if (payments.length > 0) {
+          await storage.updatePaymentStatus(payments[0].id, 'paid', moyasarPayment);
+          await storage.updateBookingStatus(moyasarPayment.metadata?.booking_id, 'confirmed');
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('payment.verification_successful', language),
+        data: moyasarPayment,
+      });
+      
+    } catch (error) {
+      console.error('Verify Moyasar payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('payment.verification_failed', 'en'),
+      });
+    }
+  });
+  
+  // ==================== TABBY ENDPOINTS ====================
+  
+  // Capture Tabby Payment
+  app.post('/api/v2/payments/tabby/capture', authenticateToken, authorizeRoles(['admin', 'technician']), validateRequest({
+    body: z.object({
+      payment_id: z.string(),
+      amount: z.number().min(0),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { payment_id, amount } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const captureResult = await tabbyService.capturePayment(payment_id, {
+        amount: amount.toFixed(2),
+      });
+      
+      if (captureResult.status === 'captured') {
+        // Update local payment record
+        // Implementation would find the payment by gateway_payment_id and update
+        
+        res.json({
+          success: true,
+          message: bilingual.getMessage('payment.capture_successful', language),
+          data: captureResult,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('payment.capture_failed', language),
+        });
+      }
+      
+    } catch (error) {
+      console.error('Capture Tabby payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('payment.capture_failed', 'en'),
+      });
+    }
+  });
+  
+  // ==================== WEBHOOK ENDPOINTS ====================
+  
+  // Moyasar Webhook
+  app.post('/api/v2/webhooks/moyasar', express.raw({type: 'application/json'}), async (req: any, res: any) => {
+    try {
+      const signature = req.headers['x-moyasar-signature'];
+      const payload = req.body.toString();
+      
+      if (!verifyWebhookSignature(payload, signature, process.env.MOYASAR_WEBHOOK_SECRET!)) {
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      const event = JSON.parse(payload);
+      
+      // Queue webhook event for processing
+      await redisService.queueWebhookEvent('moyasar', event);
+      
+      res.status(200).json({ received: true });
+      
+    } catch (error) {
+      console.error('Moyasar webhook error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+  
+  // Tabby Webhook
+  app.post('/api/v2/webhooks/tabby', express.raw({type: 'application/json'}), async (req: any, res: any) => {
+    try {
+      const signature = req.headers['x-tabby-signature'];
+      const payload = req.body.toString();
+      
+      if (!tabbyService.verifyWebhookSignature(payload, signature)) {
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      const event = JSON.parse(payload);
+      
+      // Check idempotency
+      const eventId = `tabby:${event.id}`;
+      const isProcessed = await redisService.checkIdempotencyKey(eventId);
+      
+      if (isProcessed) {
+        return res.status(200).json({ message: 'Already processed' });
+      }
+      
+      await redisService.setIdempotencyKey(eventId);
+      
+      // Queue webhook event for processing
+      await redisService.queueWebhookEvent('tabby', event);
+      
+      res.status(200).json({ received: true });
+      
+    } catch (error) {
+      console.error('Tabby webhook error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+  
+  // ==================== NOTIFICATIONS ENDPOINTS ====================
+  
+  // Get User Notifications
+  app.get('/api/v2/notifications', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { limit = 50 } = req.query;
+      const notifications = await storage.getUserNotifications(req.user.id, parseInt(limit as string));
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('notifications.retrieved_successfully', language),
+        data: notifications.map(notification => ({
+          id: notification.id,
+          title: (notification.title as any)[language] || (notification.title as any).en,
+          body: (notification.body as any)[language] || (notification.body as any).en,
+          type: notification.type,
+          data: notification.data,
+          is_read: notification.isRead,
+          created_at: notification.createdAt,
+        }))
+      });
+      
+    } catch (error) {
+      console.error('Get notifications error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Mark Notification as Read
+  app.put('/api/v2/notifications/:id/read', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.markNotificationAsRead(id);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('notifications.marked_as_read', language),
+      });
+      
+    } catch (error) {
+      console.error('Mark notification as read error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('notifications.mark_read_failed', 'en'),
+      });
+    }
+  });
+  
+  // ==================== SUPPORT ENDPOINTS ====================
+  
+  // Create Support Ticket
+  app.post('/api/v2/support/tickets', authenticateToken, validateRequest({
+    body: z.object({
+      subject: z.string().min(5),
+      subject_ar: z.string().optional(),
+      message: z.string().min(10),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+      booking_id: z.string().uuid().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { subject, subject_ar, message, priority, booking_id } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Create support ticket
+      const ticket = await storage.createSupportTicket({
+        userId: req.user.id,
+        subject,
+        subjectAr: subject_ar,
+        priority,
+        bookingId: booking_id,
+      });
+      
+      // Create initial message
+      await storage.createSupportMessage({
+        ticketId: ticket.id,
+        senderId: req.user.id,
+        message,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('support.ticket_created', language),
+        data: ticket,
+      });
+      
+    } catch (error) {
+      console.error('Create support ticket error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get User Support Tickets
+  app.get('/api/v2/support/tickets', authenticateToken, async (req: any, res: any) => {
+    try {
+      const tickets = await storage.getUserSupportTickets(req.user.id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('support.tickets_retrieved', language),
+        data: tickets,
+      });
+      
+    } catch (error) {
+      console.error('Get support tickets error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Send Support Message
+  app.post('/api/v2/support/messages', authenticateToken, validateRequest({
+    body: z.object({
+      ticket_id: z.string().uuid(),
+      message: z.string().min(1),
+      attachments: z.array(z.object({
+        type: z.string(),
+        url: z.string().url(),
+        filename: z.string(),
+      })).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { ticket_id, message, attachments } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Verify ticket belongs to user
+      const ticket = await storage.getSupportTicket(ticket_id);
+      if (!ticket || ticket.userId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('support.ticket_not_found', language),
+        });
+      }
+      
+      // Create message
+      const supportMessage = await storage.createSupportMessage({
+        ticketId: ticket_id,
+        senderId: req.user.id,
+        message,
+        attachments: attachments as any,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('support.message_sent', language),
+        data: supportMessage,
+      });
+      
+    } catch (error) {
+      console.error('Send support message error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== ADMIN ENDPOINTS ====================
+  
+  // Get Analytics
+  app.get('/api/v2/admin/analytics', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { start_date, end_date } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      const [orderStats, revenueStats, technicianStats] = await Promise.all([
+        storage.getOrderStats(startDate, endDate),
+        storage.getRevenueStats(startDate, endDate),
+        storage.getTechnicianStats(),
+      ]);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.analytics_retrieved', language),
+        data: {
+          order_stats: orderStats,
+          revenue_stats: revenueStats,
+          technician_stats: technicianStats,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get analytics error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Create Service (Admin)
+  app.post('/api/v2/admin/services', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      category_id: z.string().uuid(),
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      base_price: z.number().min(0),
+      duration_minutes: z.number().min(30),
+      vat_percentage: z.number().default(15),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const serviceData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const service = await storage.createService({
+        categoryId: serviceData.category_id,
+        name: serviceData.name,
+        description: serviceData.description,
+        basePrice: serviceData.base_price.toString(),
+        durationMinutes: serviceData.duration_minutes,
+        vatPercentage: serviceData.vat_percentage.toString(),
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'service_created',
+        resourceType: 'service',
+        resourceId: service.id,
+        newValues: service,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.service_created', language),
+        data: service,
+      });
+      
+    } catch (error) {
+      console.error('Create service error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== TECHNICIAN ENDPOINTS ====================
+  
+  // Get Technician Orders
+  app.get('/api/v2/technician/orders', authenticateToken, authorizeRoles(['technician']), async (req: any, res: any) => {
+    try {
+      const { status } = req.query;
+      const orders = await storage.getTechnicianBookings(req.user.id, status as string);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.technician_orders_retrieved', language),
+        data: orders,
+      });
+      
+    } catch (error) {
+      console.error('Get technician orders error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Accept Order
+  app.put('/api/v2/technician/orders/:id/accept', authenticateToken, authorizeRoles(['technician']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.technicianId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('booking.not_assigned', language),
+        });
+      }
+      
+      if (booking.status !== 'technician_assigned') {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('booking.cannot_accept', language),
+        });
+      }
+      
+      await storage.updateBookingStatus(id, 'confirmed', req.user.id);
+      
+      // Send notification to customer
+      await notificationService.sendOrderStatusNotification(booking.userId, id, 'confirmed', language);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.accepted_successfully', language),
+      });
+      
+    } catch (error) {
+      console.error('Accept order error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Order Status
+  app.put('/api/v2/technician/orders/:id/status', authenticateToken, authorizeRoles(['technician']), validateRequest({
+    body: z.object({
+      status: z.enum(['en_route', 'in_progress', 'completed']),
+      notes: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      const booking = await storage.getBooking(id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!booking || booking.technicianId !== req.user.id) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('booking.not_assigned', language),
+        });
+      }
+      
+      await storage.updateBookingStatus(id, status, req.user.id);
+      
+      // Send notification to customer
+      await notificationService.sendOrderStatusNotification(booking.userId, id, status, language);
+      
+      // Send SMS for critical statuses
+      if (['en_route', 'completed'].includes(status)) {
+        const user = await storage.getUser(booking.userId);
+        if (user?.phone) {
+          await twilioService.sendOrderUpdate(user.phone, booking.id, status, language);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.status_updated', language),
+      });
+      
+    } catch (error) {
+      console.error('Update order status error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}

@@ -1,0 +1,591 @@
+import { sql } from "drizzle-orm";
+import { 
+  pgTable, 
+  text, 
+  varchar, 
+  integer, 
+  timestamp, 
+  decimal, 
+  boolean, 
+  jsonb, 
+  uuid, 
+  pgEnum 
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Enums
+export const userRoleEnum = pgEnum('user_role', ['customer', 'technician', 'admin']);
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending', 'confirmed', 'technician_assigned', 'en_route', 
+  'in_progress', 'quotation_pending', 'completed', 'cancelled'
+]);
+export const paymentStatusEnum = pgEnum('payment_status', [
+  'pending', 'authorized', 'paid', 'failed', 'refunded', 'cancelled'
+]);
+export const paymentMethodEnum = pgEnum('payment_method', ['wallet', 'moyasar', 'tabby']);
+export const quotationStatusEnum = pgEnum('quotation_status', ['pending', 'approved', 'rejected']);
+export const supportStatusEnum = pgEnum('support_status', ['open', 'in_progress', 'resolved', 'closed']);
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'order_update', 'technician_assigned', 'payment_confirmation', 'promotional', 'quotation_request'
+]);
+export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
+
+// Users table
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email", { length: 255 }).unique(),
+  phone: varchar("phone", { length: 20 }).unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  role: userRoleEnum("role").default('customer').notNull(),
+  language: varchar("language", { length: 2 }).default('en').notNull(),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  deviceToken: text("device_token"),
+  avatar: text("avatar"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Addresses table
+export const addresses = pgTable("addresses", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  label: varchar("label", { length: 100 }).notNull(), // Home, Work, etc.
+  labelAr: varchar("label_ar", { length: 100 }),
+  address: text("address").notNull(),
+  addressAr: text("address_ar"),
+  city: varchar("city", { length: 100 }).notNull(),
+  cityAr: varchar("city_ar", { length: 100 }),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Service categories table
+export const serviceCategories = pgTable("service_categories", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: jsonb("name").notNull(), // { "en": "Home Cleaning", "ar": "تنظيف المنازل" }
+  description: jsonb("description").notNull(),
+  icon: text("icon"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Services table
+export const services = pgTable("services", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: uuid("category_id").references(() => serviceCategories.id).notNull(),
+  name: jsonb("name").notNull(), // { "en": "Deep Cleaning", "ar": "تنظيف عميق" }
+  description: jsonb("description").notNull(),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  vatPercentage: decimal("vat_percentage", { precision: 5, scale: 2 }).default('15').notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Service packages table
+export const servicePackages = pgTable("service_packages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: uuid("service_id").references(() => services.id).notNull(),
+  tier: varchar("tier", { length: 50 }).notNull(), // basic, premium
+  name: jsonb("name").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0').notNull(),
+  inclusions: jsonb("inclusions").notNull(), // Array of strings in both languages
+  termsAndConditions: jsonb("terms_and_conditions"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Spare parts table
+export const spareParts = pgTable("spare_parts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: jsonb("name").notNull(), // { "en": "AC Filter", "ar": "فلتر تكييف" }
+  description: jsonb("description").notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  stock: integer("stock").default(0).notNull(),
+  image: text("image"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bookings/Orders table
+export const bookings = pgTable("bookings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  serviceId: uuid("service_id").references(() => services.id).notNull(),
+  packageId: uuid("package_id").references(() => servicePackages.id),
+  addressId: uuid("address_id").references(() => addresses.id).notNull(),
+  technicianId: uuid("technician_id").references(() => users.id),
+  status: orderStatusEnum("status").default('pending').notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  scheduledTime: varchar("scheduled_time", { length: 10 }).notNull(), // "10:00"
+  notes: text("notes"),
+  notesAr: text("notes_ar"),
+  serviceCost: decimal("service_cost", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default('0').notNull(),
+  sparePartsCost: decimal("spare_parts_cost", { precision: 10, scale: 2 }).default('0').notNull(),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentStatus: paymentStatusEnum("payment_status").default('pending').notNull(),
+  assignedAt: timestamp("assigned_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Quotations table
+export const quotations = pgTable("quotations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  technicianId: uuid("technician_id").references(() => users.id).notNull(),
+  status: quotationStatusEnum("status").default('pending').notNull(),
+  additionalCost: decimal("additional_cost", { precision: 10, scale: 2 }).default('0').notNull(),
+  notes: text("notes"),
+  notesAr: text("notes_ar"),
+  expiresAt: timestamp("expires_at").notNull(),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: uuid("approved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Quotation spare parts junction table
+export const quotationSpareParts = pgTable("quotation_spare_parts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: uuid("quotation_id").references(() => quotations.id).notNull(),
+  sparePartId: uuid("spare_part_id").references(() => spareParts.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+});
+
+// Payments table
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default('SAR').notNull(),
+  status: paymentStatusEnum("status").default('pending').notNull(),
+  gatewayPaymentId: text("gateway_payment_id"), // Moyasar/Tabby payment ID
+  gatewayResponse: jsonb("gateway_response"), // Full response from gateway
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default('0').notNull(),
+  refundReason: text("refund_reason"),
+  walletAmount: decimal("wallet_amount", { precision: 10, scale: 2 }).default('0').notNull(),
+  gatewayAmount: decimal("gateway_amount", { precision: 10, scale: 2 }).default('0').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Wallet table
+export const wallets = pgTable("wallets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull().unique(),
+  balance: decimal("balance", { precision: 10, scale: 2 }).default('0').notNull(),
+  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default('0').notNull(),
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default('0').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Wallet transactions table
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletId: uuid("wallet_id").references(() => wallets.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // credit, debit
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  balanceBefore: decimal("balance_before", { precision: 10, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  referenceType: varchar("reference_type", { length: 50 }), // booking, topup, referral
+  referenceId: uuid("reference_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Referrals table
+export const referrals = pgTable("referrals", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  inviterId: uuid("inviter_id").references(() => users.id).notNull(),
+  inviteeId: uuid("invitee_id").references(() => users.id),
+  referralCode: varchar("referral_code", { length: 50 }).notNull().unique(),
+  status: referralStatusEnum("status").default('pending').notNull(),
+  inviterReward: decimal("inviter_reward", { precision: 10, scale: 2 }).default('50').notNull(),
+  inviteeReward: decimal("invitee_reward", { precision: 10, scale: 2 }).default('25').notNull(),
+  completedAt: timestamp("completed_at"),
+  rewardDistributedAt: timestamp("reward_distributed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  type: notificationTypeEnum("type").notNull(),
+  title: jsonb("title").notNull(),
+  body: jsonb("body").notNull(),
+  data: jsonb("data"), // Additional data for the notification
+  isRead: boolean("is_read").default(false).notNull(),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Support tickets table
+export const supportTickets = pgTable("support_tickets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  subjectAr: text("subject_ar"),
+  priority: varchar("priority", { length: 10 }).default('medium').notNull(),
+  status: supportStatusEnum("status").default('open').notNull(),
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  bookingId: uuid("booking_id").references(() => bookings.id), // Optional link to booking
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Support messages table
+export const supportMessages = pgTable("support_messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: uuid("ticket_id").references(() => supportTickets.id).notNull(),
+  senderId: uuid("sender_id").references(() => users.id).notNull(),
+  message: text("message").notNull(),
+  attachments: jsonb("attachments"), // Array of attachment objects
+  isInternal: boolean("is_internal").default(false).notNull(), // For internal agent notes
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Reviews table
+export const reviews = pgTable("reviews", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  technicianId: uuid("technician_id").references(() => users.id).notNull(),
+  serviceRating: integer("service_rating").notNull(),
+  technicianRating: integer("technician_rating").notNull(),
+  comment: text("comment"),
+  commentAr: text("comment_ar"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Promotions table
+export const promotions = pgTable("promotions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  name: jsonb("name").notNull(),
+  description: jsonb("description").notNull(),
+  discountType: varchar("discount_type", { length: 20 }).notNull(), // percentage, fixed
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }).default('0').notNull(),
+  maxDiscountAmount: decimal("max_discount_amount", { precision: 10, scale: 2 }),
+  usageLimit: integer("usage_limit"),
+  usageCount: integer("usage_count").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Audit logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  resourceType: varchar("resource_type", { length: 50 }).notNull(),
+  resourceId: uuid("resource_id"),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Webhook events table
+export const webhookEvents = pgTable("webhook_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { length: 50 }).notNull(), // moyasar, tabby
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  eventId: varchar("event_id", { length: 255 }).notNull(),
+  payload: jsonb("payload").notNull(),
+  status: varchar("status", { length: 20 }).default('pending').notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  processedAt: timestamp("processed_at"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Order status logs table for tracking
+export const orderStatusLogs = pgTable("order_status_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  fromStatus: orderStatusEnum("from_status"),
+  toStatus: orderStatusEnum("to_status").notNull(),
+  changedBy: uuid("changed_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations
+export const usersRelations = relations(users, ({ one, many }) => ({
+  wallet: one(wallets, {
+    fields: [users.id],
+    references: [wallets.userId],
+  }),
+  addresses: many(addresses),
+  bookings: many(bookings),
+  payments: many(payments),
+  notifications: many(notifications),
+  supportTickets: many(supportTickets),
+  reviews: many(reviews),
+  referralsAsInviter: many(referrals, { relationName: 'inviter' }),
+  referralsAsInvitee: many(referrals, { relationName: 'invitee' }),
+}));
+
+export const addressesRelations = relations(addresses, ({ one }) => ({
+  user: one(users, {
+    fields: [addresses.userId],
+    references: [users.id],
+  }),
+}));
+
+export const servicesRelations = relations(services, ({ one, many }) => ({
+  category: one(serviceCategories, {
+    fields: [services.categoryId],
+    references: [serviceCategories.id],
+  }),
+  packages: many(servicePackages),
+  bookings: many(bookings),
+}));
+
+export const servicePackagesRelations = relations(servicePackages, ({ one, many }) => ({
+  service: one(services, {
+    fields: [servicePackages.serviceId],
+    references: [services.id],
+  }),
+  bookings: many(bookings),
+}));
+
+export const bookingsRelations = relations(bookings, ({ one, many }) => ({
+  user: one(users, {
+    fields: [bookings.userId],
+    references: [users.id],
+  }),
+  service: one(services, {
+    fields: [bookings.serviceId],
+    references: [services.id],
+  }),
+  package: one(servicePackages, {
+    fields: [bookings.packageId],
+    references: [servicePackages.id],
+  }),
+  address: one(addresses, {
+    fields: [bookings.addressId],
+    references: [addresses.id],
+  }),
+  technician: one(users, {
+    fields: [bookings.technicianId],
+    references: [users.id],
+  }),
+  quotations: many(quotations),
+  payments: many(payments),
+  statusLogs: many(orderStatusLogs),
+  reviews: many(reviews),
+}));
+
+export const quotationsRelations = relations(quotations, ({ one, many }) => ({
+  booking: one(bookings, {
+    fields: [quotations.bookingId],
+    references: [bookings.id],
+  }),
+  technician: one(users, {
+    fields: [quotations.technicianId],
+    references: [users.id],
+  }),
+  approver: one(users, {
+    fields: [quotations.approvedBy],
+    references: [users.id],
+  }),
+  spareParts: many(quotationSpareParts),
+}));
+
+export const quotationSparePartsRelations = relations(quotationSpareParts, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationSpareParts.quotationId],
+    references: [quotations.id],
+  }),
+  sparePart: one(spareParts, {
+    fields: [quotationSpareParts.sparePartId],
+    references: [spareParts.id],
+  }),
+}));
+
+export const walletsRelations = relations(wallets, ({ one, many }) => ({
+  user: one(users, {
+    fields: [wallets.userId],
+    references: [users.id],
+  }),
+  transactions: many(walletTransactions),
+}));
+
+export const walletTransactionsRelations = relations(walletTransactions, ({ one }) => ({
+  wallet: one(wallets, {
+    fields: [walletTransactions.walletId],
+    references: [wallets.id],
+  }),
+  user: one(users, {
+    fields: [walletTransactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const referralsRelations = relations(referrals, ({ one }) => ({
+  inviter: one(users, {
+    fields: [referrals.inviterId],
+    references: [users.id],
+    relationName: 'inviter',
+  }),
+  invitee: one(users, {
+    fields: [referrals.inviteeId],
+    references: [users.id],
+    relationName: 'invitee',
+  }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAddressSchema = createInsertSchema(addresses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertServiceSchema = createInsertSchema(services).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertServicePackageSchema = createInsertSchema(servicePackages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSparePartSchema = createInsertSchema(spareParts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertQuotationSchema = createInsertSchema(quotations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSupportMessageSchema = createInsertSchema(supportMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPromotionSchema = createInsertSchema(promotions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Address = typeof addresses.$inferSelect;
+export type InsertAddress = z.infer<typeof insertAddressSchema>;
+export type ServiceCategory = typeof serviceCategories.$inferSelect;
+export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
+export type Service = typeof services.$inferSelect;
+export type InsertService = z.infer<typeof insertServiceSchema>;
+export type ServicePackage = typeof servicePackages.$inferSelect;
+export type InsertServicePackage = z.infer<typeof insertServicePackageSchema>;
+export type SparePart = typeof spareParts.$inferSelect;
+export type InsertSparePart = z.infer<typeof insertSparePartSchema>;
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type Quotation = typeof quotations.$inferSelect;
+export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Wallet = typeof wallets.$inferSelect;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportMessage = typeof supportMessages.$inferSelect;
+export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type Promotion = typeof promotions.$inferSelect;
+export type InsertPromotion = z.infer<typeof insertPromotionSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type OrderStatusLog = typeof orderStatusLogs.$inferSelect;
