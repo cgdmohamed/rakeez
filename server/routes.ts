@@ -1945,6 +1945,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ==================== FILE UPLOAD ENDPOINTS ====================
+  
+  // Serve uploaded objects with ACL check
+  app.get('/objects/:objectPath(*)', authenticateToken, async (req: any, res: any) => {
+    const { ObjectStorageService, ObjectNotFoundError } = await import('./objectStorage');
+    const { ObjectPermission } = await import('./objectAcl');
+    
+    const userId = req.user?.id;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error('Error accessing object:', error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Get upload URL for object
+  app.post('/api/v2/objects/upload', authenticateToken, async (req: any, res: any) => {
+    const { ObjectStorageService } = await import('./objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadURL });
+  });
+
+  // Update user profile avatar
+  app.put('/api/v2/profile/avatar', authenticateToken, async (req: any, res: any) => {
+    const { avatar_url } = req.body;
+    const language = req.headers['accept-language'] || 'en';
+    
+    if (!avatar_url) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Avatar URL is required' 
+      });
+    }
+
+    try {
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        avatar_url,
+        {
+          owner: req.user.id,
+          visibility: 'public',
+        }
+      );
+
+      await storage.updateUserProfile(req.user.id, { avatar: objectPath });
+
+      res.json({
+        success: true,
+        message: bilingual.getMessage('profile.avatar_updated', language),
+        data: { avatar: objectPath }
+      });
+    } catch (error) {
+      console.error('Update avatar error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language)
+      });
+    }
+  });
+
+  // Add spare parts image to quotation
+  app.post('/api/v2/quotations/:id/spare-parts', authenticateToken, authorizeRoles(['technician']), async (req: any, res: any) => {
+    const { id } = req.params;
+    const { image_url, name, quantity, unit_price } = req.body;
+    const language = req.headers['accept-language'] || 'en';
+
+    if (!image_url || !name || !quantity || !unit_price) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    try {
+      const quotation = await storage.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('quotations.not_found', language)
+        });
+      }
+
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        image_url,
+        {
+          owner: req.user.id,
+          visibility: 'public',
+        }
+      );
+
+      const sparePart = await storage.createSparePart({
+        quotationId: id,
+        name,
+        quantity,
+        unitPrice: unit_price.toString(),
+        image: objectPath,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('quotations.spare_part_added', language),
+        data: sparePart
+      });
+    } catch (error) {
+      console.error('Add spare part error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language)
+      });
+    }
+  });
+  
   // ==================== ADMIN ENDPOINTS ====================
   
   // Get Analytics
