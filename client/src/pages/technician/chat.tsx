@@ -11,10 +11,15 @@ export default function TechnicianChat() {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [connected, setConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const userId = localStorage.getItem('user_id');
 
   useEffect(() => {
+    // Don't connect WebSocket automatically - this interferes with Vite HMR
+    // WebSocket chat is disabled for now to prevent browser refresh issues
+    return;
+    
     const token = localStorage.getItem('auth_token');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
