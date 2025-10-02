@@ -2,7 +2,7 @@ import {
   users, addresses, serviceCategories, services, servicePackages, 
   spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
-  supportMessages, reviews, promotions, auditLogs, webhookEvents, 
+  supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs,
   type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
@@ -11,7 +11,7 @@ import {
   type Payment, type InsertPayment, type Wallet, type WalletTransaction, type InsertWalletTransaction,
   type Referral, type InsertReferral, type Notification, type InsertNotification,
   type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage,
-  type Review, type InsertReview, type Promotion, type InsertPromotion,
+  type Faq, type InsertFaq, type Review, type InsertReview, type Promotion, type InsertPromotion,
   type AuditLog, type InsertAuditLog, type WebhookEvent, type OrderStatusLog
 } from "@shared/schema";
 import { db } from "./db";
@@ -96,6 +96,14 @@ export interface IStorage {
   createSupportMessage(message: InsertSupportMessage): Promise<SupportMessage>;
   getTicketMessages(ticketId: string): Promise<SupportMessage[]>;
   updateTicketStatus(id: string, status: string, assignedTo?: string): Promise<void>;
+  updateSupportTicket(id: string, ticket: Partial<InsertSupportTicket>): Promise<SupportTicket | undefined>;
+  
+  // FAQs
+  getFAQs(category?: string): Promise<Faq[]>;
+  getFAQ(id: string): Promise<Faq | undefined>;
+  createFAQ(faq: InsertFaq): Promise<Faq>;
+  updateFAQ(id: string, faq: Partial<InsertFaq>): Promise<Faq | undefined>;
+  deleteFAQ(id: string): Promise<void>;
   
   // Reviews
   createReview(review: InsertReview): Promise<Review>;
@@ -594,6 +602,57 @@ export class DatabaseStorage implements IStorage {
         ...(assignedTo && { assignedTo })
       })
       .where(eq(supportTickets.id, id));
+  }
+
+  async updateSupportTicket(id: string, ticket: Partial<InsertSupportTicket>): Promise<SupportTicket | undefined> {
+    const [updated] = await db
+      .update(supportTickets)
+      .set({ ...ticket, updatedAt: new Date() })
+      .where(eq(supportTickets.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // FAQs
+  async getFAQs(category?: string): Promise<Faq[]> {
+    if (category) {
+      return await db
+        .select()
+        .from(faqs)
+        .where(and(
+          eq(faqs.category, category),
+          eq(faqs.isActive, true)
+        ))
+        .orderBy(asc(faqs.sortOrder), asc(faqs.createdAt));
+    }
+    return await db
+      .select()
+      .from(faqs)
+      .where(eq(faqs.isActive, true))
+      .orderBy(asc(faqs.sortOrder), asc(faqs.createdAt));
+  }
+
+  async getFAQ(id: string): Promise<Faq | undefined> {
+    const [faq] = await db.select().from(faqs).where(eq(faqs.id, id));
+    return faq || undefined;
+  }
+
+  async createFAQ(faq: InsertFaq): Promise<Faq> {
+    const [newFaq] = await db.insert(faqs).values(faq).returning();
+    return newFaq;
+  }
+
+  async updateFAQ(id: string, faq: Partial<InsertFaq>): Promise<Faq | undefined> {
+    const [updated] = await db
+      .update(faqs)
+      .set({ ...faq, updatedAt: new Date() })
+      .where(eq(faqs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteFAQ(id: string): Promise<void> {
+    await db.delete(faqs).where(eq(faqs.id, id));
   }
 
   // Reviews

@@ -1,11 +1,7 @@
 import { Request, Response } from 'express';
 import { IStorage } from '../storage';
 import { bilingual } from '../utils/bilingual';
-import { 
-  supportTicketSchema, 
-  supportMessageSchema, 
-  validateSchema 
-} from '../middleware/validation';
+import { z } from 'zod';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -30,7 +26,14 @@ export class SupportController {
         });
       }
 
-      const validation = supportTicketSchema.safeParse(req.body);
+      const ticketSchema = z.object({
+        subject: z.string().min(1),
+        subject_ar: z.string().optional(),
+        message: z.string().min(1),
+        priority: z.enum(['low', 'medium', 'high']).optional()
+      });
+
+      const validation = ticketSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({
           success: false,
@@ -208,7 +211,13 @@ export class SupportController {
         });
       }
 
-      const validation = supportMessageSchema.safeParse(req.body);
+      const messageSchema = z.object({
+        ticket_id: z.string().uuid(),
+        message: z.string().min(1),
+        attachments: z.any().optional()
+      });
+
+      const validation = messageSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({
           success: false,

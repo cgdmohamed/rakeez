@@ -265,6 +265,18 @@ export const supportMessages = pgTable("support_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// FAQs table
+export const faqs = pgTable("faqs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: varchar("category", { length: 50 }).notNull(), // general, booking, payment, services, etc.
+  question: jsonb("question").notNull(), // { "en": "...", "ar": "..." }
+  answer: jsonb("answer").notNull(), // { "en": "...", "ar": "..." }
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Reviews table
 export const reviews = pgTable("reviews", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -536,6 +548,12 @@ export const insertSupportMessageSchema = createInsertSchema(supportMessages).om
   createdAt: true,
 });
 
+export const insertFaqSchema = createInsertSchema(faqs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
@@ -581,6 +599,8 @@ export type SupportTicket = typeof supportTickets.$inferSelect;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type SupportMessage = typeof supportMessages.$inferSelect;
 export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
+export type Faq = typeof faqs.$inferSelect;
+export type InsertFaq = z.infer<typeof insertFaqSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Promotion = typeof promotions.$inferSelect;

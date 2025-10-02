@@ -1,8 +1,8 @@
 import { db } from './db';
 import { 
-  serviceCategories, services, servicePackages, spareParts, promotions,
+  serviceCategories, services, servicePackages, spareParts, promotions, faqs,
   type InsertServiceCategory, type InsertService, type InsertServicePackage,
-  type InsertSparePart, type InsertPromotion
+  type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
 
 async function seed() {
@@ -319,6 +319,131 @@ async function seed() {
     const createdPromotions = await db.insert(promotions).values(promotionsData).returning();
     console.log(`✅ Created ${createdPromotions.length} promotions`);
 
+    // 6. Seed FAQs
+    console.log('📚 Seeding FAQs...');
+    const faqsData: InsertFaq[] = [
+      {
+        category: 'general',
+        question: JSON.stringify({ 
+          en: 'What services do you offer?', 
+          ar: 'ما هي الخدمات التي تقدمونها؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'We offer professional cleaning services including home cleaning, office cleaning, deep cleaning, carpet cleaning, window cleaning, and AC maintenance.', 
+          ar: 'نقدم خدمات تنظيف احترافية تشمل تنظيف المنازل والمكاتب والتنظيف العميق وتنظيف السجاد والنوافذ وصيانة المكيفات.' 
+        }),
+        sortOrder: 1,
+        isActive: true,
+      },
+      {
+        category: 'general',
+        question: JSON.stringify({ 
+          en: 'What areas do you serve?', 
+          ar: 'ما هي المناطق التي تخدمونها؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'We serve all major cities in Saudi Arabia including Riyadh, Jeddah, Dammam, and surrounding areas.', 
+          ar: 'نخدم جميع المدن الرئيسية في المملكة العربية السعودية بما في ذلك الرياض وجدة والدمام والمناطق المحيطة بها.' 
+        }),
+        sortOrder: 2,
+        isActive: true,
+      },
+      {
+        category: 'booking',
+        question: JSON.stringify({ 
+          en: 'How do I book a service?', 
+          ar: 'كيف أحجز خدمة؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'You can book through our mobile app by selecting the service, choosing date and time, and confirming your booking. A technician will be assigned to you shortly.', 
+          ar: 'يمكنك الحجز من خلال تطبيق الهاتف المحمول عن طريق اختيار الخدمة وتحديد التاريخ والوقت وتأكيد الحجز. سيتم تعيين فني لك قريباً.' 
+        }),
+        sortOrder: 1,
+        isActive: true,
+      },
+      {
+        category: 'booking',
+        question: JSON.stringify({ 
+          en: 'Can I cancel or reschedule my booking?', 
+          ar: 'هل يمكنني إلغاء أو إعادة جدولة حجزي؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'Yes, you can cancel or reschedule up to 24 hours before the scheduled service time without any charges.', 
+          ar: 'نعم، يمكنك الإلغاء أو إعادة الجدولة حتى 24 ساعة قبل موعد الخدمة المحدد دون أي رسوم.' 
+        }),
+        sortOrder: 2,
+        isActive: true,
+      },
+      {
+        category: 'payment',
+        question: JSON.stringify({ 
+          en: 'What payment methods do you accept?', 
+          ar: 'ما هي طرق الدفع المتاحة؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'We accept credit/debit cards, Mada, Apple Pay through Moyasar gateway, and Buy Now Pay Later options through Tabby. You can also pay using your wallet balance.', 
+          ar: 'نقبل بطاقات الائتمان/الخصم ومدى وApple Pay عبر بوابة ميسر، وخيارات الشراء الآن والدفع لاحقاً عبر تابي. يمكنك أيضاً الدفع باستخدام رصيد محفظتك.' 
+        }),
+        sortOrder: 1,
+        isActive: true,
+      },
+      {
+        category: 'payment',
+        question: JSON.stringify({ 
+          en: 'When do I pay for the service?', 
+          ar: 'متى أدفع ثمن الخدمة؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'Payment is required after the technician provides a quotation and you approve it. You can pay online through the app or in cash to the technician.', 
+          ar: 'الدفع مطلوب بعد أن يقدم الفني عرض السعر وتوافق عليه. يمكنك الدفع عبر الإنترنت من خلال التطبيق أو نقداً للفني.' 
+        }),
+        sortOrder: 2,
+        isActive: true,
+      },
+      {
+        category: 'payment',
+        question: JSON.stringify({ 
+          en: 'Do you offer refunds?', 
+          ar: 'هل تقدمون استرداد المبالغ؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'Yes, if you are not satisfied with the service, you can request a refund within 24 hours. We will review and process it accordingly.', 
+          ar: 'نعم، إذا لم تكن راضياً عن الخدمة، يمكنك طلب استرداد المبلغ خلال 24 ساعة. سنقوم بالمراجعة والمعالجة وفقاً لذلك.' 
+        }),
+        sortOrder: 3,
+        isActive: true,
+      },
+      {
+        category: 'services',
+        question: JSON.stringify({ 
+          en: 'How long does a typical cleaning service take?', 
+          ar: 'كم من الوقت تستغرق خدمة التنظيف النموذجية؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'Service duration varies by type: Basic cleaning takes 2-3 hours, Deep cleaning 4-6 hours, and specialized services like carpet or AC cleaning take 2-4 hours.', 
+          ar: 'مدة الخدمة تختلف حسب النوع: التنظيف الأساسي يستغرق 2-3 ساعات، التنظيف العميق 4-6 ساعات، والخدمات المتخصصة مثل تنظيف السجاد أو المكيفات تستغرق 2-4 ساعات.' 
+        }),
+        sortOrder: 1,
+        isActive: true,
+      },
+      {
+        category: 'services',
+        question: JSON.stringify({ 
+          en: 'Do I need to provide cleaning supplies?', 
+          ar: 'هل أحتاج لتوفير مواد التنظيف؟' 
+        }),
+        answer: JSON.stringify({ 
+          en: 'No, our technicians come fully equipped with professional-grade cleaning supplies and equipment. However, you can request to use your own supplies if preferred.', 
+          ar: 'لا، يأتي فنيونا مجهزين بالكامل بمواد ومعدات تنظيف احترافية. ومع ذلك، يمكنك طلب استخدام مواد التنظيف الخاصة بك إذا كنت تفضل ذلك.' 
+        }),
+        sortOrder: 2,
+        isActive: true,
+      },
+    ];
+
+    const createdFaqs = await db.insert(faqs).values(faqsData).returning();
+    console.log(`✅ Created ${createdFaqs.length} FAQs`);
+
     console.log('');
     console.log('✨ Database seeding completed successfully!');
     console.log('');
@@ -328,6 +453,7 @@ async function seed() {
     console.log(`   - ${createdPackages.length} service packages`);
     console.log(`   - ${createdSpareParts.length} spare parts`);
     console.log(`   - ${createdPromotions.length} promotions`);
+    console.log(`   - ${createdFaqs.length} FAQs`);
     console.log('');
 
   } catch (error) {

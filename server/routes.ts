@@ -1869,6 +1869,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get FAQs (Public endpoint)
+  app.get('/api/v2/support/faqs', async (req: any, res: any) => {
+    try {
+      // Normalize language to 'en' or 'ar'
+      const rawLanguage = req.headers['accept-language'] || 'en';
+      const language = rawLanguage.toLowerCase().startsWith('ar') ? 'ar' : 'en';
+      
+      // Normalize category to lowercase
+      const category = req.query.category ? (req.query.category as string).toLowerCase() : undefined;
+      
+      // Get all FAQs to build the full categories list
+      const allFaqs = await storage.getFAQs();
+      const filteredFaqs = category ? await storage.getFAQs(category) : allFaqs;
+      
+      const localizedFaqs = filteredFaqs.map(faq => {
+        const questionData = faq.question as any;
+        const answerData = faq.answer as any;
+        
+        return {
+          id: faq.id,
+          category: faq.category,
+          question: questionData?.[language] || questionData?.en || '',
+          answer: answerData?.[language] || answerData?.en || '',
+          sort_order: faq.sortOrder,
+        };
+      });
+      
+      // Group by category for better UX
+      const groupedFaqs = localizedFaqs.reduce((acc: Record<string, any[]>, faq) => {
+        if (!acc[faq.category]) {
+          acc[faq.category] = [];
+        }
+        acc[faq.category].push(faq);
+        return acc;
+      }, {});
+      
+      // Get all unique categories from all FAQs
+      const allCategories = Array.from(new Set(allFaqs.map(f => f.category))).sort();
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('support.faqs_retrieved', language),
+        data: {
+          faqs: category ? localizedFaqs : groupedFaqs,
+          categories: allCategories,
+          total_count: localizedFaqs.length
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get FAQs error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // ==================== ADMIN ENDPOINTS ====================
   
   // Get Analytics
