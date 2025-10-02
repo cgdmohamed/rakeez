@@ -4,6 +4,9 @@ import { Toaster } from '@/components/ui/toaster';
 import Dashboard from '@/pages/dashboard';
 import ApiDocumentation from '@/components/api-documentation';
 import NotFound from '@/pages/not-found';
+import Login from '@/pages/login';
+import AdminDashboard from '@/pages/admin-dashboard';
+import TechnicianDashboard from '@/pages/technician-dashboard';
 
 // Custom error type
 interface HttpError extends Error {
@@ -125,6 +128,9 @@ function App() {
       <div className="min-h-screen bg-background">
         <Switch>
           <Route path="/" component={ApiDocumentation} />
+          <Route path="/login" component={Login} />
+          <Route path="/admin/:rest*" component={AdminDashboard} />
+          <Route path="/technician/:rest*" component={TechnicianDashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/docs" component={ApiDocumentation} />
           <Route component={NotFound} />
