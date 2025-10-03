@@ -196,7 +196,7 @@ export class AuthController {
         message: bilingual.getMessage('auth.login_successful', userLanguage),
         message_en: 'Login successful',
         data: {
-          token: accessToken,
+          access_token: accessToken,
           refresh_token: refreshToken,
           expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
           user: {
@@ -298,7 +298,7 @@ export class AuthController {
         message: bilingual.getMessage('auth.verification_successful', userLanguage),
         message_en: 'Account verified successfully',
         data: {
-          token: accessToken,
+          access_token: accessToken,
           refresh_token: refreshToken,
           expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
           user: {
@@ -573,7 +573,7 @@ export class AuthController {
         success: true,
         message: bilingual.getMessage('auth.token_refreshed', userLanguage),
         data: {
-          token: accessToken,
+          access_token: accessToken,
           refresh_token: newRefreshToken,
           expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY
         }

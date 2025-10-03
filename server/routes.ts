@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: bilingual.getMessage('auth.login_successful', language),
         data: {
-          token,
+          access_token: token,
           refresh_token: refreshToken,
           expires_in: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
           user: {
