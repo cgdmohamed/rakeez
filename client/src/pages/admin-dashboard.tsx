@@ -49,7 +49,8 @@ export default function AdminDashboard() {
     if (!token || role !== 'admin') {
       setLocation('/login');
     }
-  }, [setLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
