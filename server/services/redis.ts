@@ -2,19 +2,14 @@ import Redis from 'ioredis';
 
 class RedisService {
   private client: Redis;
-  private isAvailable: boolean = true;
+  private isAvailable: boolean = false;
 
   constructor() {
     this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-      maxRetriesPerRequest: 3,
-      lazyConnect: false, // Connect immediately
+      maxRetriesPerRequest: 1,
+      lazyConnect: true, // Don't connect immediately - connect on first use
       enableOfflineQueue: false,
-      retryStrategy: (times) => {
-        // Retry with backoff in production, give up in development
-        if (process.env.NODE_ENV !== 'production') return null;
-        const delay = Math.min(times * 100, 3000);
-        return delay;
-      },
+      retryStrategy: () => null, // No retries - fail fast
     });
 
     this.client.on('error', (err) => {
