@@ -16,11 +16,16 @@ export default function TechnicianChat() {
   const userId = localStorage.getItem('user_id');
 
   useEffect(() => {
-    // Don't connect WebSocket automatically - this interferes with Vite HMR
-    // WebSocket chat is disabled for now to prevent browser refresh issues
-    return;
-    
+    // Check for valid token before attempting WebSocket connection
     const token = localStorage.getItem('auth_token');
+    
+    // Skip WebSocket connection if no token is available
+    if (!token) {
+      console.log('No auth token found, skipping WebSocket connection');
+      setConnected(false);
+      return;
+    }
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
     
@@ -28,6 +33,7 @@ export default function TechnicianChat() {
 
     websocket.onopen = () => {
       console.log('WebSocket connected');
+      setConnected(true);
       toast({
         title: 'Connected',
         description: 'Real-time chat is now active',
@@ -35,18 +41,29 @@ export default function TechnicianChat() {
     };
 
     websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'message') {
-        setMessages((prev) => [...prev, data.message]);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'message') {
+          setMessages((prev) => [...prev, data.message]);
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
       }
     };
 
-    websocket.onerror = () => {
+    websocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setConnected(false);
       toast({
         title: 'Connection error',
         description: 'Failed to connect to chat server',
         variant: 'destructive',
       });
+    };
+
+    websocket.onclose = () => {
+      console.log('WebSocket disconnected');
+      setConnected(false);
     };
 
     setWs(websocket);
@@ -83,7 +100,15 @@ export default function TechnicianChat() {
 
       <Card className="h-[600px] flex flex-col">
         <CardHeader>
-          <CardTitle>Real-time Chat</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Real-time Chat</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-sm text-muted-foreground">
+                {connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <ScrollArea className="flex-1 pr-4">
