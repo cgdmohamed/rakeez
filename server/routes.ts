@@ -3506,15 +3506,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const language = req.headers['accept-language'] || 'en';
       
+      console.log('========================================');
+      console.log('🔍 CUSTOMER PROFILE REQUEST');
+      console.log('========================================');
+      console.log('Requested Customer ID:', id);
+      console.log('Request URL:', req.url);
+      console.log('Request Method:', req.method);
+      console.log('Admin User:', req.user?.email);
+      
+      console.log('\n📊 Executing Database Query: storage.getUser(id)');
       const user = await storage.getUser(id);
-      if (!user || user.role !== 'customer') {
+      
+      console.log('\n✅ Database Query Result:');
+      if (!user) {
+        console.log('❌ NO USER FOUND in database for ID:', id);
+        console.log('Returning 404 - User not found');
+        console.log('========================================\n');
         return res.status(404).json({
           success: false,
           message: bilingual.getMessage('general.not_found', language),
         });
       }
       
+      console.log('✅ USER FOUND:');
+      console.log('  - User ID:', user.id);
+      console.log('  - Name:', user.name);
+      console.log('  - Email:', user.email);
+      console.log('  - Role:', user.role);
+      console.log('  - Is Verified:', user.isVerified);
+      
+      if (user.role !== 'customer') {
+        console.log('❌ ROLE MISMATCH - User role is', user.role, 'but expected "customer"');
+        console.log('Returning 404 - Not a customer');
+        console.log('========================================\n');
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      console.log('✅ Role verified as customer');
+      console.log('\n📊 Fetching customer overview data...');
       const overview = await storage.getCustomerOverview(id);
+      console.log('✅ Customer overview data retrieved successfully');
+      console.log('========================================\n');
       
       res.json({
         success: true,

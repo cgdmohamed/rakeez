@@ -171,7 +171,10 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: string): Promise<User | undefined> {
+    console.log('🔍 [Storage] getUser called with ID:', id);
+    console.log('🔍 [Storage] Executing SQL: SELECT * FROM users WHERE id =', id);
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    console.log('🔍 [Storage] Query result:', user ? `Found user: ${user.email} (role: ${user.role})` : 'No user found');
     return user || undefined;
   }
 
