@@ -10,7 +10,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 4, 2025)
 
-**Admin Dashboard Critical Fixes (Latest):**
+**Complete Admin CRUD Implementation (Latest):**
+- **Services & Pricing**: Full CRUD operations for categories, services, and packages with create/edit/delete dialogs
+- **Support Tickets**: Added view details dialog with conversation display, reply functionality, priority management, and status updates
+- **Quotations Management**: Create quotation dialog with booking/technician selection, spare parts management, automatic VAT calculation (15%), status updates, and view details
+- **Spare Parts Module**: New admin page with full CRUD operations (create, edit, delete) including bilingual name/description, price, stock quantity, and SKU management
+- Fixed all snake_case/camelCase field mapping issues across admin pages to match backend API responses
+- All forms use z.coerce.number() for HTML input compatibility
+- Proper cache invalidation on all mutations with optimistic updates
+
+**Admin Dashboard Critical Fixes:**
 - Fixed authentication issue: All POST/PUT/DELETE requests now include Authorization Bearer token from localStorage
 - Added empty states to all tables: Bookings, Quotations, Payments, Wallets, Support, Notifications, Analytics
 - Added loading states to Analytics page with proper data display
