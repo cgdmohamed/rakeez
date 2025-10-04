@@ -2387,6 +2387,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get Users (Admin) - with optional role filter
+  app.get('/api/v2/admin/users', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { role } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      let users;
+      if (role) {
+        users = await storage.getUsersByRole(role as string);
+      } else {
+        users = await storage.getAllUsers();
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.users_retrieved', language),
+        data: users,
+      });
+      
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create User (Admin)
+  app.post('/api/v2/admin/users', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      password: z.string().min(6),
+      role: z.enum(['customer', 'technician', 'admin']),
+      language: z.enum(['en', 'ar']).default('en'),
+      is_verified: z.boolean().default(false),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const userData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if user already exists
+      if (userData.email) {
+        const existingUser = await storage.getUserByEmail(userData.email);
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.email_exists', language),
+          });
+        }
+      }
+      
+      if (userData.phone) {
+        const existingUser = await storage.getUserByPhone(userData.phone);
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.phone_exists', language),
+          });
+        }
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      
+      const user = await storage.createUser({
+        name: userData.name,
+        email: userData.email || null,
+        phone: userData.phone || null,
+        password: hashedPassword,
+        role: userData.role,
+        language: userData.language,
+        isVerified: userData.is_verified,
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_created',
+        resourceType: 'user',
+        resourceId: user.id,
+        newValues: { ...user, passwordHash: '[REDACTED]' },
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.user_created', language),
+        data: { ...user, passwordHash: undefined },
+      });
+      
+    } catch (error) {
+      console.error('Create user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update User (Admin)
+  app.put('/api/v2/admin/users/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      password: z.string().min(6).optional(),
+      role: z.enum(['customer', 'technician', 'admin']).optional(),
+      language: z.enum(['en', 'ar']).optional(),
+      is_verified: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const userData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      // Check email uniqueness if updating
+      if (userData.email && userData.email !== existingUser.email) {
+        const emailExists = await storage.getUserByEmail(userData.email);
+        if (emailExists && emailExists.id !== id) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.email_exists', language),
+          });
+        }
+      }
+      
+      // Check phone uniqueness if updating
+      if (userData.phone && userData.phone !== existingUser.phone) {
+        const phoneExists = await storage.getUserByPhone(userData.phone);
+        if (phoneExists && phoneExists.id !== id) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.phone_exists', language),
+          });
+        }
+      }
+      
+      const updateData: any = {};
+      if (userData.name) updateData.name = userData.name;
+      if (userData.email !== undefined) updateData.email = userData.email || null;
+      if (userData.phone !== undefined) updateData.phone = userData.phone || null;
+      if (userData.role) updateData.role = userData.role;
+      if (userData.language) updateData.language = userData.language;
+      if (userData.is_verified !== undefined) updateData.isVerified = userData.is_verified;
+      
+      if (userData.password) {
+        updateData.password = await bcrypt.hash(userData.password, 10);
+      }
+      
+      const updatedUser = await storage.updateUser(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_updated',
+        resourceType: 'user',
+        resourceId: id,
+        oldValues: { ...existingUser, passwordHash: '[REDACTED]' },
+        newValues: { ...updatedUser, passwordHash: '[REDACTED]' },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_updated', language),
+        data: { ...updatedUser, passwordHash: undefined },
+      });
+      
+    } catch (error) {
+      console.error('Update user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // ==================== TECHNICIAN ENDPOINTS ====================
   
   // Get Technician Orders
