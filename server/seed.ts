@@ -4,9 +4,11 @@ dotenv.config();
 import { db } from './db';
 import { 
   serviceCategories, services, servicePackages, spareParts, promotions, faqs,
+  users, addresses, bookings, payments, wallets, reviews,
   type InsertServiceCategory, type InsertService, type InsertServicePackage,
   type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
+import bcrypt from 'bcrypt';
 
 async function seed() {
   console.log('🌱 Starting database seeding...');
@@ -447,6 +449,240 @@ async function seed() {
     const createdFaqs = await db.insert(faqs).values(faqsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdFaqs.length} FAQs`);
 
+    // 7. Seed Demo Users (Admin, Technicians, Customers)
+    console.log('👥 Seeding demo users...');
+    const defaultPassword = await bcrypt.hash('admin123', 10);
+    
+    const demoUsers = await db.insert(users).values([
+      {
+        email: 'admin@rakeez.sa',
+        password: defaultPassword,
+        name: 'Admin User',
+        role: 'admin',
+        language: 'en',
+        isVerified: true,
+      },
+      {
+        email: 'tech@rakeez.sa',
+        password: defaultPassword,
+        name: 'Technician User',
+        role: 'technician',
+        language: 'en',
+        isVerified: true,
+      },
+      {
+        email: 'ahmed.tech@rakeez.sa',
+        phone: '+966501234567',
+        password: defaultPassword,
+        name: 'Ahmed Al-Rashid',
+        nameAr: 'أحمد الراشد',
+        role: 'technician',
+        language: 'ar',
+        isVerified: true,
+      },
+      {
+        email: 'customer1@example.com',
+        phone: '+966512345678',
+        password: defaultPassword,
+        name: 'Sarah Johnson',
+        role: 'customer',
+        language: 'en',
+        isVerified: true,
+      },
+      {
+        email: 'customer2@example.com',
+        phone: '+966523456789',
+        password: defaultPassword,
+        name: 'Mohammed Al-Harbi',
+        nameAr: 'محمد الحربي',
+        role: 'customer',
+        language: 'ar',
+        isVerified: true,
+      },
+      {
+        email: 'customer3@example.com',
+        phone: '+966534567890',
+        password: defaultPassword,
+        name: 'Fatima Al-Salem',
+        nameAr: 'فاطمة السالم',
+        role: 'customer',
+        language: 'ar',
+        isVerified: true,
+      },
+    ]).onConflictDoNothing().returning();
+    
+    console.log(`✅ Created ${demoUsers.length} demo users`);
+
+    // Create wallets for all users
+    for (const user of demoUsers) {
+      await db.insert(wallets).values({
+        userId: user.id,
+        balance: user.role === 'customer' ? '500.00' : '0.00', // Give customers starting balance
+      }).onConflictDoNothing();
+    }
+    console.log(`✅ Created wallets for ${demoUsers.length} users`);
+
+    // 8. Seed Demo Addresses for Customers
+    console.log('🏠 Seeding demo addresses...');
+    const customers = demoUsers.filter(u => u.role === 'customer');
+    const demoAddresses = [];
+    
+    for (const customer of customers) {
+      demoAddresses.push({
+        userId: customer.id,
+        label: 'Home',
+        address: 'King Fahd Road, Al Olaya District',
+        addressAr: 'طريق الملك فهد، حي العليا',
+        city: 'Riyadh',
+        latitude: '24.7136',
+        longitude: '46.6753',
+        isDefault: true,
+      });
+    }
+    
+    const createdAddresses = await db.insert(addresses).values(demoAddresses).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdAddresses.length} demo addresses`);
+
+    // 9. Seed Demo Bookings
+    console.log('📅 Seeding demo bookings...');
+    const technicians = demoUsers.filter(u => u.role === 'technician');
+    const demoBookings = [];
+    
+    // Create varied bookings with different statuses
+    if (customers.length > 0 && createdServices.length > 0 && createdAddresses.length > 0 && technicians.length > 0) {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const lastWeek = new Date(today);
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      
+      demoBookings.push(
+        {
+          userId: customers[0].id,
+          serviceId: createdServices[0].id,
+          packageId: createdPackages.length > 0 ? createdPackages[0].id : null,
+          addressId: createdAddresses[0].id,
+          technicianId: technicians[0].id,
+          scheduledDate: yesterday.toISOString().split('T')[0],
+          scheduledTime: '10:00',
+          status: 'completed',
+          serviceCost: '150.00',
+          totalAmount: '172.50',
+          vatAmount: '22.50',
+          completedAt: yesterday,
+          createdAt: lastWeek,
+        } as any,
+        {
+          userId: customers.length > 1 ? customers[1].id : customers[0].id,
+          serviceId: createdServices.length > 2 ? createdServices[2].id : createdServices[0].id,
+          addressId: createdAddresses.length > 1 ? createdAddresses[1].id : createdAddresses[0].id,
+          technicianId: technicians.length > 1 ? technicians[1].id : technicians[0].id,
+          scheduledDate: today.toISOString().split('T')[0],
+          scheduledTime: '14:00',
+          status: 'confirmed',
+          serviceCost: '250.00',
+          totalAmount: '287.50',
+          vatAmount: '37.50',
+          createdAt: yesterday,
+        } as any,
+        {
+          userId: customers.length > 2 ? customers[2].id : customers[0].id,
+          serviceId: createdServices.length > 4 ? createdServices[4].id : createdServices[0].id,
+          addressId: createdAddresses.length > 2 ? createdAddresses[2].id : createdAddresses[0].id,
+          scheduledDate: new Date(today.getTime() + 86400000).toISOString().split('T')[0], // Tomorrow
+          scheduledTime: '09:00',
+          status: 'pending',
+          serviceCost: '300.00',
+          totalAmount: '345.00',
+          vatAmount: '45.00',
+          createdAt: today,
+        } as any,
+        {
+          userId: customers[0].id,
+          serviceId: createdServices.length > 6 ? createdServices[6].id : createdServices[1].id,
+          addressId: createdAddresses[0].id,
+          technicianId: technicians[0].id,
+          scheduledDate: new Date(lastWeek.getTime() - 86400000).toISOString().split('T')[0],
+          scheduledTime: '16:00',
+          status: 'completed',
+          serviceCost: '200.00',
+          totalAmount: '230.00',
+          vatAmount: '30.00',
+          completedAt: lastWeek,
+          createdAt: new Date(lastWeek.getTime() - 172800000),
+        } as any,
+        {
+          userId: customers.length > 1 ? customers[1].id : customers[0].id,
+          serviceId: createdServices.length > 8 ? createdServices[8].id : createdServices[1].id,
+          addressId: createdAddresses.length > 1 ? createdAddresses[1].id : createdAddresses[0].id,
+          scheduledDate: yesterday.toISOString().split('T')[0],
+          scheduledTime: '11:00',
+          status: 'in_progress',
+          serviceCost: '100.00',
+          totalAmount: '115.00',
+          vatAmount: '15.00',
+          createdAt: new Date(yesterday.getTime() - 86400000),
+        } as any,
+        {
+          userId: customers.length > 2 ? customers[2].id : customers[0].id,
+          serviceId: createdServices.length > 10 ? createdServices[10].id : createdServices[2].id,
+          addressId: createdAddresses.length > 2 ? createdAddresses[2].id : createdAddresses[0].id,
+          technicianId: technicians.length > 1 ? technicians[1].id : technicians[0].id,
+          scheduledDate: new Date(lastWeek.getTime() - 172800000).toISOString().split('T')[0],
+          scheduledTime: '15:30',
+          status: 'completed',
+          serviceCost: '400.00',
+          totalAmount: '460.00',
+          vatAmount: '60.00',
+          completedAt: new Date(lastWeek.getTime() - 172800000),
+          createdAt: new Date(lastWeek.getTime() - 259200000),
+        } as any
+      );
+    }
+    
+    const createdBookings = await db.insert(bookings).values(demoBookings).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdBookings.length} demo bookings`);
+
+    // 10. Seed Demo Payments
+    console.log('💳 Seeding demo payments...');
+    const demoPayments = [];
+    const completedBookings = createdBookings.filter(b => b.status === 'completed');
+    
+    for (const booking of completedBookings) {
+      demoPayments.push({
+        bookingId: booking.id,
+        userId: booking.userId,
+        amount: booking.totalAmount || '0.00',
+        paymentMethod: 'wallet' as const,
+        walletAmount: booking.totalAmount || '0.00',
+        gatewayAmount: '0.00',
+        status: 'paid' as const,
+      });
+    }
+    
+    const createdPayments = await db.insert(payments).values(demoPayments).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdPayments.length} demo payments`);
+
+    // 11. Seed Demo Reviews
+    console.log('⭐ Seeding demo reviews...');
+    const demoReviews = [];
+    
+    for (const booking of completedBookings.slice(0, 3)) {
+      demoReviews.push({
+        bookingId: booking.id,
+        userId: booking.userId,
+        serviceId: booking.serviceId,
+        technicianId: booking.technicianId || technicians[0].id,
+        serviceRating: 4.5,
+        technicianRating: 5,
+        comment: 'Excellent service! Very professional and thorough.',
+        commentAr: 'خدمة ممتازة! احترافية جداً ودقيقة.',
+      });
+    }
+    
+    const createdReviews = await db.insert(reviews).values(demoReviews).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdReviews.length} demo reviews`);
+
     console.log('');
     console.log('✨ Database seeding completed successfully!');
     console.log('');
@@ -457,6 +693,11 @@ async function seed() {
     console.log(`   - ${createdSpareParts.length} spare parts`);
     console.log(`   - ${createdPromotions.length} promotions`);
     console.log(`   - ${createdFaqs.length} FAQs`);
+    console.log(`   - ${demoUsers.length} demo users (1 admin, ${technicians.length} technicians, ${customers.length} customers)`);
+    console.log(`   - ${createdAddresses.length} demo addresses`);
+    console.log(`   - ${createdBookings.length} demo bookings`);
+    console.log(`   - ${createdPayments.length} demo payments`);
+    console.log(`   - ${createdReviews.length} demo reviews`);
     console.log('');
 
   } catch (error) {
