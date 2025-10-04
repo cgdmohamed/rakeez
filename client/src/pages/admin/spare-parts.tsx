@@ -168,7 +168,7 @@ export default function AdminSpareParts() {
         ar: values.description_ar || '',
       },
       category: values.category,
-      brandId: values.brandId || null,
+      brandId: values.brandId && values.brandId !== 'none' ? values.brandId : null,
       price: values.price,
       stock: values.stock_quantity,
       image: values.image || null,
@@ -188,7 +188,7 @@ export default function AdminSpareParts() {
         ar: values.description_ar || '',
       },
       category: values.category,
-      brandId: values.brandId || null,
+      brandId: values.brandId && values.brandId !== 'none' ? values.brandId : null,
       price: values.price,
       stock: values.stock_quantity,
       image: values.image || null,
@@ -204,7 +204,7 @@ export default function AdminSpareParts() {
       description_en: sparePart.description?.en || '',
       description_ar: sparePart.description?.ar || '',
       category: sparePart.category || '',
-      brandId: sparePart.brandId || '',
+      brandId: sparePart.brandId || 'none',
       price: sparePart.price || 0,
       stock_quantity: sparePart.stock || sparePart.stock_quantity || 0,
       image: sparePart.image || '',
@@ -397,7 +397,7 @@ export default function AdminSpareParts() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {brands.map((brand) => (
                             <SelectItem key={brand.id} value={brand.id}>
                               {brand.name}
@@ -612,7 +612,7 @@ export default function AdminSpareParts() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {brands.map((brand) => (
                             <SelectItem key={brand.id} value={brand.id}>
                               {brand.name}

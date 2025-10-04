@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,7 @@ export default function AdminBrands() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     logo: '',
@@ -101,6 +102,47 @@ export default function AdminBrands() {
     },
   });
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image size must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const { uploadURL } = await apiRequest('POST', '/api/v2/objects/upload', {});
+      
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const imageUrl = uploadURL.split('?')[0];
+      setFormData({ ...formData, logo: imageUrl });
+      toast({ title: 'Success', description: 'Logo uploaded successfully' });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: 'Error', description: 'Failed to upload logo', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -176,14 +218,41 @@ export default function AdminBrands() {
                 />
               </div>
               <div>
-                <Label htmlFor="brand-logo">Logo URL (optional)</Label>
-                <Input
-                  id="brand-logo"
-                  value={formData.logo}
-                  onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                  placeholder="https://example.com/logo.png"
-                  data-testid="input-brand-logo"
-                />
+                <Label htmlFor="brand-logo">Logo</Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      id="brand-logo"
+                      value={formData.logo}
+                      onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                      placeholder="https://example.com/logo.png"
+                      data-testid="input-brand-logo"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={uploading}
+                      onClick={() => document.getElementById('file-upload-create-brand')?.click()}
+                      data-testid="button-upload-logo"
+                    >
+                      {uploading ? '...' : <Upload className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <input
+                    id="file-upload-create-brand"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  {formData.logo && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                      <span className="truncate">{formData.logo}</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
@@ -296,14 +365,41 @@ export default function AdminBrands() {
               />
             </div>
             <div>
-              <Label htmlFor="edit-brand-logo">Logo URL (optional)</Label>
-              <Input
-                id="edit-brand-logo"
-                value={formData.logo}
-                onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                data-testid="input-edit-brand-logo"
-              />
+              <Label htmlFor="edit-brand-logo">Logo</Label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-brand-logo"
+                    value={formData.logo}
+                    onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                    placeholder="https://example.com/logo.png"
+                    data-testid="input-edit-brand-logo"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={uploading}
+                    onClick={() => document.getElementById('file-upload-edit-brand')?.click()}
+                    data-testid="button-upload-logo-edit"
+                  >
+                    {uploading ? '...' : <Upload className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <input
+                  id="file-upload-edit-brand"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                {formData.logo && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ImageIcon className="h-4 w-4" />
+                    <span className="truncate">{formData.logo}</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
