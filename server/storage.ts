@@ -26,6 +26,11 @@ export interface IStorage {
   getUserByPhone(phone: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  getAllUsers(role?: string, status?: string): Promise<User[]>;
+  getInternalUsers(status?: string): Promise<User[]>;
+  updateUserStatus(id: string, status: string): Promise<void>;
+  updateUserLastLogin(id: string): Promise<void>;
+  deleteUser(id: string): Promise<void>;
   
   // Addresses
   getUserAddresses(userId: string): Promise<Address[]>;
@@ -206,6 +211,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updatedUser;
+  }
+
+  async getAllUsers(role?: string, status?: string): Promise<User[]> {
+    let query = db.select().from(users);
+    const conditions = [];
+    
+    if (role) {
+      conditions.push(eq(users.role, role as any));
+    }
+    if (status) {
+      conditions.push(eq(users.status, status as any));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const usersList = await query.orderBy(desc(users.createdAt));
+    return usersList;
+  }
+
+  async getInternalUsers(status?: string): Promise<User[]> {
+    const internalRoles = ['admin', 'technician', 'support', 'finance'];
+    const conditions = [sql`${users.role} IN (${sql.join(internalRoles.map(r => sql`${r}`), sql`, `)})`];
+    
+    if (status) {
+      conditions.push(eq(users.status, status as any));
+    }
+    
+    const usersList = await db
+      .select()
+      .from(users)
+      .where(and(...conditions))
+      .orderBy(desc(users.createdAt));
+    
+    return usersList;
+  }
+
+  async updateUserStatus(id: string, status: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async getUsersByRole(role: string): Promise<any[]> {

@@ -4021,6 +4021,303 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ==================== ADMIN - USER MANAGEMENT ====================
+  
+  // Get All Internal Users (Admin only)
+  app.get('/api/v2/admin/users', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { role, status } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const users = await storage.getInternalUsers(status as string);
+      
+      // Filter by role if specified
+      let filteredUsers = users;
+      if (role) {
+        filteredUsers = users.filter(user => user.role === role);
+      }
+      
+      // Remove password from response
+      const safeUsers = filteredUsers.map(user => {
+        const { password, ...safeUser } = user;
+        return safeUser;
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.users_retrieved', language),
+        data: safeUsers,
+      });
+      
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get User by ID (Admin only)
+  app.get('/api/v2/admin/users/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.user_not_found', language),
+        });
+      }
+      
+      // Remove password from response
+      const { password, ...safeUser } = user;
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_retrieved', language),
+        data: safeUser,
+      });
+      
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Create User (Admin only)
+  app.post('/api/v2/admin/users', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      password: z.string().min(AUTH_CONSTANTS.MIN_PASSWORD_LENGTH),
+      name: z.string().min(2),
+      nameAr: z.string().optional(),
+      role: z.enum(['admin', 'technician', 'support', 'finance']),
+      status: z.enum(['active', 'inactive', 'suspended']).default('active'),
+      language: z.enum(['en', 'ar']).default('en'),
+    }).refine(data => data.email || data.phone, {
+      message: "Either email or phone is required"
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { email, phone, password, name, nameAr, role, status, language } = req.body;
+      const lang = req.headers['accept-language'] || 'en';
+      
+      // Check if user exists
+      const existingUser = email 
+        ? await storage.getUserByEmail(email)
+        : phone ? await storage.getUserByPhone(phone!) : null;
+        
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_already_exists', lang),
+        });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        email,
+        phone: phone ? HELPERS.formatSaudiPhone(phone) : undefined,
+        password: hashedPassword,
+        name,
+        nameAr,
+        role,
+        status,
+        language,
+        isVerified: true, // Admin-created users are auto-verified
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_created',
+        resourceType: 'user',
+        resourceId: user.id,
+        newValues: { email, phone, name, role, status }
+      });
+      
+      // Remove password from response
+      const { password: _, ...safeUser } = user;
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.user_created', lang),
+        data: safeUser,
+      });
+      
+    } catch (error) {
+      console.error('Create user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update User (Admin only)
+  app.put('/api/v2/admin/users/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      password: z.string().min(AUTH_CONSTANTS.MIN_PASSWORD_LENGTH).optional(),
+      name: z.string().min(2).optional(),
+      nameAr: z.string().optional(),
+      role: z.enum(['admin', 'technician', 'support', 'finance']).optional(),
+      status: z.enum(['active', 'inactive', 'suspended']).optional(),
+      language: z.enum(['en', 'ar']).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { password, ...updateData } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.user_not_found', language),
+        });
+      }
+      
+      // Hash password if provided
+      const updates: any = { ...updateData };
+      if (password) {
+        updates.password = await bcrypt.hash(password, 10);
+      }
+      
+      const updatedUser = await storage.updateUser(id, updates);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_updated',
+        resourceType: 'user',
+        resourceId: id,
+        oldValues: user,
+        newValues: updates
+      });
+      
+      // Remove password from response
+      const { password: _, ...safeUser } = updatedUser;
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_updated', language),
+        data: safeUser,
+      });
+      
+    } catch (error) {
+      console.error('Update user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update User Status (Admin only)
+  app.patch('/api/v2/admin/users/:id/status', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      status: z.enum(['active', 'inactive', 'suspended']),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.user_not_found', language),
+        });
+      }
+      
+      await storage.updateUserStatus(id, status);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_status_updated',
+        resourceType: 'user',
+        resourceId: id,
+        oldValues: { status: user.status },
+        newValues: { status }
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_status_updated', language),
+      });
+      
+    } catch (error) {
+      console.error('Update user status error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Delete User (Admin only)
+  app.delete('/api/v2/admin/users/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.user_not_found', language),
+        });
+      }
+      
+      // Prevent deleting yourself
+      if (id === req.user.id) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('admin.cannot_delete_self', language),
+        });
+      }
+      
+      await storage.deleteUser(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_deleted',
+        resourceType: 'user',
+        resourceId: id,
+        oldValues: user
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_deleted', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // ==================== TECHNICIAN ENDPOINTS ====================
   
   // Get Technician Orders

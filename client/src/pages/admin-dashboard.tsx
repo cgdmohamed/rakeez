@@ -7,6 +7,7 @@ import {
   FileText,
   CreditCard,
   Users,
+  UserCog,
   Wrench,
   BarChart3,
   LogOut,
@@ -31,6 +32,7 @@ import AdminPayments from './admin/payments';
 import AdminCustomers from './admin/customers';
 import CustomerProfile from './admin/customer-profile';
 import AdminTechnicians from './admin/technicians';
+import AdminUsers from './admin/users';
 import AdminAnalytics from './admin/analytics';
 import AdminWallets from './admin/wallets';
 import AdminNotifications from './admin/notifications';
@@ -47,6 +49,7 @@ const navigation = [
   { name: 'Wallets', href: '/admin/wallets', icon: Wallet },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Technicians', href: '/admin/technicians', icon: Wrench },
+  { name: 'Users', href: '/admin/users', icon: UserCog },
   { name: 'Notifications', href: '/admin/notifications', icon: Bell },
   { name: 'Support', href: '/admin/support', icon: MessageSquare },
   { name: 'Services', href: '/admin/services', icon: Settings },
@@ -268,6 +271,7 @@ export default function AdminDashboard() {
             <Route path="/admin/wallets" component={AdminWallets} />
             <Route path="/admin/customers" component={AdminCustomers} />
             <Route path="/admin/technicians" component={AdminTechnicians} />
+            <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/notifications" component={AdminNotifications} />
             <Route path="/admin/support" component={AdminSupport} />
             <Route path="/admin/services" component={AdminServices} />
