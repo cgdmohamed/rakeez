@@ -153,13 +153,13 @@ export default function AdminDashboard() {
       <main className="flex-1 overflow-y-auto bg-background">
         <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8">
           <Switch>
+            <Route path="/admin/customers/:id" component={CustomerProfile} />
             <Route path="/admin/overview" component={AdminOverview} />
             <Route path="/admin/dashboard" component={AdminOverview} />
             <Route path="/admin/bookings" component={AdminBookings} />
             <Route path="/admin/quotations" component={AdminQuotations} />
             <Route path="/admin/payments" component={AdminPayments} />
             <Route path="/admin/wallets" component={AdminWallets} />
-            <Route path="/admin/customers/:id" component={CustomerProfile} />
             <Route path="/admin/customers" component={AdminCustomers} />
             <Route path="/admin/technicians" component={AdminTechnicians} />
             <Route path="/admin/notifications" component={AdminNotifications} />
@@ -169,6 +169,11 @@ export default function AdminDashboard() {
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
             <Route path="/admin" component={AdminOverview} />
+            <Route>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Admin page not found</p>
+              </div>
+            </Route>
           </Switch>
         </div>
       </main>
