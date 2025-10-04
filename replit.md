@@ -8,6 +8,25 @@ Rakeez is a comprehensive Node.js + Express RESTful API backend for a bilingual 
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (October 4, 2025)
+
+**Critical Bug Fixes:**
+- Fixed ".toFixed is not a function" runtime errors across admin dashboard by converting PostgreSQL numeric/decimal strings to JavaScript numbers
+- Added security patch to strip sensitive fields (password, resetToken, otpCode, deviceToken) from admin API responses
+
+**User Management Implementation:**
+- Implemented complete CRUD UI for technicians management with create/edit dialogs
+- Implemented complete CRUD UI for customers management with create/edit dialogs
+- Forms include: name, email, phone, password (required on create, optional on edit), language preference, verification status toggle
+- Integrated with backend POST /api/v2/admin/users and PUT /api/v2/admin/users/:id endpoints
+- Added proper validation, loading states, toast notifications, and cache invalidation
+- All dialogs use Shadcn/ui components following design_guidelines.md patterns
+
+**Backend Data Type Fixes:**
+- Updated storage.ts getUsersByRole to convert PostgreSQL string values to numbers
+- Updated routes.ts analytics endpoint to return proper numeric types
+- Frontend now uses Number() wrapper for all numeric displays: (Number(value) || 0).toFixed(2)
+
 ## System Architecture
 
 ### Frontend Architecture
