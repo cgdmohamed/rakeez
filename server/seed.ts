@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { db } from './db';
 import { 
   serviceCategories, services, servicePackages, spareParts, promotions, faqs,
