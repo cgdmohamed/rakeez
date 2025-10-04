@@ -80,6 +80,7 @@ Preferred communication style: Simple, everyday language.
 **Infrastructure Services:**
 - **Redis (Optional)**: Session management, rate limiting, OTP storage, webhook deduplication.
 - **Neon Database (PostgreSQL)**: Primary data store.
+- **Replit Object Storage**: File uploads (brand logos, spare part images, avatars) via Google Cloud Storage with presigned URLs.
 
 **Utilities:**
 - **PDFKit**: Invoice/report generation.
@@ -87,3 +88,29 @@ Preferred communication style: Simple, everyday language.
 - **jsonwebtoken**: JWT handling.
 - **Zod**: Schema validation.
 - **Axios**: HTTP client.
+
+### File Upload System
+**Object Storage Configuration:**
+- Bucket: `replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4`
+- Private directory: `/replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4/.private`
+- Public search paths: `/replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4/public`
+
+**Upload Flow:**
+1. Frontend calls `POST /api/v2/objects/upload` (authenticated) to get presigned URL
+2. Backend generates signed URL via Replit sidecar at `http://127.0.0.1:1106/object-storage/signed-object-url`
+3. Frontend uploads file directly to Google Cloud Storage using presigned URL (PUT request)
+4. Frontend extracts base URL (removes query params) and stores in database
+5. Files stored with ACL policies for access control
+
+**Implementation Details:**
+- `server/objectStorage.ts`: Core service for object storage operations
+- `server/objectAcl.ts`: ACL policy management for private objects
+- Upload endpoint returns: `{ uploadURL: string }` with 15-minute TTL
+- Uploaded files: `.private/uploads/{uuid}`
+- Important: `apiRequest()` returns Response object - must call `.json()` to parse
+
+**Security:**
+- ACL policies enforce owner-based access control
+- Visibility: `public` (accessible to all) or `private` (owner + ACL rules only)
+- Presigned URLs expire after 15 minutes
+- Authentication required for upload URL generation
