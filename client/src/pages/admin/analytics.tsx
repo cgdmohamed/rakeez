@@ -12,7 +12,7 @@ export default function AdminAnalytics() {
   const [reportType, setReportType] = useState('analytics');
   const [exportFormat, setExportFormat] = useState('csv');
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading } = useQuery({
     queryKey: ['/api/v2/admin/analytics'],
   });
 
@@ -99,19 +99,25 @@ export default function AdminAnalytics() {
             <CardTitle>Top Services</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {topServices.map((service: any, index: number) => (
-                <div key={index} className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{service.name}</div>
-                    <div className="text-sm text-muted-foreground">{service.orders} orders</div>
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            ) : topServices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No service data available</div>
+            ) : (
+              <div className="space-y-3">
+                {topServices.map((service: any, index: number) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{service.name}</div>
+                      <div className="text-sm text-muted-foreground">{service.orders} orders</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{service.revenue} SAR</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-medium">{service.revenue} SAR</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -120,21 +126,27 @@ export default function AdminAnalytics() {
             <CardTitle>Technician Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {technicianPerformance.map((tech: any, index: number) => (
-                <div key={index} className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{tech.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {tech.completed_orders} completed
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            ) : technicianPerformance.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No technician data available</div>
+            ) : (
+              <div className="space-y-3">
+                {technicianPerformance.map((tech: any, index: number) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{tech.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {tech.completed_orders} completed
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">⭐ {tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-medium">⭐ {tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

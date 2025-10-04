@@ -92,31 +92,41 @@ export default function AdminNotifications() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {notifications.map((notification: any) => (
-                  <TableRow key={notification.id} data-testid={`row-notification-${notification.id}`}>
-                    <TableCell>
-                      <div className="font-medium" data-testid={`text-notification-name-${notification.id}`}>
-                        {notification.userName}
+                {notifications.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      <div className="text-muted-foreground">
+                        No notifications found. Send your first notification using the button above.
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" data-testid={`badge-notification-type-${notification.id}`}>
-                        {notification.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-notification-title-${notification.id}`}>
-                      {notification.title?.en || notification.title}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={notification.isRead ? 'secondary' : 'default'} data-testid={`badge-notification-status-${notification.id}`}>
-                        {notification.isRead ? 'Read' : 'Unread'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-notification-sent-${notification.id}`}>
-                      {format(new Date(notification.createdAt), 'MMM d, yyyy HH:mm')}
-                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  notifications.map((notification: any) => (
+                    <TableRow key={notification.id} data-testid={`row-notification-${notification.id}`}>
+                      <TableCell>
+                        <div className="font-medium" data-testid={`text-notification-name-${notification.id}`}>
+                          {notification.userName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" data-testid={`badge-notification-type-${notification.id}`}>
+                          {notification.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell data-testid={`text-notification-title-${notification.id}`}>
+                        {notification.title?.en || notification.title}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={notification.isRead ? 'secondary' : 'default'} data-testid={`badge-notification-status-${notification.id}`}>
+                          {notification.isRead ? 'Read' : 'Unread'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell data-testid={`text-notification-sent-${notification.id}`}>
+                        {format(new Date(notification.createdAt), 'MMM d, yyyy HH:mm')}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}
