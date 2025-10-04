@@ -293,13 +293,6 @@ export class DatabaseStorage implements IStorage {
     return userList;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return await db
-      .select()
-      .from(users)
-      .orderBy(desc(users.createdAt));
-  }
-
   // Addresses
   async getUserAddresses(userId: string): Promise<Address[]> {
     return await db.select().from(addresses).where(eq(addresses.userId, userId));
