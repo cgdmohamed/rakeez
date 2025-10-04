@@ -153,6 +153,7 @@ export default function AdminDashboard() {
       <main className="flex-1 overflow-y-auto bg-background">
         <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8">
           <Switch>
+            <Route path="/admin/customers/:id/overview" component={CustomerProfile} />
             <Route path="/admin/customers/:id" component={CustomerProfile} />
             <Route path="/admin/overview" component={AdminOverview} />
             <Route path="/admin/dashboard" component={AdminOverview} />
