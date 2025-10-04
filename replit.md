@@ -10,6 +10,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### Instant Table Updates After Mutations (October 4, 2025)
+Fixed issue where tables only updated after full page refresh by implementing comprehensive cache-busting:
+
+**Query Client Configuration:**
+- Changed `staleTime` from `Infinity` to `0` to ensure queries are immediately considered stale
+- Enables React Query's `invalidateQueries` to trigger immediate refetches
+
+**Cache-Busting Implementation:**
+- Added HTTP headers to all fetch requests: `Cache-Control: no-cache, no-store, must-revalidate` and `Pragma: no-cache`
+- Added fetch API option: `cache: "no-store"`
+- Prevents browser and service worker caching from serving stale data
+
+**Result:**
+- All admin tables (brands, spare parts, services, customers, technicians, etc.) now update instantly after add/edit/delete operations
+- No manual page refresh required
+- All existing `invalidateQueries` calls now work properly
+
 ### Analytics Dashboard with Real-Time Charts (October 4, 2025)
 Implemented comprehensive analytics dashboard with live data visualization:
 
