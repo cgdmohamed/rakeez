@@ -118,7 +118,8 @@ export default function AdminBrands() {
 
     try {
       setUploading(true);
-      const { uploadURL } = await apiRequest('POST', '/api/v2/objects/upload', {});
+      const response = await apiRequest('POST', '/api/v2/objects/upload', {});
+      const { uploadURL } = await response.json();
       
       const uploadResponse = await fetch(uploadURL, {
         method: 'PUT',
