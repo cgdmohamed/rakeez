@@ -20,6 +20,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+interface BookingResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    user?: { name: string };
+    service?: { name: { en: string; ar: string } };
+    scheduled_date: string;
+    scheduled_time: string;
+    total_amount: number;
+    status: string;
+    payment_id?: string;
+  }[];
+}
+
 export default function AdminBookings() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -40,7 +55,7 @@ export default function AdminBookings() {
     reason: '',
   });
 
-  const { data: bookingsData, isLoading } = useQuery<any>({
+  const { data: bookingsData, isLoading } = useQuery<BookingResponse>({
     queryKey: ['/api/v2/admin/bookings'],
   });
 
@@ -56,10 +71,10 @@ export default function AdminBookings() {
         description: 'Booking status has been updated successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update status',
+        description: error instanceof Error ? error.message : 'Failed to update status',
         variant: 'destructive',
       });
     },
@@ -78,10 +93,10 @@ export default function AdminBookings() {
         description: 'Booking has been cancelled successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to cancel booking',
+        description: error instanceof Error ? error.message : 'Failed to cancel booking',
         variant: 'destructive',
       });
     },
@@ -104,10 +119,10 @@ export default function AdminBookings() {
         description: 'Payment has been refunded successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to refund payment',
+        description: error instanceof Error ? error.message : 'Failed to refund payment',
         variant: 'destructive',
       });
     },
@@ -116,7 +131,7 @@ export default function AdminBookings() {
   const bookings = bookingsData?.data || [];
   const filteredBookings = statusFilter === 'all' 
     ? bookings 
-    : bookings.filter((b: any) => b.status === statusFilter);
+    : bookings.filter((b) => b.status === statusFilter);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -169,12 +184,12 @@ export default function AdminBookings() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Bookings</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all" data-testid="select-item-all">All Bookings</SelectItem>
+            <SelectItem value="pending" data-testid="select-item-pending">Pending</SelectItem>
+            <SelectItem value="confirmed" data-testid="select-item-confirmed">Confirmed</SelectItem>
+            <SelectItem value="in_progress" data-testid="select-item-in-progress">In Progress</SelectItem>
+            <SelectItem value="completed" data-testid="select-item-completed">Completed</SelectItem>
+            <SelectItem value="cancelled" data-testid="select-item-cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -206,7 +221,7 @@ export default function AdminBookings() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBookings.map((booking: any) => (
+                filteredBookings.map((booking) => (
                   <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`}>
                     <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
                     <TableCell>{booking.user?.name || 'N/A'}</TableCell>
@@ -229,11 +244,11 @@ export default function AdminBookings() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                            <SelectItem value="pending" data-testid={`select-item-pending-${booking.id}`}>Pending</SelectItem>
+                            <SelectItem value="confirmed" data-testid={`select-item-confirmed-${booking.id}`}>Confirmed</SelectItem>
+                            <SelectItem value="in_progress" data-testid={`select-item-in-progress-${booking.id}`}>In Progress</SelectItem>
+                            <SelectItem value="completed" data-testid={`select-item-completed-${booking.id}`}>Completed</SelectItem>
+                            <SelectItem value="cancelled" data-testid={`select-item-cancelled-${booking.id}`}>Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
                         

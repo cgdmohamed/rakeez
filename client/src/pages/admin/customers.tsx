@@ -15,10 +15,26 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 
+interface Customer {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  language: string;
+  isVerified: boolean;
+  createdAt: Date;
+}
+
+interface CustomersResponse {
+  success: boolean;
+  message: string;
+  data: Customer[];
+}
+
 export default function AdminCustomers() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -28,14 +44,21 @@ export default function AdminCustomers() {
     isVerified: true,
   });
 
-  const { data: customersData, isLoading } = useQuery({
+  const { data: customersData, isLoading } = useQuery<CustomersResponse>({
     queryKey: ['/api/v2/admin/users?role=customer'],
   });
 
   const customers = customersData?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: {
+      name: string;
+      email: string;
+      phone: string;
+      password: string;
+      language: string;
+      isVerified: boolean;
+    }) => {
       return apiRequest('POST', '/api/v2/admin/users', {
         ...data,
         role: 'customer',
@@ -50,17 +73,27 @@ export default function AdminCustomers() {
       setIsCreateOpen(false);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create customer',
+        description: error instanceof Error ? error.message : 'Failed to create customer',
         variant: 'destructive',
       });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+    mutationFn: async ({ id, data }: { 
+      id: string; 
+      data: {
+        name: string;
+        email: string;
+        phone: string;
+        language: string;
+        isVerified: boolean;
+        password?: string;
+      }
+    }) => {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
     },
     onSuccess: () => {
@@ -72,10 +105,10 @@ export default function AdminCustomers() {
       setEditingCustomer(null);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update customer',
+        description: error instanceof Error ? error.message : 'Failed to update customer',
         variant: 'destructive',
       });
     },
@@ -92,7 +125,7 @@ export default function AdminCustomers() {
     });
   };
 
-  const openEditDialog = (customer: any) => {
+  const openEditDialog = (customer: Customer) => {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name || '',
@@ -107,7 +140,14 @@ export default function AdminCustomers() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCustomer) {
-      const updateData: any = {
+      const updateData: {
+        name: string;
+        email: string;
+        phone: string;
+        language: string;
+        isVerified: boolean;
+        password?: string;
+      } = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -204,8 +244,8 @@ export default function AdminCustomers() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="ar">Arabic</SelectItem>
+                    <SelectItem value="en" data-testid="select-item-en">English</SelectItem>
+                    <SelectItem value="ar" data-testid="select-item-ar">Arabic</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -219,7 +259,7 @@ export default function AdminCustomers() {
                 />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} data-testid="button-cancel-create">
                   Cancel
                 </Button>
                 <Button type="submit" data-testid="button-submit" disabled={createMutation.isPending}>
@@ -249,7 +289,7 @@ export default function AdminCustomers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer: any) => (
+              {customers.map((customer: Customer) => (
                 <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>{customer.email || 'N/A'}</TableCell>

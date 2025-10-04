@@ -22,7 +22,70 @@ export default function CustomerProfile() {
   const { toast } = useToast();
   const [topupDialog, setTopupDialog] = useState({ open: false, amount: '', reason: '' });
 
-  const { data: overviewData, isLoading } = useQuery<any>({
+  interface Booking {
+    id: string;
+    serviceName: { en: string; ar: string };
+    scheduledDate: Date;
+    totalAmount: number;
+    status: string;
+  }
+
+  interface Payment {
+    id: string;
+    paymentMethod: string;
+    amount: number;
+    status: string;
+    createdAt: Date;
+  }
+
+  interface SupportTicket {
+    id: string;
+    subject: string;
+    priority: string;
+    status: string;
+    createdAt: Date;
+  }
+
+  interface Review {
+    serviceName: { en: string; ar: string };
+    technicianName: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  }
+
+  interface CustomerOverviewResponse {
+    success: boolean;
+    message: string;
+    data: {
+      user: {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        language: string;
+        isVerified: boolean;
+        createdAt: Date;
+      };
+      stats: {
+        totalBookings: number;
+        completedBookings: number;
+        cancelledBookings: number;
+        totalSpent: number;
+        averageRating: number;
+        totalReviews: number;
+        walletBalance: number;
+        walletEarned: number;
+        walletSpent: number;
+      };
+      recentBookings: Booking[];
+      recentPayments: Payment[];
+      recentSupportTickets: SupportTicket[];
+      recentReviews: Review[];
+    };
+  }
+
+  const { data: overviewData, isLoading } = useQuery<CustomerOverviewResponse>({
     queryKey: ['/api/v2/admin/customers', id, 'overview'],
     queryFn: async () => {
       const response = await fetch(`/api/v2/admin/customers/${id}/overview`, {
@@ -53,10 +116,10 @@ export default function CustomerProfile() {
         description: 'Customer wallet has been topped up successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to top up wallet',
+        description: error instanceof Error ? error.message : 'Failed to top up wallet',
         variant: 'destructive',
       });
     },
@@ -79,9 +142,9 @@ export default function CustomerProfile() {
   if (!overviewData?.data) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">Customer not found</p>
+        <p className="text-muted-foreground" data-testid="text-not-found">Customer not found</p>
         <Link href="/admin/customers">
-          <Button variant="link" className="mt-4">
+          <Button variant="link" className="mt-4" data-testid="button-back-to-customers">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Customers
           </Button>
