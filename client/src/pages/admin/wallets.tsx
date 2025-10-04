@@ -16,7 +16,7 @@ export default function AdminWallets() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Wallets Management</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-page-title">Wallets Management</h1>
         <p className="text-muted-foreground" data-testid="text-page-description">
           View and manage user wallet balances and transactions
         </p>
@@ -40,12 +40,12 @@ export default function AdminWallets() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead data-testid="header-user">User</TableHead>
-                  <TableHead data-testid="header-role">Role</TableHead>
-                  <TableHead data-testid="header-balance">Balance</TableHead>
-                  <TableHead data-testid="header-earned">Total Earned</TableHead>
-                  <TableHead data-testid="header-spent">Total Spent</TableHead>
-                  <TableHead data-testid="header-created">Created</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-user">User</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-role">Role</TableHead>
+                  <TableHead className="table-header-primary numeric-cell" data-testid="header-balance">Balance</TableHead>
+                  <TableHead className="table-header-primary numeric-cell" data-testid="header-earned">Total Earned</TableHead>
+                  <TableHead className="table-header-primary numeric-cell" data-testid="header-spent">Total Spent</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-created">Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -58,8 +58,8 @@ export default function AdminWallets() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  wallets.map((wallet: any) => (
-                    <TableRow key={wallet.id} data-testid={`row-wallet-${wallet.id}`}>
+                  wallets.map((wallet: any, index: number) => (
+                    <TableRow key={wallet.id} data-testid={`row-wallet-${wallet.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                       <TableCell>
                         <div>
                           <div className="font-medium" data-testid={`text-wallet-name-${wallet.id}`}>
@@ -75,18 +75,18 @@ export default function AdminWallets() {
                           {wallet.userRole}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="numeric-cell">
                         <span className="font-semibold text-lg" data-testid={`text-wallet-balance-${wallet.id}`}>
                           <SarSymbol className="mr-1" />{(Number(wallet.balance) || 0).toFixed(2)}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <span className="text-green-600" data-testid={`text-wallet-earned-${wallet.id}`}>
+                      <TableCell className="numeric-cell">
+                        <span className="text-accent font-semibold" data-testid={`text-wallet-earned-${wallet.id}`}>
                           +<SarSymbol className="mr-1" size={12} />{(Number(wallet.totalEarned) || 0).toFixed(2)}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <span className="text-red-600" data-testid={`text-wallet-spent-${wallet.id}`}>
+                      <TableCell className="numeric-cell">
+                        <span className="text-destructive font-semibold" data-testid={`text-wallet-spent-${wallet.id}`}>
                           -<SarSymbol className="mr-1" size={12} />{(Number(wallet.totalSpent) || 0).toFixed(2)}
                         </span>
                       </TableCell>

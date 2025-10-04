@@ -178,7 +178,7 @@ export default function AdminCustomers() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold" data-testid="text-title">Customers Management</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Customers Management</h1>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-customer">
@@ -279,18 +279,18 @@ export default function AdminCustomers() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Language</TableHead>
-                <TableHead>Verified</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="table-header-primary">Name</TableHead>
+                <TableHead className="table-header-primary">Email</TableHead>
+                <TableHead className="table-header-primary">Phone</TableHead>
+                <TableHead className="table-header-primary">Language</TableHead>
+                <TableHead className="table-header-primary">Verified</TableHead>
+                <TableHead className="table-header-primary">Joined</TableHead>
+                <TableHead className="table-header-primary">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer: Customer) => (
-                <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
+              {customers.map((customer: Customer, index: number) => (
+                <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>{customer.email || 'N/A'}</TableCell>
                   <TableCell>{customer.phone || 'N/A'}</TableCell>

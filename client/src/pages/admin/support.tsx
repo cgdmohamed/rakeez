@@ -93,23 +93,21 @@ export default function AdminSupport() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'default';
-      case 'in_progress':
-        return 'secondary';
-      case 'resolved':
-        return 'outline';
-      default:
-        return 'outline';
-    }
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      open: { label: 'Open', className: 'badge-open' },
+      in_progress: { label: 'In Progress', className: 'badge-pending' },
+      resolved: { label: 'Resolved', className: 'badge-resolved' },
+      closed: { label: 'Closed', className: 'badge-closed' },
+    };
+    const config = statusMap[status] || { label: status, className: 'bg-muted' };
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Support Tickets</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-page-title">Support Tickets</h1>
         <p className="text-muted-foreground" data-testid="text-page-description">
           Manage customer support requests and conversations
         </p>
@@ -133,12 +131,12 @@ export default function AdminSupport() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead data-testid="header-user">User</TableHead>
-                  <TableHead data-testid="header-subject">Subject</TableHead>
-                  <TableHead data-testid="header-priority">Priority</TableHead>
-                  <TableHead data-testid="header-status">Status</TableHead>
-                  <TableHead data-testid="header-created">Created</TableHead>
-                  <TableHead data-testid="header-actions">Actions</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-user">User</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-subject">Subject</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-priority">Priority</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-status">Status</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-created">Created</TableHead>
+                  <TableHead className="table-header-primary" data-testid="header-actions">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -151,8 +149,8 @@ export default function AdminSupport() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tickets.map((ticket: any) => (
-                    <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`}>
+                  tickets.map((ticket: any, index: number) => (
+                    <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                       <TableCell>
                         <div className="font-medium" data-testid={`text-ticket-name-${ticket.id}`}>
                           {ticket.userName}
@@ -187,11 +185,7 @@ export default function AdminSupport() {
                           onValueChange={(value) => updateStatusMutation.mutate({ id: ticket.id, status: value })}
                         >
                           <SelectTrigger className="w-[140px]" data-testid={`select-ticket-status-${ticket.id}`}>
-                            <SelectValue>
-                              <Badge variant={getStatusColor(ticket.status)}>
-                                {ticket.status}
-                              </Badge>
-                            </SelectValue>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
@@ -238,9 +232,7 @@ export default function AdminSupport() {
                 <Badge variant={getPriorityColor(selectedTicket?.priority)}>
                   {selectedTicket?.priority}
                 </Badge>
-                <Badge variant={getStatusColor(selectedTicket?.status)}>
-                  {selectedTicket?.status}
-                </Badge>
+                {getStatusBadge(selectedTicket?.status || 'open')}
               </div>
             </DialogDescription>
           </DialogHeader>

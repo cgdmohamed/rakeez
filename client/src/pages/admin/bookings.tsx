@@ -134,14 +134,15 @@ export default function AdminBookings() {
     : bookings.filter((b) => b.status === statusFilter);
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      confirmed: 'default',
-      in_progress: 'default',
-      completed: 'outline',
-      cancelled: 'destructive',
+    const statusMap: Record<string, { label: string; className: string }> = {
+      pending: { label: 'Pending', className: 'badge-pending' },
+      confirmed: { label: 'Confirmed', className: 'badge-confirmed' },
+      in_progress: { label: 'In Progress', className: 'badge-in-progress' },
+      completed: { label: 'Completed', className: 'badge-completed' },
+      cancelled: { label: 'Cancelled', className: 'badge-cancelled' },
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    const config = statusMap[status] || { label: status, className: 'bg-muted' };
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   const handleCancelClick = (bookingId: string) => {
@@ -178,7 +179,7 @@ export default function AdminBookings() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold" data-testid="text-title">Bookings Management</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Bookings Management</h1>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
             <SelectValue placeholder="Filter by status" />
@@ -202,13 +203,13 @@ export default function AdminBookings() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="table-header-primary">ID</TableHead>
+                <TableHead className="table-header-primary">Customer</TableHead>
+                <TableHead className="table-header-primary">Service</TableHead>
+                <TableHead className="table-header-primary">Date & Time</TableHead>
+                <TableHead className="table-header-primary numeric-cell">Amount</TableHead>
+                <TableHead className="table-header-primary">Status</TableHead>
+                <TableHead className="table-header-primary">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -221,8 +222,8 @@ export default function AdminBookings() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBookings.map((booking) => (
-                  <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`}>
+                filteredBookings.map((booking, index) => (
+                  <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                     <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
                     <TableCell>{booking.user?.name || 'N/A'}</TableCell>
                     <TableCell>{booking.service?.name?.en || 'N/A'}</TableCell>
@@ -231,7 +232,7 @@ export default function AdminBookings() {
                       <br />
                       <span className="text-xs text-muted-foreground">{booking.scheduled_time}</span>
                     </TableCell>
-                    <TableCell>{booking.total_amount} SAR</TableCell>
+                    <TableCell className="numeric-cell font-semibold">{booking.total_amount} SAR</TableCell>
                     <TableCell>{getStatusBadge(booking.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

@@ -121,3 +121,71 @@
     font-family: 'Arial', sans-serif;
   }
 }
+
+@layer utilities {
+  /* Professional table styling */
+  .table-row-striped:nth-child(even) {
+    @apply bg-muted/30;
+  }
+  
+  .table-header-primary {
+    @apply font-bold text-primary;
+  }
+  
+  .numeric-cell {
+    @apply text-right font-mono;
+  }
+  
+  /* Brand status badges */
+  .badge-pending {
+    @apply bg-orange-500 text-white;
+  }
+  
+  .badge-confirmed {
+    @apply bg-primary text-primary-foreground;
+  }
+  
+  .badge-in-progress {
+    @apply bg-secondary text-secondary-foreground;
+  }
+  
+  .badge-completed {
+    @apply bg-accent text-accent-foreground;
+  }
+  
+  .badge-cancelled {
+    @apply bg-destructive text-destructive-foreground;
+  }
+  
+  .badge-paid {
+    @apply bg-accent text-accent-foreground;
+  }
+  
+  .badge-failed {
+    @apply bg-destructive text-destructive-foreground;
+  }
+  
+  .badge-refunded {
+    @apply bg-muted text-muted-foreground;
+  }
+  
+  .badge-credit {
+    @apply bg-accent text-accent-foreground;
+  }
+  
+  .badge-debit {
+    @apply bg-destructive text-destructive-foreground;
+  }
+  
+  .badge-open {
+    @apply bg-primary text-primary-foreground;
+  }
+  
+  .badge-resolved {
+    @apply bg-accent text-accent-foreground;
+  }
+  
+  .badge-closed {
+    @apply bg-muted text-muted-foreground;
+  }
+}

@@ -1,0 +1,75 @@
+## Task: Apply Professional Brand Identity Across Admin Dashboard
+
+The Admin Dashboard needs to be redesigned visually to look professional, consistent, and aligned with the official **Rakeez Brand Guidelines**.
+
+---
+
+### 1. Sidebar Navigation
+- Fix **link colors** (currently unreadable: white text on light background).  
+- Use **brand colors** for navigation states:
+  - Default: Dark Blue (`#00269A`).  
+  - Active/Selected: Cyan (`#6BDAD5`) background with bold white text.  
+  - Hover: Light blue background with Dark Blue text.  
+- Add subtle icons aligned with each label (Bookings, Quotations, Payments, etc.), matching brand style.
+
+---
+
+### 2. Tables (All Pages: Bookings, Quotations, Payments, Wallets, Spare Parts, Support, etc.)
+- Use **alternating row colors** (white / light gray) for better readability.  
+- Apply **badges with brand colors** for statuses:
+  - Bookings:  
+    - Pending → Orange badge  
+    - In Progress → Cyan badge  
+    - Completed → Green badge  
+    - Cancelled → Red badge  
+  - Payments: Paid (Green), Failed (Red), Pending (Orange).  
+  - Wallets: Credit (Green), Debit (Red).  
+  - Support Tickets: Open (Blue), In Progress (Orange), Closed (Gray).  
+- Right-align numeric values (Price, Total, Stock).  
+- Use consistent table headers with bold Dark Blue text.
+
+---
+
+### 3. Buttons & Actions
+- Replace plain icons with **styled buttons**:
+  - Primary actions: Dark Blue (`#00269A`) with white text.  
+  - Secondary: Cyan (`#6BDAD5`).  
+  - Destructive: Red.  
+- Add tooltips for clarity (e.g., “Edit Service”, “Delete Spare Part”).  
+- Place primary action buttons (Add, Create, Save) at the top-right, styled with strong brand colors.
+
+---
+
+### 4. Brand Colors & Typography
+- Apply the official palette:
+  - **Dark Blue:** `#00269A` (Primary)  
+  - **Cyan:** `#6BDAD5` (Accent)  
+  - **Green:** `#45D492`  
+  - **Light Green:** `#CBE880`  
+- Headings → Bold Dark Blue.  
+- Body text → Neutral dark gray/black.  
+- Use consistent font sizes (e.g., h1 = 24px bold, h2 = 18px semibold, body = 14–16px regular).
+
+---
+
+### 5. Global UX Enhancements
+- Add **Loading states** (spinner or skeleton loader).  
+- Add **Empty states** (e.g., “No bookings found” with a friendly illustration in brand colors).  
+- Ensure **consistent spacing** and card styling (rounded corners, subtle shadows).  
+- Make pages **responsive**: sidebar collapses to icons on small screens.
+
+---
+
+### 6. Branding Elements
+- Replace placeholder logos with official **SVG logo** (from brand package).  
+- Replace current currency symbol with the official **SVG currency symbol**.  
+- Ensure favicon, login screen, and dashboard header use official branding.
+
+---
+
+## 🎯 Goal
+Deliver a **professional-grade Admin Dashboard** that:
+- Matches the **Rakeez Brand Identity** (colors, logo, typography).  
+- Provides a **clear, readable, and modern UI** across all pages.  
+- Improves usability with badges, proper contrast, tooltips, loading/empty states.  
+- Looks **consistent, polished, and enterprise-ready**.

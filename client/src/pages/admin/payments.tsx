@@ -12,13 +12,14 @@ export default function AdminPayments() {
   const payments = paymentsData?.data || [];
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      completed: 'default',
-      failed: 'destructive',
-      refunded: 'outline',
+    const statusMap: Record<string, { label: string; className: string }> = {
+      pending: { label: 'Pending', className: 'badge-pending' },
+      paid: { label: 'Paid', className: 'badge-paid' },
+      failed: { label: 'Failed', className: 'badge-failed' },
+      refunded: { label: 'Refunded', className: 'badge-refunded' },
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    const config = statusMap[status] || { label: status, className: 'bg-muted' };
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   const getMethodBadge = (method: string) => {
@@ -40,7 +41,7 @@ export default function AdminPayments() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold" data-testid="text-title">Payments Tracking</h1>
+      <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Payments Tracking</h1>
 
       <Card>
         <CardHeader>
@@ -50,13 +51,13 @@ export default function AdminPayments() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Booking ID</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Gateway Response</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="table-header-primary">ID</TableHead>
+                <TableHead className="table-header-primary">Booking ID</TableHead>
+                <TableHead className="table-header-primary numeric-cell">Amount</TableHead>
+                <TableHead className="table-header-primary">Method</TableHead>
+                <TableHead className="table-header-primary">Status</TableHead>
+                <TableHead className="table-header-primary">Gateway Response</TableHead>
+                <TableHead className="table-header-primary">Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -69,11 +70,11 @@ export default function AdminPayments() {
                   </TableCell>
                 </TableRow>
               ) : (
-                payments.map((payment: any) => (
-                  <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
+                payments.map((payment: any, index: number) => (
+                  <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                     <TableCell className="font-mono text-xs">{payment.id.slice(0, 8)}</TableCell>
                     <TableCell className="font-mono text-xs">{payment.booking_id?.slice(0, 8)}</TableCell>
-                    <TableCell className="font-medium">{payment.amount} SAR</TableCell>
+                    <TableCell className="numeric-cell font-semibold">{payment.amount} SAR</TableCell>
                     <TableCell>{getMethodBadge(payment.payment_method)}</TableCell>
                     <TableCell>{getStatusBadge(payment.status)}</TableCell>
                     <TableCell className="font-mono text-xs">
