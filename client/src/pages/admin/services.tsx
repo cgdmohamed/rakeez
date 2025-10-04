@@ -369,45 +369,42 @@ export default function AdminServices() {
         </Card>
       ) : (
         <Tabs defaultValue={servicesData[0]?.category?.id || '0'} className="space-y-4">
-          <TabsList>
-            {servicesData.map((categoryData: any, idx: number) => (
-              <div key={categoryData.category.id} className="flex items-center gap-1">
+          <div className="flex items-start gap-4">
+            <TabsList className="flex-shrink-0">
+              {servicesData.map((categoryData: any, idx: number) => (
                 <TabsTrigger
+                  key={categoryData.category.id}
                   value={categoryData.category.id}
                   data-testid={`tab-category-${idx}`}
                 >
                   {categoryData.category.name?.en || categoryData.category.name}
                 </TabsTrigger>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={() => openEditCategory(categoryData.category)}
-                  data-testid={`button-edit-category-${idx}`}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={() => openDeleteDialog('category', categoryData.category.id, categoryData.category.name?.en)}
-                  data-testid={`button-delete-category-${idx}`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </TabsList>
+              ))}
+            </TabsList>
+          </div>
 
           {servicesData.map((categoryData: any) => (
             <TabsContent key={categoryData.category.id} value={categoryData.category.id}>
               <div className="space-y-4">
-                <div className="flex justify-end">
-                  <Button onClick={() => openCreateService(categoryData.category.id)} data-testid={`button-add-service-${categoryData.category.id}`}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Service
-                  </Button>
+                <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg">
+                  <div>
+                    <h2 className="text-xl font-semibold text-primary">{categoryData.category.name?.en || categoryData.category.name}</h2>
+                    <p className="text-sm text-muted-foreground">{categoryData.category.description?.en || categoryData.category.description}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditCategory(categoryData.category)} data-testid={`button-edit-category-${categoryData.category.id}`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit Category
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => openDeleteDialog('category', categoryData.category.id, categoryData.category.name?.en)} data-testid={`button-delete-category-${categoryData.category.id}`}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Category
+                    </Button>
+                    <Button onClick={() => openCreateService(categoryData.category.id)} data-testid={`button-add-service-${categoryData.category.id}`}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Service
+                    </Button>
+                  </div>
                 </div>
 
                 {categoryData.services.length === 0 ? (
