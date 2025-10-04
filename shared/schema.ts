@@ -109,6 +109,7 @@ export const spareParts = pgTable("spare_parts", {
   name: jsonb("name").notNull(), // { "en": "AC Filter", "ar": "فلتر تكييف" }
   description: jsonb("description").notNull(),
   category: varchar("category", { length: 100 }).notNull(),
+  brand: varchar("brand", { length: 100 }),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   stock: integer("stock").default(0).notNull(),
   image: text("image"),

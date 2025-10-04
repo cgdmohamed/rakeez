@@ -31,8 +31,11 @@ const sparePartSchema = z.object({
   name_ar: z.string().min(1, 'Arabic name is required'),
   description_en: z.string().optional(),
   description_ar: z.string().optional(),
+  category: z.string().min(1, 'Category is required'),
+  brand: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be positive'),
   stock_quantity: z.coerce.number().int().min(0, 'Stock quantity must be non-negative'),
+  image: z.string().optional(),
   sku: z.string().optional(),
 });
 
@@ -54,8 +57,11 @@ export default function AdminSpareParts() {
       name_ar: '',
       description_en: '',
       description_ar: '',
+      category: '',
+      brand: '',
       price: 0,
       stock_quantity: 0,
+      image: '',
       sku: '',
     },
   });
@@ -112,9 +118,11 @@ export default function AdminSpareParts() {
         en: values.description_en || '',
         ar: values.description_ar || '',
       },
+      category: values.category,
+      brand: values.brand || null,
       price: values.price,
-      stock_quantity: values.stock_quantity,
-      sku: values.sku || null,
+      stock: values.stock_quantity,
+      image: values.image || null,
     };
     createMutation.mutate(payload);
   };
@@ -130,9 +138,11 @@ export default function AdminSpareParts() {
         en: values.description_en || '',
         ar: values.description_ar || '',
       },
+      category: values.category,
+      brand: values.brand || null,
       price: values.price,
-      stock_quantity: values.stock_quantity,
-      sku: values.sku || null,
+      stock: values.stock_quantity,
+      image: values.image || null,
     };
     updateMutation.mutate({ id: selectedSparePart.id, data: payload });
   };
@@ -144,8 +154,11 @@ export default function AdminSpareParts() {
       name_ar: sparePart.name?.ar || '',
       description_en: sparePart.description?.en || '',
       description_ar: sparePart.description?.ar || '',
+      category: sparePart.category || '',
+      brand: sparePart.brand || '',
       price: sparePart.price || 0,
-      stock_quantity: sparePart.stock_quantity || 0,
+      stock_quantity: sparePart.stock || sparePart.stock_quantity || 0,
+      image: sparePart.image || '',
       sku: sparePart.sku || '',
     });
     setEditDialogOpen(true);
@@ -188,8 +201,8 @@ export default function AdminSpareParts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name (EN)</TableHead>
-                  <TableHead>Name (AR)</TableHead>
-                  <TableHead>SKU</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Brand</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Actions</TableHead>
@@ -208,10 +221,10 @@ export default function AdminSpareParts() {
                   spareParts.map((part: any) => (
                     <TableRow key={part.id} data-testid={`row-spare-part-${part.id}`}>
                       <TableCell className="font-medium">{part.name?.en || 'N/A'}</TableCell>
-                      <TableCell className="font-arabic">{part.name?.ar || 'N/A'}</TableCell>
-                      <TableCell className="font-mono text-xs">{part.sku || '-'}</TableCell>
+                      <TableCell>{part.category || '-'}</TableCell>
+                      <TableCell>{part.brand || '-'}</TableCell>
                       <TableCell><SarSymbol className="mr-1" />{(Number(part.price) || 0).toFixed(2)}</TableCell>
-                      <TableCell>{part.stock_quantity || 0}</TableCell>
+                      <TableCell>{part.stock || part.stock_quantity || 0}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -308,20 +321,50 @@ export default function AdminSpareParts() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="sku"
+                  name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SKU (optional)</FormLabel>
+                      <FormLabel>Category</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="SKU-001" data-testid="input-sku" />
+                        <Input {...field} placeholder="e.g. Filters, Pumps, Motors" data-testid="input-category" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="brand"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brand (optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="e.g. Carrier, LG, Samsung" data-testid="input-brand" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL (optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-image" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="price"
@@ -354,6 +397,19 @@ export default function AdminSpareParts() {
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           data-testid="input-stock"
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU (optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="SKU-001" data-testid="input-sku" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -441,20 +497,50 @@ export default function AdminSpareParts() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="sku"
+                  name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SKU (optional)</FormLabel>
+                      <FormLabel>Category</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="SKU-001" data-testid="input-edit-sku" />
+                        <Input {...field} placeholder="e.g. Filters, Pumps, Motors" data-testid="input-edit-category" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="brand"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brand (optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="e.g. Carrier, LG, Samsung" data-testid="input-edit-brand" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL (optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-edit-image" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="price"
@@ -487,6 +573,19 @@ export default function AdminSpareParts() {
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           data-testid="input-edit-stock"
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU (optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="SKU-001" data-testid="input-edit-sku" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

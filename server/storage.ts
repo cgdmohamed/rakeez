@@ -142,6 +142,7 @@ export interface IStorage {
   getOrderStats(startDate?: Date, endDate?: Date): Promise<any>;
   getRevenueStats(startDate?: Date, endDate?: Date): Promise<any>;
   getTechnicianStats(technicianId?: string): Promise<any>;
+  getTopServices(): Promise<any>;
   
   // Customer Management
   getCustomerOverview(userId: string): Promise<any>;
@@ -1219,6 +1220,27 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
 
     return result[0];
+  }
+
+  async getTopServices(): Promise<any> {
+    const result = await db
+      .select({
+        name: services.name,
+        orders: sql<number>`COUNT(${bookings.id})::int`,
+        revenue: sql<number>`COALESCE(SUM(${bookings.totalAmount}::decimal), 0)`,
+      })
+      .from(bookings)
+      .leftJoin(services, eq(bookings.serviceId, services.id))
+      .where(eq(bookings.status, 'completed'))
+      .groupBy(services.id, services.name)
+      .orderBy(desc(sql<number>`COUNT(${bookings.id})::int`))
+      .limit(5);
+
+    return result.map((service: any) => ({
+      name: service.name?.en || 'Unknown Service',
+      orders: Number(service.orders) || 0,
+      revenue: Number(service.revenue) || 0,
+    }));
   }
 
   async getCustomerOverview(userId: string): Promise<any> {

@@ -2145,10 +2145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = start_date ? new Date(start_date as string) : undefined;
       const endDate = end_date ? new Date(end_date as string) : undefined;
       
-      const [orderStats, revenueStats, technicianStats] = await Promise.all([
+      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians] = await Promise.all([
         storage.getOrderStats(startDate, endDate),
         storage.getRevenueStats(startDate, endDate),
         storage.getTechnicianStats(),
+        storage.getTopServices(),
+        storage.getUsersByRole('technician'),
       ]);
       
       // Convert all numeric values from strings to numbers
@@ -2178,6 +2180,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avgRating: Number(technicianStats.avgRating) || 0,
       };
       
+      // Format technician performance for analytics page
+      const technicianPerformance = allTechnicians.map((tech: any) => ({
+        name: tech.name,
+        completed_orders: tech.completed_orders || 0,
+        avg_rating: tech.avg_rating || 0,
+      }));
+      
       res.json({
         success: true,
         message: bilingual.getMessage('admin.analytics_retrieved', language),
@@ -2185,6 +2194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           order_stats: convertedOrderStats,
           revenue_stats: convertedRevenueStats,
           technician_stats: convertedTechnicianStats,
+          top_services: topServices || [],
+          technician_performance: technicianPerformance || [],
         }
       });
       
@@ -2816,6 +2827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ar: z.string().min(1),
       }),
       category: z.string(),
+      brand: z.string().optional(),
       price: z.number().min(0),
       stock: z.number().default(0),
       image: z.string().optional(),
@@ -2829,6 +2841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: partData.name,
         description: partData.description,
         category: partData.category,
+        brand: partData.brand,
         price: partData.price.toString(),
         stock: partData.stock,
         image: partData.image,
@@ -2869,6 +2882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ar: z.string().min(1),
       }).optional(),
       category: z.string().optional(),
+      brand: z.string().optional(),
       price: z.number().min(0).optional(),
       stock: z.number().optional(),
       image: z.string().optional(),
@@ -2884,6 +2898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (partData.name) updateData.name = partData.name;
       if (partData.description) updateData.description = partData.description;
       if (partData.category) updateData.category = partData.category;
+      if (partData.brand !== undefined) updateData.brand = partData.brand;
       if (partData.price !== undefined) updateData.price = partData.price.toString();
       if (partData.stock !== undefined) updateData.stock = partData.stock;
       if (partData.image !== undefined) updateData.image = partData.image;
