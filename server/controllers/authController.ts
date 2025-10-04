@@ -2,22 +2,48 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { IStorage } from '../storage';
-import { RedisService } from '../services/redis';
+import { redisService } from '../services/redis';
 import { twilioService } from '../services/twilio';
-import { generateTokens, blacklistToken } from '../middleware/auth';
+import { generateToken, generateRefreshToken, createTokenBlacklistKey } from '../utils/jwt';
 import { bilingual } from '../utils/bilingual';
 import { AUTH_CONSTANTS } from '../utils/constants';
-import { 
-  registerSchema, 
-  loginSchema, 
-  otpSchema, 
-  validateSchema 
-} from '../middleware/validation';
+import { z } from 'zod';
+
+// Define validation schemas locally
+const registerSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  password: z.string().min(6),
+  name: z.string(),
+  name_ar: z.string().optional(),
+  language: z.enum(['en', 'ar']).optional(),
+  device_token: z.string().optional(),
+});
+
+const loginSchema = z.object({
+  identifier: z.string(),
+  password: z.string(),
+  language: z.enum(['en', 'ar']).optional(),
+});
+
+const otpSchema = z.object({
+  identifier: z.string(),
+  otp: z.string(),
+});
+
+// Helper function to generate both access and refresh tokens
+function generateTokens(userId: string, role: string) {
+  const user = { id: userId, role, language: 'en', email: null, phone: null };
+  return {
+    accessToken: generateToken(user as any),
+    refreshToken: generateRefreshToken(user as any),
+  };
+}
 
 export class AuthController {
   constructor(
     private storage: IStorage,
-    private redis: RedisService
+    private redis: typeof redisService
   ) {}
 
   async register(req: Request, res: Response) {
@@ -178,7 +204,10 @@ export class AuthController {
       // Generate tokens
       const { accessToken, refreshToken } = generateTokens(user.id, user.role);
 
-      // Store refresh token in Redis
+      // Store access token session for middleware validation
+      await this.redis.setSession(user.id, accessToken, AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY);
+
+      // Store refresh token separately
       await this.redis.storeSession(`refresh:${user.id}`, {
         refreshToken,
         userId: user.id,
@@ -232,13 +261,13 @@ export class AuthController {
         });
       }
 
-      const { identifier, otp_code } = validation.data;
+      const { identifier, otp } = validation.data;
       const userLanguage = req.headers['accept-language'] as string || 'en';
 
       // Get OTP from Redis
-      const otpData = await this.redis.getOTP(identifier);
+      const storedOTP = await this.redis.getOTP(identifier);
       
-      if (!otpData) {
+      if (!storedOTP) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('auth.otp_expired', userLanguage)
@@ -246,7 +275,8 @@ export class AuthController {
       }
 
       // Check attempts
-      if (otpData.attempts >= AUTH_CONSTANTS.MAX_OTP_ATTEMPTS) {
+      const attempts = await this.redis.getOTPAttempts(identifier);
+      if (attempts >= AUTH_CONSTANTS.MAX_OTP_ATTEMPTS) {
         await this.redis.deleteOTP(identifier);
         return res.status(400).json({
           success: false,
@@ -255,12 +285,12 @@ export class AuthController {
       }
 
       // Verify OTP
-      if (otpData.code !== otp_code) {
+      if (storedOTP !== otp) {
         await this.redis.incrementOTPAttempts(identifier);
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('auth.otp_invalid', userLanguage),
-          attempts_remaining: AUTH_CONSTANTS.MAX_OTP_ATTEMPTS - (otpData.attempts + 1)
+          attempts_remaining: AUTH_CONSTANTS.MAX_OTP_ATTEMPTS - (attempts + 1)
         });
       }
 
@@ -285,7 +315,10 @@ export class AuthController {
       // Generate tokens
       const { accessToken, refreshToken } = generateTokens(user.id, user.role);
 
-      // Store refresh token
+      // Store access token session for middleware validation
+      await this.redis.setSession(user.id, accessToken, AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY);
+
+      // Store refresh token separately
       await this.redis.storeSession(`refresh:${user.id}`, {
         refreshToken,
         userId: user.id,
@@ -415,11 +448,11 @@ export class AuthController {
       const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
       
       // Store reset code in Redis (10 minutes expiry)
-      await this.redis.storeOTP(`reset:${identifier}`, resetCode, 600);
+      await this.redis.setOTP(`reset:${identifier}`, resetCode, 600);
 
       // Send reset code via SMS (for phone) or email
       if (user.phone && !identifier.includes('@')) {
-        const smsResult = await twilioService.sendPasswordResetCode(user.phone, resetCode, user.language);
+        const smsResult = await twilioService.sendPasswordResetOTP(user.phone, resetCode, user.language);
         console.log('Password reset SMS result:', smsResult);
       } else if (user.email) {
         // In production, send email with reset code
@@ -464,7 +497,7 @@ export class AuthController {
       // Get reset code from Redis
       const storedCode = await this.redis.getOTP(`reset:${identifier}`);
       
-      if (!storedCode || storedCode.code !== reset_code) {
+      if (!storedCode || storedCode !== reset_code) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('auth.invalid_reset_code', userLanguage)
@@ -534,21 +567,16 @@ export class AuthController {
 
       // In production, properly verify JWT refresh token
       // For now, extract user ID from stored sessions
-      const sessions = await this.redis.hgetall('sessions');
-      let userId = null;
-      let userRole = null;
+      let userId: string | null = null;
+      let userRole: string | null = null;
 
-      for (const [key, sessionData] of Object.entries(sessions)) {
-        try {
-          const session = JSON.parse(sessionData);
-          if (session.refreshToken === refresh_token) {
-            userId = session.userId;
-            userRole = session.role;
-            break;
-          }
-        } catch (e) {
-          continue;
-        }
+      // Try to find session by checking stored refresh tokens
+      // Note: This is a simplified approach. In production, properly verify JWT.
+      const sessionData = await this.redis.getStoredSession(`refresh:${refresh_token}`);
+      
+      if (sessionData && sessionData.refreshToken === refresh_token) {
+        userId = sessionData.userId;
+        userRole = sessionData.role;
       }
 
       if (!userId) {
@@ -559,9 +587,12 @@ export class AuthController {
       }
 
       // Generate new tokens
-      const { accessToken, refreshToken: newRefreshToken } = generateTokens(userId, userRole);
+      const { accessToken, refreshToken: newRefreshToken } = generateTokens(userId, userRole!);
 
-      // Update stored refresh token
+      // Store access token session for middleware validation
+      await this.redis.setSession(userId, accessToken, AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY);
+
+      // Update stored refresh token separately
       await this.redis.storeSession(`refresh:${userId}`, {
         refreshToken: newRefreshToken,
         userId,
@@ -596,7 +627,8 @@ export class AuthController {
 
       if (token) {
         // Blacklist the access token
-        await blacklistToken(token);
+        const ttl = AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY;
+        await this.redis.set(createTokenBlacklistKey(token), '1', ttl);
       }
 
       if (req.user?.id) {
@@ -625,7 +657,7 @@ export class AuthController {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
       // Store OTP in Redis
-      await this.redis.storeOTP(identifier, otp, AUTH_CONSTANTS.OTP_EXPIRY);
+      await this.redis.setOTP(identifier, otp, AUTH_CONSTANTS.OTP_EXPIRY);
 
       // Send OTP based on identifier type
       if (identifier.includes('@')) {
@@ -634,8 +666,8 @@ export class AuthController {
         return { success: true };
       } else {
         // SMS OTP
-        const result = await twilioService.sendOTP(identifier, language);
-        return { success: result.success, error: result.error };
+        const result = await twilioService.sendOTP(identifier, otp, language);
+        return { success: result };
       }
 
     } catch (error) {

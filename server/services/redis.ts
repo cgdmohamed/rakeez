@@ -39,6 +39,15 @@ class InMemoryStore {
 
   incr(key: string): number {
     const item = this.store.get(key);
+    
+    // Check if item is expired - treat as non-existent if so
+    if (item && item.expiry && item.expiry < Date.now()) {
+      this.store.delete(key);
+      // Start fresh with 1
+      this.store.set(key, { value: 1 });
+      return 1;
+    }
+    
     const currentValue = item?.value || 0;
     const newValue = currentValue + 1;
     this.store.set(key, { value: newValue, expiry: item?.expiry });
@@ -85,61 +94,87 @@ class RedisService {
 
   // OTP Management
   async setOTP(identifier: string, otp: string, ttl = 300): Promise<void> {
+    const key = `otp:${identifier}`;
     try {
-      const key = `otp:${identifier}`;
-      await this.client.setex(key, ttl, otp);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('Redis unavailable - OTP storage failed');
+      if (this.isAvailable) {
+        await this.client.setex(key, ttl, otp);
+      } else {
+        this.memoryStore.set(key, otp, ttl);
       }
-      console.warn('Redis setOTP failed (optional in development)');
+    } catch (error) {
+      console.warn('Redis setOTP failed, using in-memory fallback');
+      this.memoryStore.set(key, otp, ttl);
     }
   }
 
   async getOTP(identifier: string): Promise<string | null> {
+    const key = `otp:${identifier}`;
     try {
-      const key = `otp:${identifier}`;
-      return await this.client.get(key);
+      if (this.isAvailable) {
+        return await this.client.get(key);
+      } else {
+        return this.memoryStore.get(key);
+      }
     } catch (error) {
-      console.warn('Redis getOTP failed (optional in development)');
-      return null;
+      console.warn('Redis getOTP failed, using in-memory fallback');
+      return this.memoryStore.get(key);
     }
   }
 
   async deleteOTP(identifier: string): Promise<void> {
+    const key = `otp:${identifier}`;
     try {
-      const key = `otp:${identifier}`;
-      await this.client.del(key);
+      if (this.isAvailable) {
+        await this.client.del(key);
+      } else {
+        this.memoryStore.del(key);
+      }
     } catch (error) {
-      console.warn('Redis deleteOTP failed (optional in development)');
+      console.warn('Redis deleteOTP failed, using in-memory fallback');
+      this.memoryStore.del(key);
     }
   }
 
   async incrementOTPAttempts(identifier: string, ttl = 300): Promise<number> {
+    const key = `otp_attempts:${identifier}`;
     try {
-      const key = `otp_attempts:${identifier}`;
-      const attempts = await this.client.incr(key);
+      if (this.isAvailable) {
+        const attempts = await this.client.incr(key);
+        if (attempts === 1) {
+          await this.client.expire(key, ttl);
+        }
+        return attempts;
+      } else {
+        const attempts = this.memoryStore.incr(key);
+        if (attempts === 1) {
+          this.memoryStore.set(key, attempts, ttl);
+        }
+        return attempts;
+      }
+    } catch (error) {
+      console.warn('Redis incrementOTPAttempts failed, using in-memory fallback');
+      const attempts = this.memoryStore.incr(key);
       if (attempts === 1) {
-        await this.client.expire(key, ttl);
+        this.memoryStore.set(key, attempts, ttl);
       }
       return attempts;
-    } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('Redis unavailable - OTP rate limiting failed');
-      }
-      console.warn('Redis incrementOTPAttempts failed (allowing in development - no rate limit)');
-      return 1;
     }
   }
 
   async getOTPAttempts(identifier: string): Promise<number> {
+    const key = `otp_attempts:${identifier}`;
     try {
-      const key = `otp_attempts:${identifier}`;
-      const attempts = await this.client.get(key);
-      return attempts ? parseInt(attempts, 10) : 0;
+      if (this.isAvailable) {
+        const attempts = await this.client.get(key);
+        return attempts ? parseInt(attempts, 10) : 0;
+      } else {
+        const attempts = this.memoryStore.get(key);
+        return attempts || 0;
+      }
     } catch (error) {
-      console.warn('Redis getOTPAttempts failed (optional in development)');
-      return 0;
+      console.warn('Redis getOTPAttempts failed, using in-memory fallback');
+      const attempts = this.memoryStore.get(key);
+      return attempts || 0;
     }
   }
 
@@ -197,24 +232,45 @@ class RedisService {
   // Rate Limiting
   async checkRateLimit(key: string, limit: number, window: number): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     try {
-      const current = await this.client.incr(key);
-      if (current === 1) {
-        await this.client.expire(key, window);
+      if (this.isAvailable) {
+        const current = await this.client.incr(key);
+        if (current === 1) {
+          await this.client.expire(key, window);
+        }
+        
+        const ttl = await this.client.ttl(key);
+        const resetTime = Date.now() + (ttl * 1000);
+        
+        return {
+          allowed: current <= limit,
+          remaining: Math.max(0, limit - current),
+          resetTime,
+        };
+      } else {
+        // Use in-memory fallback
+        const current = this.memoryStore.incr(key);
+        if (current === 1) {
+          this.memoryStore.set(key, current, window);
+        }
+        
+        const resetTime = Date.now() + (window * 1000);
+        
+        return {
+          allowed: current <= limit,
+          remaining: Math.max(0, limit - current),
+          resetTime,
+        };
       }
-      
-      const ttl = await this.client.ttl(key);
-      const resetTime = Date.now() + (ttl * 1000);
+    } catch (error) {
+      console.warn('Redis checkRateLimit failed, using in-memory fallback');
+      const current = this.memoryStore.incr(key);
+      if (current === 1) {
+        this.memoryStore.set(key, current, window);
+      }
       
       return {
         allowed: current <= limit,
         remaining: Math.max(0, limit - current),
-        resetTime,
-      };
-    } catch (error) {
-      console.warn('Redis checkRateLimit failed (allowing request in development)');
-      return {
-        allowed: true,
-        remaining: limit,
         resetTime: Date.now() + (window * 1000),
       };
     }
@@ -264,24 +320,38 @@ class RedisService {
   // Idempotency
   async setIdempotencyKey(key: string, ttl = 86400): Promise<boolean> {
     try {
-      const result = await this.client.set(key, '1', 'EX', ttl, 'NX');
-      return result === 'OK';
-    } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('Redis unavailable - Idempotency check failed');
+      if (this.isAvailable) {
+        const result = await this.client.set(key, '1', 'EX', ttl, 'NX');
+        return result === 'OK';
+      } else {
+        // In-memory: set only if not exists
+        if (!this.memoryStore.exists(key)) {
+          this.memoryStore.set(key, '1', ttl);
+          return true;
+        }
+        return false;
       }
-      console.warn('Redis setIdempotencyKey failed (allowing in development - may allow duplicates)');
-      return true;
+    } catch (error) {
+      console.warn('Redis setIdempotencyKey failed, using in-memory fallback');
+      if (!this.memoryStore.exists(key)) {
+        this.memoryStore.set(key, '1', ttl);
+        return true;
+      }
+      return false;
     }
   }
 
   async checkIdempotencyKey(key: string): Promise<boolean> {
     try {
-      const exists = await this.client.exists(key);
-      return exists === 1;
+      if (this.isAvailable) {
+        const exists = await this.client.exists(key);
+        return exists === 1;
+      } else {
+        return this.memoryStore.exists(key);
+      }
     } catch (error) {
-      console.warn('Redis checkIdempotencyKey failed (optional in development)');
-      return false;
+      console.warn('Redis checkIdempotencyKey failed, using in-memory fallback');
+      return this.memoryStore.exists(key);
     }
   }
 
