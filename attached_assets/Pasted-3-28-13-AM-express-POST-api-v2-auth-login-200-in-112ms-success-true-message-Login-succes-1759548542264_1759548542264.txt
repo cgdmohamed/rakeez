@@ -1,0 +1,105 @@
+3:28:13 AM [express] POST /api/v2/auth/login 200 in 112ms :: {"success":true,"message":"Login succes…
+Get analytics error: error: aggregate functions are not allowed in GROUP BY
+    at /home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getTechnicianStats (file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:1619:20)
+    at async Promise.all (index 2)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:7115:59 {
+  length: 127,
+  severity: 'ERROR',
+  code: '42803',
+  detail: undefined,
+  hint: undefined,
+  position: '8',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_clause.c',
+  line: '1953',
+  routine: 'checkTargetlistEntrySQL92'
+}
+3:28:15 AM [express] GET /api/v2/admin/analytics 500 in 39ms :: {"success":false,"message":"Internal…
+Get analytics error: error: aggregate functions are not allowed in GROUP BY
+    at /home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getTechnicianStats (file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:1619:20)
+    at async Promise.all (index 2)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:7115:59 {
+  length: 127,
+  severity: 'ERROR',
+  code: '42803',
+  detail: undefined,
+  hint: undefined,
+  position: '8',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_clause.c',
+  line: '1953',
+  routine: 'checkTargetlistEntrySQL92'
+}
+3:28:18 AM [express] GET /api/v2/admin/analytics 500 in 17ms :: {"success":false,"message":"Internal…
+Get analytics error: error: aggregate functions are not allowed in GROUP BY
+    at /home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getTechnicianStats (file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:1619:20)
+    at async Promise.all (index 2)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:7115:59 {
+  length: 127,
+  severity: 'ERROR',
+  code: '42803',
+  detail: undefined,
+  hint: undefined,
+  position: '8',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_clause.c',
+  line: '1953',
+  routine: 'checkTargetlistEntrySQL92'
+}
+3:28:22 AM [express] GET /api/v2/admin/analytics 500 in 8ms :: {"success":false,"message":"Internal …
+Get analytics error: error: aggregate functions are not allowed in GROUP BY
+    at /home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getTechnicianStats (file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:1619:20)
+    at async Promise.all (index 2)
+    at async file:///home/testcceg-rakeez/htdocs/rakeez.testcceg.com/dist/index.js:7115:59 {
+  length: 127,
+  severity: 'ERROR',
+  code: '42803',
+  detail: undefined,
+  hint: undefined,
+  position: '8',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_clause.c',
+  line: '1953',
+  routine: 'checkTargetlistEntrySQL92'
+}
+3:28:28 AM [express] GET /api/v2/admin/analytics 500 in 15ms :: {"success":false,"message":"Internal…

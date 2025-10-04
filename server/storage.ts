@@ -837,16 +837,15 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db
       .select({
-        completedOrders: count(),
-        totalRevenue: sql<number>`SUM(${bookings.totalAmount})`,
-        avgRating: sql<number>`AVG(${reviews.technicianRating})`,
+        completedOrders: sql<number>`COUNT(DISTINCT ${bookings.id})::int`,
+        totalRevenue: sql<number>`COALESCE(SUM(${bookings.totalAmount}::decimal), 0)`,
+        avgRating: sql<number>`COALESCE(AVG(${reviews.technicianRating}), 0)`,
       })
       .from(bookings)
       .leftJoin(reviews, eq(bookings.id, reviews.bookingId))
-      .where(and(...conditions))
-      .groupBy(technicianId ? bookings.technicianId : sql`1`);
+      .where(and(...conditions));
 
-    return technicianId ? result[0] : result;
+    return result[0];
   }
 }
 

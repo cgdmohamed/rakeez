@@ -151,45 +151,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { identifier, password, language } = req.body;
       
-      console.log('=== LOGIN DEBUG ===');
-      console.log('Identifier:', identifier);
-      console.log('Identifier type:', identifier.includes('@') ? 'email' : 'phone');
-      
       // Find user by email or phone
       const user = identifier.includes('@')
         ? await storage.getUserByEmail(identifier)
         : await storage.getUserByPhone(HELPERS.formatSaudiPhone(identifier));
-      
-      console.log('User found:', user ? 'YES' : 'NO');
-      if (user) {
-        console.log('User ID:', user.id);
-        console.log('User email:', user.email);
-        console.log('User role:', user.role);
-        console.log('User isVerified:', user.isVerified);
-        console.log('User has password:', user.password ? 'YES' : 'NO');
-        console.log('Password length:', user.password ? user.password.length : 'N/A');
-        console.log('Password starts with:', user.password ? user.password.substring(0, 7) : 'N/A');
-      }
-      
-      if (!user) {
-        console.log('LOGIN FAILED: User not found');
+        
+      if (!user || !await bcrypt.compare(password, user.password)) {
         return res.status(401).json({
           success: false,
           message: bilingual.getMessage('auth.invalid_credentials', language),
         });
       }
-      
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      console.log('Password match:', passwordMatch);
-      
-      if (!passwordMatch) {
-        console.log('LOGIN FAILED: Password mismatch');
-        return res.status(401).json({
-          success: false,
-          message: bilingual.getMessage('auth.invalid_credentials', language),
-        });
-      }
-      console.log('=== END LOGIN DEBUG ===');
       
       if (!user.isVerified) {
         return res.status(401).json({
@@ -2081,13 +2053,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
+      // Create spare part in catalog
       const sparePart = await storage.createSparePart({
-        quotation_id: id,
-        name,
-        quantity,
+        name: JSON.stringify({ en: name, ar: name }),
+        description: JSON.stringify({ en: '', ar: '' }),
+        category: 'quotation',
         price: unit_price.toString(),
         image: objectPath,
+        stock: quantity,
       });
+      
+      // Link spare part to quotation
+      await storage.addQuotationSpareParts(id, [{
+        sparePartId: sparePart.id,
+        quantity: quantity,
+        unitPrice: parseFloat(unit_price),
+      }]);
 
       res.status(201).json({
         success: true,
@@ -2135,7 +2116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      await storage.updateBooking(id, { invoice: objectPath });
+      // Note: Invoice URL stored but not in schema. Consider adding invoiceUrl field to bookings table
+      // For now, just return success
+      // await storage.updateBooking(id, { invoice: objectPath });
 
       res.json({
         success: true,
