@@ -3240,6 +3240,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN - BOOKING MANAGEMENT ====================
+
+  // Cancel Booking
+  app.patch('/api/v2/admin/bookings/:id/cancel', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      reason: z.string().min(1),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      // Prevent cancelling already completed or cancelled bookings
+      if (booking.status === 'completed' || booking.status === 'cancelled') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot cancel booking with status: ${booking.status}`,
+        });
+      }
+      
+      await storage.cancelBookingWithLog(id, req.user.id, reason);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'booking_cancelled',
+        resourceType: 'booking',
+        resourceId: id,
+        newValues: { reason, cancelledBy: req.user.id },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.booking_cancelled', language),
+      });
+      
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Refund Booking Payment
+  app.post('/api/v2/admin/bookings/:id/refund', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      payment_id: z.string().uuid(),
+      reason: z.string().min(1),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { payment_id, reason } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      const payment = await storage.getPayment(payment_id);
+      if (!payment || payment.bookingId !== id) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found or does not match booking',
+        });
+      }
+      
+      // Validate refund eligibility
+      if (payment.status !== 'paid') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot refund payment with status: ${payment.status}`,
+        });
+      }
+      
+      if (booking.status !== 'completed' && booking.status !== 'confirmed') {
+        return res.status(400).json({
+          success: false,
+          message: `Can only refund completed or confirmed bookings. Current status: ${booking.status}`,
+        });
+      }
+      
+      await storage.refundBookingPayment(id, payment_id, req.user.id, reason);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.payment_refunded', language),
+      });
+      
+    } catch (error) {
+      console.error('Refund payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== ADMIN - CUSTOMER MANAGEMENT ====================
+
+  // Get Customer 360° Overview
+  app.get('/api/v2/admin/customers/:id/overview', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      if (!user || user.role !== 'customer') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      const overview = await storage.getCustomerOverview(id);
+      
+      res.json({
+        success: true,
+        message: 'Customer overview retrieved',
+        data: {
+          user: {
+            ...user,
+            password: undefined,
+            resetToken: undefined,
+            otpCode: undefined,
+            deviceToken: undefined,
+          },
+          stats: {
+            totalBookings: overview.totalBookings,
+            completedBookings: overview.completedBookings,
+            cancelledBookings: overview.cancelledBookings,
+            totalSpent: Number(overview.totalSpent) || 0,
+            averageRating: Number(overview.averageRating) || 0,
+            totalReviews: overview.totalReviews,
+            walletBalance: Number(overview.walletBalance) || 0,
+            walletEarned: Number(overview.walletEarned) || 0,
+            walletSpent: Number(overview.walletSpent) || 0,
+          },
+          recentBookings: overview.recentBookings,
+          recentPayments: overview.recentPayments,
+          recentSupportTickets: overview.recentSupportTickets,
+          recentReviews: overview.recentReviews,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get customer overview error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Top-up Customer Wallet
+  app.post('/api/v2/admin/customers/:id/wallet/topup', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      amount: z.number().positive(),
+      reason: z.string().min(1),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { amount, reason } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      if (!user || user.role !== 'customer') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      const transaction = await storage.creditWallet(id, amount, reason, req.user.id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'wallet_topup',
+        resourceType: 'wallet',
+        resourceId: id,
+        newValues: { amount, reason, adminId: req.user.id },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.wallet_credited', language),
+        data: {
+          ...transaction,
+          amount: Number(transaction.amount),
+          balanceAfter: Number(transaction.balanceAfter),
+        },
+      });
+      
+    } catch (error) {
+      console.error('Wallet top-up error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Customer Invoices
+  app.get('/api/v2/admin/invoices/:bookingId', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { bookingId } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const invoices = await storage.getCustomerInvoices(bookingId);
+      
+      res.json({
+        success: true,
+        message: 'Invoices retrieved',
+        data: invoices.map((inv: any) => ({
+          ...inv,
+          totalAmount: Number(inv.totalAmount) || 0,
+        })),
+      });
+      
+    } catch (error) {
+      console.error('Get invoices error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
   // ==================== ADMIN - WALLETS ====================
   
   // Get All Wallets
