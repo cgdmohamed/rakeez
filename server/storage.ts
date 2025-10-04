@@ -1,10 +1,10 @@
 import { 
-  users, addresses, serviceCategories, services, servicePackages, 
+  roles, users, addresses, serviceCategories, services, servicePackages, 
   brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs,
-  type User, type InsertUser, type Address, type InsertAddress,
+  type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
   type SparePart, type InsertSparePart,
@@ -19,6 +19,14 @@ import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, ilike, sql, count } from "drizzle-orm";
 
 export interface IStorage {
+  // Roles (Custom Role Management)
+  getRoles(isActive?: boolean): Promise<Role[]>;
+  getRole(id: string): Promise<Role | undefined>;
+  getRoleByName(name: string): Promise<Role | undefined>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: string, role: Partial<InsertRole>): Promise<Role>;
+  deleteRole(id: string): Promise<void>;
+  
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -174,6 +182,42 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Roles (Custom Role Management)
+  async getRoles(isActive?: boolean): Promise<Role[]> {
+    if (isActive !== undefined) {
+      return await db.select().from(roles).where(eq(roles.isActive, isActive)).orderBy(asc(roles.name));
+    }
+    return await db.select().from(roles).orderBy(asc(roles.name));
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    return role || undefined;
+  }
+
+  async getRoleByName(name: string): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.name, name));
+    return role || undefined;
+  }
+
+  async createRole(role: InsertRole): Promise<Role> {
+    const [newRole] = await db.insert(roles).values(role).returning();
+    return newRole;
+  }
+
+  async updateRole(id: string, role: Partial<InsertRole>): Promise<Role> {
+    const [updatedRole] = await db
+      .update(roles)
+      .set({ ...role, updatedAt: new Date() })
+      .where(eq(roles.id, id))
+      .returning();
+    return updatedRole;
+  }
+
+  async deleteRole(id: string): Promise<void> {
+    await db.delete(roles).where(eq(roles.id, id));
+  }
+
   // Users
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));

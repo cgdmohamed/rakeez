@@ -33,6 +33,20 @@ export const notificationTypeEnum = pgEnum('notification_type', [
 ]);
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
 
+// Roles table (for custom role management)
+export const roles = pgTable("roles", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  nameAr: varchar("name_ar", { length: 100 }),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  permissions: jsonb("permissions").notNull().default('[]'), // Array of permission strings
+  isSystemRole: boolean("is_system_role").default(false).notNull(), // Prevent deletion of core roles
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Users table
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -42,6 +56,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   nameAr: text("name_ar"),
   role: userRoleEnum("role").default('customer').notNull(),
+  customRoleId: uuid("custom_role_id").references(() => roles.id), // For custom roles
   status: userStatusEnum("status").default('active').notNull(),
   language: varchar("language", { length: 2 }).default('en').notNull(),
   isVerified: boolean("is_verified").default(false).notNull(),
@@ -503,6 +518,12 @@ export const referralsRelations = relations(referrals, ({ one }) => ({
 }));
 
 // Insert schemas
+export const insertRoleSchema = createInsertSchema(roles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -604,6 +625,8 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
 });
 
 // Types
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = z.infer<typeof insertRoleSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Address = typeof addresses.$inferSelect;
