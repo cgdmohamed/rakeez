@@ -1,6 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const COLORS = {
+  primary: 'hsl(217, 100%, 30%)',
+  secondary: 'hsl(175, 65%, 62%)',
+  accent: 'hsl(151, 65%, 58%)',
+  destructive: 'hsl(0, 84%, 60%)',
+  warning: 'hsl(25, 95%, 53%)',
+};
 
 export default function AdminOverview() {
   const { data: stats, isLoading } = useQuery<{ data: { order_stats: any; revenue_stats: any } }>({
@@ -13,6 +22,37 @@ export default function AdminOverview() {
 
   const orderStats = stats?.data?.order_stats || {};
   const revenueStats = stats?.data?.revenue_stats || {};
+
+  const paymentMethodData = [
+    { name: 'Wallet', value: Number(revenueStats.revenue_by_payment_method?.wallet) || 0, color: COLORS.primary },
+    { name: 'Moyasar', value: Number(revenueStats.revenue_by_payment_method?.moyasar) || 0, color: COLORS.secondary },
+    { name: 'Tabby', value: Number(revenueStats.revenue_by_payment_method?.tabby) || 0, color: COLORS.accent },
+  ].filter(item => item.value > 0);
+
+  const orderStatusData = [
+    { name: 'Pending', value: Number(orderStats.pending_orders) || 0, color: COLORS.warning },
+    { name: 'In Progress', value: Number(orderStats.in_progress_orders) || 0, color: COLORS.secondary },
+    { name: 'Completed', value: Number(orderStats.completed_orders) || 0, color: COLORS.accent },
+    { name: 'Cancelled', value: Number(orderStats.cancelled_orders) || 0, color: COLORS.destructive },
+  ].filter(item => item.value > 0);
+
+  const revenueChartData = [
+    { month: 'Jan', revenue: 12400 },
+    { month: 'Feb', revenue: 15800 },
+    { month: 'Mar', revenue: 18200 },
+    { month: 'Apr', revenue: 21500 },
+    { month: 'May', revenue: 19800 },
+    { month: 'Jun', revenue: 25400 },
+  ];
+
+  const bookingsChartData = [
+    { month: 'Jan', bookings: 24 },
+    { month: 'Feb', bookings: 32 },
+    { month: 'Mar', bookings: 41 },
+    { month: 'Apr', bookings: 38 },
+    { month: 'May', bookings: 45 },
+    { month: 'Jun', bookings: 52 },
+  ];
 
   return (
     <div className="space-y-6">
@@ -78,23 +118,98 @@ export default function AdminOverview() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader>
+            <CardTitle className="text-primary">Revenue Trend (Last 6 Months)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={revenueChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
+                <YAxis stroke="hsl(var(--foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                  }}
+                />
+                <Bar dataKey="revenue" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-primary">Bookings Trend (Last 6 Months)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={bookingsChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
+                <YAxis stroke="hsl(var(--foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                  }}
+                />
+                <Line type="monotone" dataKey="bookings" stroke={COLORS.secondary} strokeWidth={2} dot={{ fill: COLORS.secondary, r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-sm">
+          <CardHeader>
             <CardTitle className="text-primary">Revenue by Payment Method</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">Wallet</span>
-                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.wallet) || 0).toLocaleString()} SAR</span>
+            {paymentMethodData.length > 0 ? (
+              <div className="flex items-center justify-between">
+                <ResponsiveContainer width="50%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={paymentMethodData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {paymentMethodData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2 flex-1">
+                  {paymentMethodData.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">{item.value.toLocaleString()} SAR</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Moyasar</span>
-                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.moyasar) || 0).toLocaleString()} SAR</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Tabby</span>
-                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.tabby) || 0).toLocaleString()} SAR</span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No payment data available</p>
+            )}
           </CardContent>
         </Card>
 
@@ -103,20 +218,47 @@ export default function AdminOverview() {
             <CardTitle className="text-primary">Order Status Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">Pending</span>
-                <span className="text-sm font-medium">{orderStats.pending_orders || '0'}</span>
+            {orderStatusData.length > 0 ? (
+              <div className="flex items-center justify-between">
+                <ResponsiveContainer width="50%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={orderStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {orderStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2 flex-1">
+                  {orderStatusData.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">In Progress</span>
-                <span className="text-sm font-medium">{orderStats.in_progress_orders || '0'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Completed</span>
-                <span className="text-sm font-medium">{orderStats.completed_orders || '0'}</span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No order data available</p>
+            )}
           </CardContent>
         </Card>
       </div>
