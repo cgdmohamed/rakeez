@@ -96,7 +96,7 @@ export default function AdminSupport() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
       open: { label: 'Open', className: 'badge-open' },
-      in_progress: { label: 'In Progress', className: 'badge-pending' },
+      in_progress: { label: 'In Progress', className: 'badge-in-progress' },
       resolved: { label: 'Resolved', className: 'badge-resolved' },
       closed: { label: 'Closed', className: 'badge-closed' },
     };

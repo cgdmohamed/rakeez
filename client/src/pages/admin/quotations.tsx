@@ -147,19 +147,20 @@ export default function AdminQuotations() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      approved: 'default',
-      rejected: 'destructive',
+    const statusMap: Record<string, { label: string; className: string }> = {
+      pending: { label: 'Pending', className: 'badge-pending' },
+      approved: { label: 'Approved', className: 'badge-completed' },
+      rejected: { label: 'Rejected', className: 'badge-cancelled' },
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    const config = statusMap[status] || { label: status, className: 'bg-muted' };
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-title">Quotations Management</h1>
+          <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Quotations Management</h1>
           <p className="text-muted-foreground" data-testid="text-description">
             Create and manage service quotations with spare parts
           </p>

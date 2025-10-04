@@ -26,7 +26,7 @@ export default function AdminTechnicians() {
     isVerified: true,
   });
 
-  const { data: techniciansData, isLoading } = useQuery({
+  const { data: techniciansData, isLoading } = useQuery<{ data: any[] }>({
     queryKey: ['/api/v2/admin/users?role=technician'],
   });
 
@@ -58,8 +58,18 @@ export default function AdminTechnicians() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
+    mutationFn: async ({ id, updateData }: { 
+      id: string; 
+      updateData: {
+        name: string;
+        email: string;
+        phone: string;
+        language: string;
+        isVerified: boolean;
+        password?: string;
+      }
+    }) => {
+      return apiRequest('PUT', `/api/v2/admin/users/${id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
@@ -115,7 +125,7 @@ export default function AdminTechnicians() {
       if (formData.password) {
         updateData.password = formData.password;
       }
-      updateMutation.mutate({ id: editingTech.id, data: updateData });
+      updateMutation.mutate({ id: editingTech.id, updateData });
     } else {
       if (!formData.password) {
         toast({
@@ -136,7 +146,7 @@ export default function AdminTechnicians() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold" data-testid="text-title">Technicians Management</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Technicians Management</h1>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-technician">
@@ -237,33 +247,33 @@ export default function AdminTechnicians() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Completed Jobs</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="table-header-primary">Name</TableHead>
+                <TableHead className="table-header-primary">Email</TableHead>
+                <TableHead className="table-header-primary">Phone</TableHead>
+                <TableHead className="table-header-primary numeric-cell">Rating</TableHead>
+                <TableHead className="table-header-primary numeric-cell">Completed Jobs</TableHead>
+                <TableHead className="table-header-primary">Status</TableHead>
+                <TableHead className="table-header-primary">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {technicians.map((tech: any) => (
-                <TableRow key={tech.id} data-testid={`row-technician-${tech.id}`}>
+              {technicians.map((tech: any, index: number) => (
+                <TableRow key={tech.id} data-testid={`row-technician-${tech.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                   <TableCell className="font-medium">{tech.name}</TableCell>
                   <TableCell>{tech.email || 'N/A'}</TableCell>
                   <TableCell>{tech.phone || 'N/A'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
+                  <TableCell className="numeric-cell">
+                    <div className="flex items-center justify-end gap-1">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span>{tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</span>
+                      <span className="font-semibold">{tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{Number(tech.completed_orders) || 0}</TableCell>
+                  <TableCell className="numeric-cell font-semibold">{Number(tech.completed_orders) || 0}</TableCell>
                   <TableCell>
                     {tech.isVerified ? (
-                      <Badge>Active</Badge>
+                      <Badge className="badge-completed">Active</Badge>
                     ) : (
-                      <Badge variant="secondary">Pending</Badge>
+                      <Badge className="badge-pending">Pending</Badge>
                     )}
                   </TableCell>
                   <TableCell>
