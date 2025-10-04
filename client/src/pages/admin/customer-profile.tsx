@@ -85,10 +85,21 @@ export default function CustomerProfile() {
     };
   }
 
-  const { data: overviewData, isLoading } = useQuery<CustomerOverviewResponse>({
+  const { data: overviewData, isLoading, error, isError } = useQuery<CustomerOverviewResponse>({
     queryKey: [`/api/v2/admin/customers/${id}/overview`],
     enabled: !!id,
   });
+
+  // Debug logging
+  console.log('🔍 [Frontend] CustomerProfile - Customer ID from params:', id);
+  console.log('🔍 [Frontend] CustomerProfile - Query state:', {
+    isLoading,
+    isError,
+    hasData: !!overviewData,
+    hasDataData: !!overviewData?.data,
+    error: error instanceof Error ? error.message : error,
+  });
+  console.log('🔍 [Frontend] CustomerProfile - Full overviewData:', overviewData);
 
   const topupWalletMutation = useMutation({
     mutationFn: async ({ amount, reason }: { amount: number; reason: string }) => {
