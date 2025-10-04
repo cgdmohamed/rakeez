@@ -23,11 +23,15 @@ export async function apiRequest(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+  headers["Pragma"] = "no-cache";
+
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
+    cache: "no-store",
   });
 
   await throwIfResNotOk(res);
@@ -47,9 +51,13 @@ export const getQueryFn: <T>(options: {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    headers["Pragma"] = "no-cache";
+
     const res = await fetch(queryKey.join("/") as string, {
       headers,
       credentials: "include",
+      cache: "no-store",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
