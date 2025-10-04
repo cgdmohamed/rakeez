@@ -151,17 +151,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { identifier, password, language } = req.body;
       
+      console.log('=== LOGIN DEBUG ===');
+      console.log('Identifier:', identifier);
+      console.log('Identifier type:', identifier.includes('@') ? 'email' : 'phone');
+      
       // Find user by email or phone
       const user = identifier.includes('@')
         ? await storage.getUserByEmail(identifier)
         : await storage.getUserByPhone(HELPERS.formatSaudiPhone(identifier));
-        
-      if (!user || !await bcrypt.compare(password, user.password)) {
+      
+      console.log('User found:', user ? 'YES' : 'NO');
+      if (user) {
+        console.log('User ID:', user.id);
+        console.log('User email:', user.email);
+        console.log('User role:', user.role);
+        console.log('User isVerified:', user.isVerified);
+        console.log('User has password:', user.password ? 'YES' : 'NO');
+        console.log('Password length:', user.password ? user.password.length : 'N/A');
+        console.log('Password starts with:', user.password ? user.password.substring(0, 7) : 'N/A');
+      }
+      
+      if (!user) {
+        console.log('LOGIN FAILED: User not found');
         return res.status(401).json({
           success: false,
           message: bilingual.getMessage('auth.invalid_credentials', language),
         });
       }
+      
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      console.log('Password match:', passwordMatch);
+      
+      if (!passwordMatch) {
+        console.log('LOGIN FAILED: Password mismatch');
+        return res.status(401).json({
+          success: false,
+          message: bilingual.getMessage('auth.invalid_credentials', language),
+        });
+      }
+      console.log('=== END LOGIN DEBUG ===');
       
       if (!user.isVerified) {
         return res.status(401).json({
