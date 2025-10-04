@@ -225,11 +225,11 @@ export default function ApiDocumentation() {
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-                  <i className="fas fa-broom text-white text-xl"></i>
+                  <i className="fas fa-sparkles text-white text-xl"></i>
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-foreground">
-                    {isArabic ? 'واجهة برمجة التطبيقات كلين سيرف' : 'CleanServe API'}
+                    {isArabic ? 'واجهة برمجة التطبيقات راكيز' : 'Rakeez API'}
                   </h1>
                   <p className="text-xs text-muted-foreground">
                     {isArabic ? 'الإصدار 2.0 - التوثيق' : 'v2.0 Documentation'}
@@ -268,19 +268,19 @@ export default function ApiDocumentation() {
               </span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              {isArabic ? 'واجهة برمجة تطبيقات كلين سيرف' : 'CleanServe Backend API'}
+              {isArabic ? 'واجهة برمجة تطبيقات راكيز' : 'Rakeez Backend API'}
             </h1>
             <p className="text-xl text-white/90 mb-8">
               {isArabic 
-                ? 'توثيق شامل لواجهة برمجة التطبيقات REST لتطبيق خدمات التنظيف ثنائي اللغة مع تكامل بوابات الدفع المتعددة'
-                : 'Complete RESTful API documentation for bilingual cleaning services mobile application with multi-gateway payment integration'
+                ? 'توثيق شامل لواجهة برمجة التطبيقات REST لتطبيق خدمات التنظيف والصيانة ثنائي اللغة مع تكامل بوابات الدفع المتعددة'
+                : 'Complete RESTful API documentation for bilingual cleaning and maintenance services mobile application with multi-gateway payment integration'
               }
             </p>
             
             <div className="flex flex-wrap gap-4 mb-8">
               <div className="bg-white/10 backdrop-blur-sm px-4 py-3 rounded-lg">
                 <div className="text-sm opacity-80">{isArabic ? 'الرابط الأساسي' : 'Base URL'}</div>
-                <div className="font-mono font-semibold">https://api.cleanserve.sa/v2</div>
+                <div className="font-mono font-semibold">https://api.rakeez.sa/v2</div>
               </div>
               <div className="bg-white/10 backdrop-blur-sm px-4 py-3 rounded-lg">
                 <div className="text-sm opacity-80">{isArabic ? 'المصادقة' : 'Authentication'}</div>
