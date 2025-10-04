@@ -153,6 +153,7 @@ export default function AdminDashboard() {
       <main className="flex-1 overflow-y-auto bg-background">
         <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8">
           <Switch>
+            <Route path="/admin/overview" component={AdminOverview} />
             <Route path="/admin/dashboard" component={AdminOverview} />
             <Route path="/admin/bookings" component={AdminBookings} />
             <Route path="/admin/quotations" component={AdminQuotations} />
@@ -167,6 +168,7 @@ export default function AdminDashboard() {
             <Route path="/admin/brands" component={AdminBrands} />
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
+            <Route path="/admin" component={AdminOverview} />
           </Switch>
         </div>
       </main>
