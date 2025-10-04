@@ -86,29 +86,19 @@ export default function CustomerProfile() {
   }
 
   const { data: overviewData, isLoading } = useQuery<CustomerOverviewResponse>({
-    queryKey: ['/api/v2/admin/customers', id, 'overview'],
-    queryFn: async () => {
-      const response = await fetch(`/api/v2/admin/customers/${id}/overview`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch customer overview');
-      return response.json();
-    },
+    queryKey: [`/api/v2/admin/customers/${id}/overview`],
     enabled: !!id,
   });
 
   const topupWalletMutation = useMutation({
     mutationFn: async ({ amount, reason }: { amount: number; reason: string }) => {
-      const response = await apiRequest('POST', `/api/v2/admin/customers/${id}/wallet/topup`, {
+      return apiRequest('POST', `/api/v2/admin/customers/${id}/wallet/topup`, {
         amount,
         reason,
       });
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/customers', id, 'overview'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/customers/${id}/overview`] });
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/wallets'] });
       setTopupDialog({ open: false, amount: '', reason: '' });
       toast({
