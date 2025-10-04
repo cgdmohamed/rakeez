@@ -1007,6 +1007,8 @@ export class DatabaseStorage implements IStorage {
         createdAt: supportMessages.createdAt,
         senderName: users.name,
         senderEmail: users.email,
+        senderRole: users.role,
+        isAdmin: sql<boolean>`CASE WHEN ${users.role} = 'admin' THEN true ELSE false END`.as('isAdmin'),
       })
       .from(supportMessages)
       .leftJoin(users, eq(supportMessages.senderId, users.id))
