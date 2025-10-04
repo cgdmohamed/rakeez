@@ -1,0 +1,97 @@
+testcceg-rakeez@testcceg:~/htdocs/rakeez.testcceg.com$ npm run db:seed
+
+> rest-express@1.0.0 db:seed
+> tsx server/seed.ts
+
+[dotenv@17.2.3] injecting env (36) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+Database: Connecting to localhost:5432/rakeez as rakeez
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+🌱 Starting database seeding...
+📦 Seeding service categories...
+❌ Error seeding database: ErrorEvent {
+  [Symbol(kTarget)]: WebSocket {
+    _events: [Object: null prototype] {
+      error: [Function],
+      message: [Function],
+      close: [Function],
+      open: [Function]
+    },
+    _eventsCount: 4,
+    _maxListeners: undefined,
+    _binaryType: 'arraybuffer',
+    _closeCode: 1006,
+    _closeFrameReceived: false,
+    _closeFrameSent: false,
+    _closeMessage: <Buffer >,
+    _closeTimer: null,
+    _errorEmitted: true,
+    _extensions: {},
+    _paused: false,
+    _protocol: '',
+    _readyState: 3,
+    _receiver: null,
+    _sender: null,
+    _socket: null,
+    _bufferedAmount: 0,
+    _isServer: false,
+    _redirects: 0,
+    _autoPong: true,
+    _url: 'wss://localhost/v2',
+    _req: null,
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false
+  },
+  [Symbol(kType)]: 'error',
+  [Symbol(kError)]: Error: write EPROTO C02C2D2A517C0000:error:0A000458:SSL routines:ssl3_read_bytes:tlsv1 unrecognized name:../deps/openssl/openssl/ssl/record/rec_layer_s3.c:916:SSL alert number 112
+
+      at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:87:19) {
+    errno: -71,
+    code: 'EPROTO',
+    syscall: 'write'
+  },
+  [Symbol(kMessage)]: 'write EPROTO C02C2D2A517C0000:error:0A000458:SSL routines:ssl3_read_bytes:tlsv1 unrecognized name:../deps/openssl/openssl/ssl/record/rec_layer_s3.c:916:SSL alert number 112\n'
+}
+💥 Seed script failed: ErrorEvent {
+  [Symbol(kTarget)]: WebSocket {
+    _events: [Object: null prototype] {
+      error: [Function],
+      message: [Function],
+      close: [Function],
+      open: [Function]
+    },
+    _eventsCount: 4,
+    _maxListeners: undefined,
+    _binaryType: 'arraybuffer',
+    _closeCode: 1006,
+    _closeFrameReceived: false,
+    _closeFrameSent: false,
+    _closeMessage: <Buffer >,
+    _closeTimer: null,
+    _errorEmitted: true,
+    _extensions: {},
+    _paused: false,
+    _protocol: '',
+    _readyState: 3,
+    _receiver: null,
+    _sender: null,
+    _socket: null,
+    _bufferedAmount: 0,
+    _isServer: false,
+    _redirects: 0,
+    _autoPong: true,
+    _url: 'wss://localhost/v2',
+    _req: null,
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false
+  },
+  [Symbol(kType)]: 'error',
+  [Symbol(kError)]: Error: write EPROTO C02C2D2A517C0000:error:0A000458:SSL routines:ssl3_read_bytes:tlsv1 unrecognized name:../deps/openssl/openssl/ssl/record/rec_layer_s3.c:916:SSL alert number 112
+
+      at WriteWrap.onWriteComplete [as oncomplete] (node:internal/stream_base_commons:87:19) {
+    errno: -71,
+    code: 'EPROTO',
+    syscall: 'write'
+  },
+  [Symbol(kMessage)]: 'write EPROTO C02C2D2A517C0000:error:0A000458:SSL routines:ssl3_read_bytes:tlsv1 unrecognized name:../deps/openssl/openssl/ssl/record/rec_layer_s3.c:916:SSL alert number 112\n'
+}
+testcceg-rakeez@testcceg:~/htdocs/rakeez.testcceg.com$
