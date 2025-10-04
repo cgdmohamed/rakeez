@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { SarSymbol } from '@/components/sar-symbol';
 
 export default function AdminWallets() {
   const { data, isLoading } = useQuery<any>({
@@ -76,17 +77,17 @@ export default function AdminWallets() {
                       </TableCell>
                       <TableCell>
                         <span className="font-semibold text-lg" data-testid={`text-wallet-balance-${wallet.id}`}>
-                          ${(Number(wallet.balance) || 0).toFixed(2)}
+                          <SarSymbol className="mr-1" />{(Number(wallet.balance) || 0).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-green-600" data-testid={`text-wallet-earned-${wallet.id}`}>
-                          +${(Number(wallet.totalEarned) || 0).toFixed(2)}
+                          +<SarSymbol className="mr-1" size={12} />{(Number(wallet.totalEarned) || 0).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-red-600" data-testid={`text-wallet-spent-${wallet.id}`}>
-                          -${(Number(wallet.totalSpent) || 0).toFixed(2)}
+                          -<SarSymbol className="mr-1" size={12} />{(Number(wallet.totalSpent) || 0).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell data-testid={`text-wallet-created-${wallet.id}`}>

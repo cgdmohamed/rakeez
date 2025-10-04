@@ -14,6 +14,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { SarSymbol } from '@/components/sar-symbol';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -209,7 +210,7 @@ export default function AdminSpareParts() {
                       <TableCell className="font-medium">{part.name?.en || 'N/A'}</TableCell>
                       <TableCell className="font-arabic">{part.name?.ar || 'N/A'}</TableCell>
                       <TableCell className="font-mono text-xs">{part.sku || '-'}</TableCell>
-                      <TableCell>${(Number(part.price) || 0).toFixed(2)}</TableCell>
+                      <TableCell><SarSymbol className="mr-1" />{(Number(part.price) || 0).toFixed(2)}</TableCell>
                       <TableCell>{part.stock_quantity || 0}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -326,7 +327,7 @@ export default function AdminSpareParts() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price ($)</FormLabel>
+                      <FormLabel>Price (SAR)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -459,7 +460,7 @@ export default function AdminSpareParts() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price ($)</FormLabel>
+                      <FormLabel>Price (SAR)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"

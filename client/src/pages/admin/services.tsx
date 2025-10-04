@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { SarSymbol } from '@/components/sar-symbol';
 
 const categorySchema = z.object({
   name_en: z.string().min(1, 'English name is required'),
@@ -432,7 +433,7 @@ export default function AdminServices() {
                           <div className="flex items-center gap-2">
                             <div className="text-right">
                               <div className="text-2xl font-bold" data-testid={`text-service-price-${service.id}`}>
-                                ${(Number(service.basePrice) || 0).toFixed(2)}
+                                <SarSymbol className="mr-1" />{(Number(service.basePrice) || 0).toFixed(2)}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 +{(Number(service.vatPercentage) || 0).toFixed(0)}% VAT
@@ -484,7 +485,7 @@ export default function AdminServices() {
                                   </TableCell>
                                   <TableCell>
                                     <span className="font-semibold" data-testid={`text-package-price-${pkg.id}`}>
-                                      ${(Number(pkg.price) || 0).toFixed(2)}
+                                      <SarSymbol className="mr-1" size={12} />{(Number(pkg.price) || 0).toFixed(2)}
                                     </span>
                                   </TableCell>
                                   <TableCell>
@@ -735,7 +736,7 @@ export default function AdminServices() {
                   name="base_price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Base Price ($)</FormLabel>
+                      <FormLabel>Base Price (SAR)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -840,7 +841,7 @@ export default function AdminServices() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price ($)</FormLabel>
+                      <FormLabel>Price (SAR)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"

@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { Plus, Eye, X } from 'lucide-react';
+import { SarSymbol } from '@/components/sar-symbol';
 
 const quotationSchema = z.object({
   booking_id: z.string().min(1, 'Booking is required'),
@@ -211,9 +212,9 @@ export default function AdminQuotations() {
                       <TableCell className="font-mono text-xs">{quotation.id.slice(0, 8)}</TableCell>
                       <TableCell className="font-mono text-xs">{quotation.booking_id?.slice(0, 8)}</TableCell>
                       <TableCell>{quotation.technician_name || 'N/A'}</TableCell>
-                      <TableCell>${(Number(quotation.additional_cost) || 0).toFixed(2)}</TableCell>
-                      <TableCell>${(Number(quotation.vat_amount) || 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">${(Number(quotation.total_amount) || 0).toFixed(2)}</TableCell>
+                      <TableCell><SarSymbol className="mr-1" />{(Number(quotation.additional_cost) || 0).toFixed(2)}</TableCell>
+                      <TableCell><SarSymbol className="mr-1" />{(Number(quotation.vat_amount) || 0).toFixed(2)}</TableCell>
+                      <TableCell className="font-medium"><SarSymbol className="mr-1" />{(Number(quotation.total_amount) || 0).toFixed(2)}</TableCell>
                       <TableCell>
                         <Select
                           value={quotation.status}
@@ -321,7 +322,7 @@ export default function AdminQuotations() {
                 name="additional_cost"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Additional Cost ($)</FormLabel>
+                    <FormLabel>Additional Cost (SAR)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -390,7 +391,7 @@ export default function AdminQuotations() {
                         <div className="flex-1">
                           <span className="font-medium">{item.name}</span>
                           <span className="text-sm text-muted-foreground ml-2">
-                            {item.quantity} × ${item.unit_price.toFixed(2)} = ${(item.quantity * item.unit_price).toFixed(2)}
+                            {item.quantity} × <SarSymbol size={12} />{item.unit_price.toFixed(2)} = <SarSymbol size={12} />{(item.quantity * item.unit_price).toFixed(2)}
                           </span>
                         </div>
                         <Button
@@ -413,24 +414,24 @@ export default function AdminQuotations() {
               <div className="space-y-2 bg-muted p-4 rounded-md">
                 <div className="flex justify-between text-sm">
                   <span>Spare Parts Total:</span>
-                  <span className="font-medium">${sparePartItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toFixed(2)}</span>
+                  <span className="font-medium"><SarSymbol className="mr-1" size={12} />{sparePartItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Additional Cost:</span>
-                  <span className="font-medium">${(form.watch('additional_cost') || 0).toFixed(2)}</span>
+                  <span className="font-medium"><SarSymbol className="mr-1" size={12} />{(form.watch('additional_cost') || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Subtotal:</span>
-                  <span className="font-medium">${calculateTotals().subtotal.toFixed(2)}</span>
+                  <span className="font-medium"><SarSymbol className="mr-1" size={12} />{calculateTotals().subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>VAT (15%):</span>
-                  <span className="font-medium">${calculateTotals().vat.toFixed(2)}</span>
+                  <span className="font-medium"><SarSymbol className="mr-1" size={12} />{calculateTotals().vat.toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>
-                  <span>${calculateTotals().total.toFixed(2)}</span>
+                  <span><SarSymbol className="mr-1" />{calculateTotals().total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -498,16 +499,16 @@ export default function AdminQuotations() {
                 <div className="space-y-2 bg-muted p-4 rounded-md">
                   <div className="flex justify-between text-sm">
                     <span>Additional Cost:</span>
-                    <span className="font-medium">${(Number(selectedQuotation.additional_cost) || 0).toFixed(2)}</span>
+                    <span className="font-medium"><SarSymbol className="mr-1" size={12} />{(Number(selectedQuotation.additional_cost) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>VAT (15%):</span>
-                    <span className="font-medium">${(Number(selectedQuotation.vat_amount) || 0).toFixed(2)}</span>
+                    <span className="font-medium"><SarSymbol className="mr-1" size={12} />{(Number(selectedQuotation.vat_amount) || 0).toFixed(2)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-bold">
                     <span>Total Amount:</span>
-                    <span>${(Number(selectedQuotation.total_amount) || 0).toFixed(2)}</span>
+                    <span><SarSymbol className="mr-1" />{(Number(selectedQuotation.total_amount) || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
