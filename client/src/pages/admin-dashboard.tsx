@@ -36,6 +36,7 @@ import AdminWallets from './admin/wallets';
 import AdminNotifications from './admin/notifications';
 import AdminSupport from './admin/support';
 import AdminServices from './admin/services';
+import AdminBrands from './admin/brands';
 import AdminSpareParts from './admin/spare-parts';
 
 const navigation = [
@@ -49,6 +50,7 @@ const navigation = [
   { name: 'Notifications', href: '/admin/notifications', icon: Bell },
   { name: 'Support', href: '/admin/support', icon: MessageSquare },
   { name: 'Services', href: '/admin/services', icon: Settings },
+  { name: 'Brands', href: '/admin/brands', icon: Package },
   { name: 'Spare Parts', href: '/admin/spare-parts', icon: Package },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
 ];
@@ -162,6 +164,7 @@ export default function AdminDashboard() {
             <Route path="/admin/notifications" component={AdminNotifications} />
             <Route path="/admin/support" component={AdminSupport} />
             <Route path="/admin/services" component={AdminServices} />
+            <Route path="/admin/brands" component={AdminBrands} />
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
           </Switch>

@@ -2789,6 +2789,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== BRANDS MANAGEMENT ====================
+  
+  // Get All Brands (Admin)
+  app.get('/api/v2/admin/brands', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const brands = await storage.getBrands();
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.brands_retrieved', language),
+        data: brands,
+      });
+    } catch (error) {
+      console.error('Get brands error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create Brand (Admin)
+  app.post('/api/v2/admin/brands', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1),
+      logo: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const brandData = req.body;
+      
+      const newBrand = await storage.createBrand(brandData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'brand_created',
+        resourceType: 'brand',
+        resourceId: newBrand.id,
+        details: brandData,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.brand_created', language),
+        data: newBrand,
+      });
+    } catch (error) {
+      console.error('Create brand error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Brand (Admin)
+  app.put('/api/v2/admin/brands/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1).optional(),
+      logo: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      const updateData = req.body;
+      
+      const updatedBrand = await storage.updateBrand(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'brand_updated',
+        resourceType: 'brand',
+        resourceId: id,
+        details: updateData,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.brand_updated', language),
+        data: updatedBrand,
+      });
+    } catch (error) {
+      console.error('Update brand error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Brand (Admin - soft delete)
+  app.delete('/api/v2/admin/brands/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteBrand(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'brand_deleted',
+        resourceType: 'brand',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.brand_deleted', language),
+      });
+    } catch (error) {
+      console.error('Delete brand error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== SPARE PARTS MANAGEMENT ====================
+
   // Get All Spare Parts (Admin)
   app.get('/api/v2/admin/spare-parts', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
     try {
@@ -2796,6 +2921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language = req.headers['accept-language'] || 'en';
       
       const spareParts = await storage.getSpareParts(category as string | undefined);
+      const allBrands = await storage.getBrands();
+      const brandsMap = new Map(allBrands.map(b => [b.id, b.name]));
       
       res.json({
         success: true,
@@ -2803,6 +2930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: spareParts.map((part: any) => ({
           ...part,
           price: Number(part.price) || 0,
+          brandName: part.brandId ? brandsMap.get(part.brandId) : null,
         })),
       });
       
@@ -2827,7 +2955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ar: z.string().min(1),
       }),
       category: z.string(),
-      brand: z.string().optional(),
+      brandId: z.string().uuid().optional(),
       price: z.number().min(0),
       stock: z.number().default(0),
       image: z.string().optional(),
@@ -2841,7 +2969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: partData.name,
         description: partData.description,
         category: partData.category,
-        brand: partData.brand,
+        brandId: partData.brandId,
         price: partData.price.toString(),
         stock: partData.stock,
         image: partData.image,
@@ -2882,7 +3010,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ar: z.string().min(1),
       }).optional(),
       category: z.string().optional(),
-      brand: z.string().optional(),
+      brandId: z.string().uuid().optional(),
       price: z.number().min(0).optional(),
       stock: z.number().optional(),
       image: z.string().optional(),

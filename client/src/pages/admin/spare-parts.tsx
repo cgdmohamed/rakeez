@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
@@ -32,7 +33,7 @@ const sparePartSchema = z.object({
   description_en: z.string().optional(),
   description_ar: z.string().optional(),
   category: z.string().min(1, 'Category is required'),
-  brand: z.string().optional(),
+  brandId: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be positive'),
   stock_quantity: z.coerce.number().int().min(0, 'Stock quantity must be non-negative'),
   image: z.string().optional(),
@@ -50,6 +51,12 @@ export default function AdminSpareParts() {
     queryKey: ['/api/v2/admin/spare-parts'],
   });
 
+  const { data: brandsData } = useQuery<{ success: boolean; data: Array<{ id: string; name: string }> }>({
+    queryKey: ['/api/v2/admin/brands'],
+  });
+
+  const brands = brandsData?.data || [];
+
   const form = useForm({
     resolver: zodResolver(sparePartSchema),
     defaultValues: {
@@ -58,7 +65,7 @@ export default function AdminSpareParts() {
       description_en: '',
       description_ar: '',
       category: '',
-      brand: '',
+      brandId: '',
       price: 0,
       stock_quantity: 0,
       image: '',
@@ -119,7 +126,7 @@ export default function AdminSpareParts() {
         ar: values.description_ar || '',
       },
       category: values.category,
-      brand: values.brand || null,
+      brandId: values.brandId || null,
       price: values.price,
       stock: values.stock_quantity,
       image: values.image || null,
@@ -139,7 +146,7 @@ export default function AdminSpareParts() {
         ar: values.description_ar || '',
       },
       category: values.category,
-      brand: values.brand || null,
+      brandId: values.brandId || null,
       price: values.price,
       stock: values.stock_quantity,
       image: values.image || null,
@@ -155,7 +162,7 @@ export default function AdminSpareParts() {
       description_en: sparePart.description?.en || '',
       description_ar: sparePart.description?.ar || '',
       category: sparePart.category || '',
-      brand: sparePart.brand || '',
+      brandId: sparePart.brandId || '',
       price: sparePart.price || 0,
       stock_quantity: sparePart.stock || sparePart.stock_quantity || 0,
       image: sparePart.image || '',
@@ -337,13 +344,25 @@ export default function AdminSpareParts() {
                 />
                 <FormField
                   control={form.control}
-                  name="brand"
+                  name="brandId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Brand (optional)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="e.g. Carrier, LG, Samsung" data-testid="input-brand" />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-brand">
+                            <SelectValue placeholder="Select a brand" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {brands.map((brand) => (
+                            <SelectItem key={brand.id} value={brand.id}>
+                              {brand.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -513,13 +532,25 @@ export default function AdminSpareParts() {
                 />
                 <FormField
                   control={form.control}
-                  name="brand"
+                  name="brandId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Brand (optional)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="e.g. Carrier, LG, Samsung" data-testid="input-edit-brand" />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-brand">
+                            <SelectValue placeholder="Select a brand" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {brands.map((brand) => (
+                            <SelectItem key={brand.id} value={brand.id}>
+                              {brand.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

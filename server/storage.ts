@@ -1,12 +1,13 @@
 import { 
   users, addresses, serviceCategories, services, servicePackages, 
-  spareParts, bookings, quotations, quotationSpareParts, payments, 
+  brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs,
   type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
-  type ServicePackage, type InsertServicePackage, type SparePart, type InsertSparePart,
+  type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
+  type SparePart, type InsertSparePart,
   type Booking, type InsertBooking, type Quotation, type InsertQuotation,
   type Payment, type InsertPayment, type Wallet, type WalletTransaction, type InsertWalletTransaction,
   type Referral, type InsertReferral, type Notification, type InsertNotification,
@@ -48,6 +49,13 @@ export interface IStorage {
   deleteServiceCategory(id: string): Promise<void>;
   deleteServicePackage(id: string): Promise<void>;
   
+  // Brands
+  getBrands(): Promise<Brand[]>;
+  getBrand(id: string): Promise<Brand | undefined>;
+  createBrand(brand: InsertBrand): Promise<Brand>;
+  updateBrand(id: string, brand: Partial<InsertBrand>): Promise<Brand>;
+  deleteBrand(id: string): Promise<void>;
+
   // Spare Parts
   getSpareParts(category?: string): Promise<SparePart[]>;
   getSparePart(id: string): Promise<SparePart | undefined>;
@@ -345,6 +353,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSparePart(id: string): Promise<void> {
     await db.update(spareParts).set({ isActive: false }).where(eq(spareParts.id, id));
+  }
+
+  // Brands
+  async getBrands(): Promise<Brand[]> {
+    return await db.select().from(brands).orderBy(asc(brands.name));
+  }
+
+  async getBrand(id: string): Promise<Brand | undefined> {
+    const [brand] = await db.select().from(brands).where(eq(brands.id, id));
+    return brand || undefined;
+  }
+
+  async createBrand(brand: InsertBrand): Promise<Brand> {
+    const [newBrand] = await db.insert(brands).values(brand).returning();
+    return newBrand;
+  }
+
+  async updateBrand(id: string, brand: Partial<InsertBrand>): Promise<Brand> {
+    const [updatedBrand] = await db
+      .update(brands)
+      .set(brand)
+      .where(eq(brands.id, id))
+      .returning();
+    return updatedBrand;
+  }
+
+  async deleteBrand(id: string): Promise<void> {
+    await db.update(brands).set({ isActive: false }).where(eq(brands.id, id));
   }
 
   // Spare Parts

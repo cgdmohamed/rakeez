@@ -103,13 +103,22 @@ export const servicePackages = pgTable("service_packages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Brands table
+export const brands = pgTable("brands", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  logo: text("logo"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Spare parts table
 export const spareParts = pgTable("spare_parts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: jsonb("name").notNull(), // { "en": "AC Filter", "ar": "فلتر تكييف" }
   description: jsonb("description").notNull(),
   category: varchar("category", { length: 100 }).notNull(),
-  brand: varchar("brand", { length: 100 }),
+  brandId: uuid("brand_id").references(() => brands.id),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   stock: integer("stock").default(0).notNull(),
   image: text("image"),
@@ -517,6 +526,11 @@ export const insertServicePackageSchema = createInsertSchema(servicePackages).om
   createdAt: true,
 });
 
+export const insertBrandSchema = createInsertSchema(brands).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertSparePartSchema = createInsertSchema(spareParts).omit({
   id: true,
   createdAt: true,
@@ -597,6 +611,8 @@ export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type ServicePackage = typeof servicePackages.$inferSelect;
 export type InsertServicePackage = z.infer<typeof insertServicePackageSchema>;
+export type Brand = typeof brands.$inferSelect;
+export type InsertBrand = z.infer<typeof insertBrandSchema>;
 export type SparePart = typeof spareParts.$inferSelect;
 export type InsertSparePart = z.infer<typeof insertSparePartSchema>;
 export type Booking = typeof bookings.$inferSelect;
