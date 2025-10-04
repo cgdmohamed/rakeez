@@ -55,6 +55,111 @@ const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
 ];
 
+// Export a wrapper component for pages that need the admin layout
+export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
+  const [location, setLocation] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if user is authenticated and has admin role
+    const token = localStorage.getItem('auth_token');
+    const role = localStorage.getItem('user_role');
+
+    if (!token || role !== 'admin') {
+      setLocation('/login');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('user_id');
+    setLocation('/login');
+  };
+
+  const Sidebar = () => (
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      <div className="p-6">
+        <Link href="/admin/dashboard" className="flex items-center justify-center">
+          <img src="/logo.svg" alt="Rakeez" className="h-12 w-auto" />
+        </Link>
+        <p className="text-center text-xs mt-2 text-sidebar-foreground/70">Admin Portal</p>
+      </div>
+      <Separator />
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-1">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive = location === item.href || (item.href !== '/admin/dashboard' && location.startsWith(item.href));
+            return (
+              <Link key={item.name} href={item.href}>
+                <a
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                  }`}
+                  data-testid={`nav-${item.name.toLowerCase()}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.name}</span>
+                </a>
+              </Link>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+      <Separator />
+      <div className="p-4">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={handleLogout}
+          data-testid="button-logout"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block w-64 h-full">
+        <Sidebar />
+      </aside>
+
+      {/* Mobile Sidebar */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetTrigger asChild className="lg:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed top-4 left-4 z-40"
+            data-testid="button-mobile-menu"
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 w-64">
+          <Sidebar />
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto bg-background">
+        <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

@@ -5,8 +5,9 @@ import Dashboard from '@/pages/dashboard';
 import ApiDocumentation from '@/components/api-documentation';
 import NotFound from '@/pages/not-found';
 import Login from '@/pages/login';
-import AdminDashboard from '@/pages/admin-dashboard';
+import AdminDashboard, { AdminLayoutWrapper } from '@/pages/admin-dashboard';
 import TechnicianDashboard from '@/pages/technician-dashboard';
+import CustomerProfile from '@/pages/admin/customer-profile';
 
 // Custom error type
 interface HttpError extends Error {
@@ -129,6 +130,20 @@ function App() {
         <Switch>
           <Route path="/" component={ApiDocumentation} />
           <Route path="/login" component={Login} />
+          <Route path="/admin/customers/:id/overview">
+            {(params) => (
+              <AdminLayoutWrapper>
+                <CustomerProfile key={params.id} />
+              </AdminLayoutWrapper>
+            )}
+          </Route>
+          <Route path="/admin/customers/:id">
+            {(params) => (
+              <AdminLayoutWrapper>
+                <CustomerProfile key={params.id} />
+              </AdminLayoutWrapper>
+            )}
+          </Route>
           <Route path="/admin/:rest*" component={AdminDashboard} />
           <Route path="/technician/:rest*" component={TechnicianDashboard} />
           <Route path="/dashboard" component={Dashboard} />
