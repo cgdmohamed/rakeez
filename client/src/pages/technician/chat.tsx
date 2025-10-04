@@ -35,9 +35,12 @@ export default function TechnicianChat() {
     // Reset auth error state when token is available
     setAuthError(false);
     
-    // Auto-detect WebSocket URL from current page protocol and host
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBaseUrl = `${protocol}//${window.location.host}/ws`;
+    // Use WS_URL from environment, or fall back to auto-detection
+    const wsBaseUrl = import.meta.env.VITE_WS_URL || (() => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}/ws`;
+    })();
+    
     const wsUrl = `${wsBaseUrl}?token=${token}`;
     
     console.log('Attempting WebSocket connection to:', wsBaseUrl);
