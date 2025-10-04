@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 
 export default function AdminQuotations() {
-  const { data: quotationsData, isLoading } = useQuery({
+  const { data: quotationsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/quotations'],
   });
 

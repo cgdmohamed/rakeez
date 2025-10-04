@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 4, 2025)
 
+**Admin Dashboard Critical Fixes (Latest):**
+- Fixed authentication issue: All POST/PUT/DELETE requests now include Authorization Bearer token from localStorage
+- Added empty states to all tables: Bookings, Quotations, Payments, Wallets, Support, Notifications, Analytics
+- Added loading states to Analytics page with proper data display
+- Fixed TypeScript errors in admin pages by adding proper type annotations to useQuery hooks
+- All tables now show clear messages when no data exists instead of blank pages
+- Services & Pricing page verified to correctly display category-to-services hierarchy
+
 **Complete Admin Dashboard Implementation:**
 - Added all missing admin modules to complete the admin dashboard per system design
 - Implemented Wallets, Notifications, Support, and Services/Pricing pages

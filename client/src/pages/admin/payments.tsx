@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 
 export default function AdminPayments() {
-  const { data: paymentsData, isLoading } = useQuery({
+  const { data: paymentsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/payments'],
   });
 

@@ -13,7 +13,7 @@ export default function AdminBookings() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const { data: bookingsData, isLoading } = useQuery({
+  const { data: bookingsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/bookings'],
   });
 

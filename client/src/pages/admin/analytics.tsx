@@ -12,7 +12,7 @@ export default function AdminAnalytics() {
   const [reportType, setReportType] = useState('analytics');
   const [exportFormat, setExportFormat] = useState('csv');
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/analytics'],
   });
 
