@@ -10,6 +10,42 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### Customer Profile UI Integration & Layout Unification (October 4, 2025)
+Completed comprehensive integration of Customer Profile page with unified admin dashboard layout and design system:
+
+**Layout Structure:**
+- Customer Profile now renders INSIDE AdminDashboard component (with sidebar, navigation)
+- Routes registered at AdminDashboard level (/admin/customers/:id/overview and /admin/customers/:id)
+- Consistent padding/margins matching other admin pages (container mx-auto p-6 lg:p-8)
+- Full navigation flow: Customers List → Profile → Tabs → Back to Customers
+
+**Design Unification:**
+- Card styling: Uses card-accent-blue, card-accent-cyan, card-accent-green classes with shadow-sm
+- Typography: Page titles use text-3xl font-bold text-primary
+- Brand badges: badge-pending (Orange), badge-confirmed (Blue), badge-in-progress (Cyan), badge-completed (Green), badge-cancelled (Red)
+- Professional tables: table-header-primary headers, alternating row colors, numeric-cell for right-aligned numbers
+- Empty states: Icons with graceful "No data found" messages for all tabs
+
+**Backend Data Connections:**
+- Fixed getCustomerOverview() in storage.ts to return comprehensive aggregated data
+- Orders tab: Pulls from bookings with service names, dates, amounts, status
+- Payments tab: Connected to payments history with method, amount, status
+- Support Tickets tab: Displays subject, priority, status, creation date
+- Reviews tab: Shows service name, technician, rating, comments
+- Stats calculation: totalBookings, completedBookings, totalSpent, averageRating, walletBalance, walletEarned, walletSpent
+
+**Enhanced UX:**
+- Professional Skeleton loaders during data fetching
+- Comprehensive error states with icons and clear messaging
+- Wallet top-up functionality with dialog form
+- Consistent SAR currency formatting across all monetary displays
+- All tabs handle empty states gracefully
+
+**Routing Architecture:**
+- App.tsx: Top-level routes (/login, /admin/:rest*, /technician/:rest*)
+- AdminDashboard.tsx: Internal admin routes with layout wrapper
+- Customer Profile accessed via admin dashboard ensures unified experience
+
 ### Instant Table Updates After Mutations (October 4, 2025)
 Fixed issue where tables only updated after full page refresh by implementing comprehensive cache-busting:
 
