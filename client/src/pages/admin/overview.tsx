@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, Calendar, CheckCircle, XCircle } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = {
   primary: 'hsl(217, 100%, 30%)',
@@ -12,7 +12,7 @@ const COLORS = {
 };
 
 export default function AdminOverview() {
-  const { data: stats, isLoading } = useQuery<{ data: { order_stats: any; revenue_stats: any } }>({
+  const { data: stats, isLoading } = useQuery<{ data: { order_stats: any; revenue_stats: any; monthly_revenue: any[]; monthly_bookings: any[] } }>({
     queryKey: ['/api/v2/admin/analytics'],
   });
 
@@ -22,6 +22,8 @@ export default function AdminOverview() {
 
   const orderStats = stats?.data?.order_stats || {};
   const revenueStats = stats?.data?.revenue_stats || {};
+  const monthlyRevenue = stats?.data?.monthly_revenue || [];
+  const monthlyBookings = stats?.data?.monthly_bookings || [];
 
   const paymentMethodData = [
     { name: 'Wallet', value: Number(revenueStats.revenue_by_payment_method?.wallet) || 0, color: COLORS.primary },
@@ -30,29 +32,11 @@ export default function AdminOverview() {
   ].filter(item => item.value > 0);
 
   const orderStatusData = [
-    { name: 'Pending', value: Number(orderStats.pending_orders) || 0, color: COLORS.warning },
-    { name: 'In Progress', value: Number(orderStats.in_progress_orders) || 0, color: COLORS.secondary },
-    { name: 'Completed', value: Number(orderStats.completed_orders) || 0, color: COLORS.accent },
-    { name: 'Cancelled', value: Number(orderStats.cancelled_orders) || 0, color: COLORS.destructive },
+    { name: 'Pending', value: Number(orderStats.pendingOrders) || 0, color: COLORS.warning },
+    { name: 'In Progress', value: Number(orderStats.inProgressOrders) || 0, color: COLORS.secondary },
+    { name: 'Completed', value: Number(orderStats.completedOrders) || 0, color: COLORS.accent },
+    { name: 'Cancelled', value: Number(orderStats.cancelledOrders) || 0, color: COLORS.destructive },
   ].filter(item => item.value > 0);
-
-  const revenueChartData = [
-    { month: 'Jan', revenue: 12400 },
-    { month: 'Feb', revenue: 15800 },
-    { month: 'Mar', revenue: 18200 },
-    { month: 'Apr', revenue: 21500 },
-    { month: 'May', revenue: 19800 },
-    { month: 'Jun', revenue: 25400 },
-  ];
-
-  const bookingsChartData = [
-    { month: 'Jan', bookings: 24 },
-    { month: 'Feb', bookings: 32 },
-    { month: 'Mar', bookings: 41 },
-    { month: 'Apr', bookings: 38 },
-    { month: 'May', bookings: 45 },
-    { month: 'Jun', bookings: 52 },
-  ];
 
   return (
     <div className="space-y-6">
@@ -82,7 +66,7 @@ export default function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-orders">
-              {orderStats.total_orders || '0'}
+              {orderStats.totalOrders || '0'}
             </div>
             <p className="text-xs text-foreground/80">All bookings</p>
           </CardContent>
@@ -95,7 +79,7 @@ export default function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-completed">
-              {orderStats.completed_orders || '0'}
+              {orderStats.completedOrders || '0'}
             </div>
             <p className="text-xs text-foreground/80">Successfully completed</p>
           </CardContent>
@@ -108,7 +92,7 @@ export default function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-cancelled">
-              {orderStats.cancelled_orders || '0'}
+              {orderStats.cancelledOrders || '0'}
             </div>
             <p className="text-xs text-foreground/80">Cancelled bookings</p>
           </CardContent>
@@ -121,21 +105,25 @@ export default function AdminOverview() {
             <CardTitle className="text-primary">Revenue Trend (Last 6 Months)</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
-                <YAxis stroke="hsl(var(--foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                  }}
-                />
-                <Bar dataKey="revenue" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {monthlyRevenue.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyRevenue}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No revenue data available for the last 6 months</p>
+            )}
           </CardContent>
         </Card>
 
@@ -144,21 +132,25 @@ export default function AdminOverview() {
             <CardTitle className="text-primary">Bookings Trend (Last 6 Months)</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={bookingsChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
-                <YAxis stroke="hsl(var(--foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                  }}
-                />
-                <Line type="monotone" dataKey="bookings" stroke={COLORS.secondary} strokeWidth={2} dot={{ fill: COLORS.secondary, r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {monthlyBookings.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyBookings}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <Line type="monotone" dataKey="bookings" stroke={COLORS.secondary} strokeWidth={2} dot={{ fill: COLORS.secondary, r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No booking data available for the last 6 months</p>
+            )}
           </CardContent>
         </Card>
       </div>

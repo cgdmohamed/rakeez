@@ -2145,12 +2145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = start_date ? new Date(start_date as string) : undefined;
       const endDate = end_date ? new Date(end_date as string) : undefined;
       
-      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians] = await Promise.all([
+      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians, monthlyRevenue, monthlyBookings] = await Promise.all([
         storage.getOrderStats(startDate, endDate),
         storage.getRevenueStats(startDate, endDate),
         storage.getTechnicianStats(),
         storage.getTopServices(),
         storage.getUsersByRole('technician'),
+        storage.getMonthlyRevenueStats(),
+        storage.getMonthlyBookingStats(),
       ]);
       
       // Convert all numeric values from strings to numbers
@@ -2196,6 +2198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           technician_stats: convertedTechnicianStats,
           top_services: topServices || [],
           technician_performance: technicianPerformance || [],
+          monthly_revenue: monthlyRevenue || [],
+          monthly_bookings: monthlyBookings || [],
         }
       });
       

@@ -1243,6 +1243,51 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getMonthlyRevenueStats(): Promise<any[]> {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const result = await db
+      .select({
+        month: sql<string>`TO_CHAR(${payments.createdAt}, 'Mon')`,
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${payments.createdAt})::int`,
+        revenue: sql<number>`COALESCE(SUM(${payments.amount}::decimal), 0)`,
+      })
+      .from(payments)
+      .where(and(
+        eq(payments.status, 'paid'),
+        gte(payments.createdAt, sixMonthsAgo)
+      ))
+      .groupBy(sql`TO_CHAR(${payments.createdAt}, 'Mon')`, sql`EXTRACT(MONTH FROM ${payments.createdAt})`)
+      .orderBy(sql`EXTRACT(MONTH FROM ${payments.createdAt})`);
+
+    return result.map((row: any) => ({
+      month: row.month,
+      revenue: Number(row.revenue) || 0,
+    }));
+  }
+
+  async getMonthlyBookingStats(): Promise<any[]> {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const result = await db
+      .select({
+        month: sql<string>`TO_CHAR(${bookings.createdAt}, 'Mon')`,
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${bookings.createdAt})::int`,
+        bookings: sql<number>`COUNT(${bookings.id})::int`,
+      })
+      .from(bookings)
+      .where(gte(bookings.createdAt, sixMonthsAgo))
+      .groupBy(sql`TO_CHAR(${bookings.createdAt}, 'Mon')`, sql`EXTRACT(MONTH FROM ${bookings.createdAt})`)
+      .orderBy(sql`EXTRACT(MONTH FROM ${bookings.createdAt})`);
+
+    return result.map((row: any) => ({
+      month: row.month,
+      bookings: Number(row.bookings) || 0,
+    }));
+  }
+
   async getTechnicianStats(technicianId?: string): Promise<any> {
     const conditions = [eq(bookings.status, 'completed')];
     if (technicianId) conditions.push(eq(bookings.technicianId, technicianId));
