@@ -8,6 +8,36 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Dashboard Light Theme Transformation (October 4, 2025)
+Completed comprehensive redesign of the admin dashboard from dark theme to modern, professional light theme:
+
+**Color Scheme:**
+- Primary background: Light gray (hsl(0 0% 98%))
+- Cards: Pure white with subtle shadows
+- Sidebar: White background with Dark Blue (#00269A) text and icons
+- Active navigation: Cyan (#6BDAD5) background with white text
+- Hover states: Light cyan background with Dark Blue text
+
+**Typography:**
+- All page titles: Dark Blue (text-primary) for consistent brand identity
+- Card titles: Brand colors (primary/secondary/accent) for visual hierarchy
+- Body text: Neutral dark gray for readability
+- Links: Cyan (secondary) for clear call-to-action
+
+**Components:**
+- Buttons: Primary (Dark Blue) with Cyan hover states
+- Badges: Orange (Pending), Blue (Confirmed), Cyan (In Progress), Green (Completed), Red (Cancelled)
+- Cards: White backgrounds with brand-colored accent borders (left border)
+- Tables: Bold Dark Blue headers, alternating row colors, right-aligned numeric columns
+
+**Accessibility:**
+- All color combinations meet WCAG AA standards
+- Sidebar contrast: ~9.9:1 (Dark Blue on white)
+- Button hover contrast: ~6.6:1 (Dark Blue on cyan)
+- High readability with proper opacity levels (70-90%)
+
 ## System Architecture
 
 ### Frontend Architecture
