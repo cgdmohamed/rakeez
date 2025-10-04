@@ -130,7 +130,7 @@ export default function AdminAnalytics() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">⭐ {tech.avg_rating?.toFixed(1)}</div>
+                    <div className="font-medium">⭐ {tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</div>
                   </div>
                 </div>
               ))}

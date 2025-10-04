@@ -29,7 +29,7 @@ export default function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-revenue">
-              {revenueStats.total_revenue?.toLocaleString() || '0'} SAR
+              {(Number(revenueStats.total_revenue) || 0).toLocaleString()} SAR
             </div>
             <p className="text-xs text-muted-foreground">All-time earnings</p>
           </CardContent>
@@ -84,15 +84,15 @@ export default function AdminOverview() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm">Wallet</span>
-                <span className="text-sm font-medium">{revenueStats.revenue_by_payment_method?.wallet?.toLocaleString() || '0'} SAR</span>
+                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.wallet) || 0).toLocaleString()} SAR</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm">Moyasar</span>
-                <span className="text-sm font-medium">{revenueStats.revenue_by_payment_method?.moyasar?.toLocaleString() || '0'} SAR</span>
+                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.moyasar) || 0).toLocaleString()} SAR</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm">Tabby</span>
-                <span className="text-sm font-medium">{revenueStats.revenue_by_payment_method?.tabby?.toLocaleString() || '0'} SAR</span>
+                <span className="text-sm font-medium">{(Number(revenueStats.revenue_by_payment_method?.tabby) || 0).toLocaleString()} SAR</span>
               </div>
             </div>
           </CardContent>

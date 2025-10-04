@@ -189,9 +189,9 @@ export class DatabaseStorage implements IStorage {
           const stats = await this.getTechnicianStats(user.id);
           return {
             ...user,
-            completed_orders: stats.completedOrders || 0,
-            total_revenue: stats.totalRevenue || 0,
-            avg_rating: stats.avgRating || 0,
+            completed_orders: Number(stats.completedOrders) || 0,
+            total_revenue: Number(stats.totalRevenue) || 0,
+            avg_rating: Number(stats.avgRating) || 0,
           };
         })
       );

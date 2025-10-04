@@ -44,10 +44,10 @@ export default function AdminTechnicians() {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span>{tech.avg_rating?.toFixed(1) || 'N/A'}</span>
+                      <span>{tech.avg_rating ? (Number(tech.avg_rating) || 0).toFixed(1) : 'N/A'}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{tech.completed_orders || 0}</TableCell>
+                  <TableCell>{Number(tech.completed_orders) || 0}</TableCell>
                   <TableCell>
                     {tech.is_verified ? (
                       <Badge>Active</Badge>
