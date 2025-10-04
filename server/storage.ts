@@ -145,6 +145,7 @@ export interface IStorage {
   
   // Customer Management
   getCustomerOverview(userId: string): Promise<any>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   getCustomerInvoices(userId: string): Promise<any[]>;
   getAllWallets(): Promise<any[]>;
   getAllQuotations(status?: string): Promise<any[]>;
@@ -1294,6 +1295,11 @@ export class DatabaseStorage implements IStorage {
       wallet,
       walletHistory,
     };
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
+    return newInvoice;
   }
 
   async getCustomerInvoices(userId: string): Promise<any[]> {

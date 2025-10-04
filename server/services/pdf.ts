@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Booking, User, Service, Address } from '@shared/schema';
 import { bilingual } from '../utils/bilingual';
+import { storage } from '../storage';
 
 interface InvoiceData {
   booking: Booking;
@@ -410,6 +411,52 @@ class PDFService {
         reject(error);
       }
     });
+  }
+
+  async generateAndSaveInvoice(bookingId: string, language: string = 'en'): Promise<any> {
+    try {
+      // Fetch booking with related data
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      const user = await storage.getUser(booking.userId);
+      const service = await storage.getService(booking.serviceId);
+      const addresses = await storage.getUserAddresses(booking.userId);
+      const address = addresses.find((addr: any) => addr.id === booking.addressId);
+
+      // Add user, service, and address to booking object for PDF generation
+      const bookingWithDetails = {
+        ...booking,
+        user,
+        service,
+        address,
+      };
+
+      // Generate PDF
+      const pdfResult = await this.generateInvoice(bookingWithDetails, language);
+
+      // Calculate total amount
+      const totalAmount = parseFloat(booking.totalAmount?.toString() || '0');
+
+      // Save invoice to database
+      const invoice = await storage.createInvoice({
+        bookingId,
+        invoiceNumber: pdfResult.invoice_number,
+        filePath: pdfResult.pdf_url,
+        totalAmount: totalAmount.toString(),
+      });
+
+      return {
+        ...invoice,
+        pdf_url: pdfResult.pdf_url,
+        download_url: pdfResult.download_url,
+      };
+    } catch (error) {
+      console.error('Generate and save invoice error:', error);
+      throw error;
+    }
   }
 }
 
