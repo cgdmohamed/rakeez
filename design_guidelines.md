@@ -45,7 +45,14 @@
 **Emphasis**:
 - Headings → Always use Dark Blue for brand consistency
 - Body text → Neutral dark gray/black for readability
-- Muted text → Secondary information, timestamps, helper text
+- Secondary text → Use `text-foreground/80` for descriptions and labels (WCAG AA compliant)
+- Subtitle text → Use `text-foreground/70` for page subtitles
+
+**Accessibility & Contrast**:
+- All text MUST meet WCAG AA contrast ratio (minimum 4.5:1)
+- Card descriptions: Use `text-foreground/80` instead of `text-muted-foreground` (~9.0:1 contrast)
+- Icons: Use `text-primary/60` for brand-colored icons
+- Avoid `text-muted-foreground` on white/light backgrounds - insufficient contrast
 
 ---
 

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, Calendar, CheckCircle, XCircle } from 'lucide-react';
 
 export default function AdminOverview() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<{ data: { order_stats: any; revenue_stats: any } }>({
     queryKey: ['/api/v2/admin/analytics'],
   });
 
@@ -17,34 +17,34 @@ export default function AdminOverview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-title">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to Rakeez admin portal</p>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Admin Dashboard</h1>
+        <p className="text-foreground/70">Welcome to Rakeez admin portal</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card data-testid="card-total-revenue">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-primary/60" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-revenue">
               {(Number(revenueStats.total_revenue) || 0).toLocaleString()} SAR
             </div>
-            <p className="text-xs text-muted-foreground">All-time earnings</p>
+            <p className="text-xs text-foreground/80">All-time earnings</p>
           </CardContent>
         </Card>
 
         <Card data-testid="card-total-orders">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-primary/60" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-orders">
               {orderStats.total_orders || '0'}
             </div>
-            <p className="text-xs text-muted-foreground">All bookings</p>
+            <p className="text-xs text-foreground/80">All bookings</p>
           </CardContent>
         </Card>
 
@@ -57,7 +57,7 @@ export default function AdminOverview() {
             <div className="text-2xl font-bold" data-testid="text-completed">
               {orderStats.completed_orders || '0'}
             </div>
-            <p className="text-xs text-muted-foreground">Successfully completed</p>
+            <p className="text-xs text-foreground/80">Successfully completed</p>
           </CardContent>
         </Card>
 
@@ -70,7 +70,7 @@ export default function AdminOverview() {
             <div className="text-2xl font-bold" data-testid="text-cancelled">
               {orderStats.cancelled_orders || '0'}
             </div>
-            <p className="text-xs text-muted-foreground">Cancelled bookings</p>
+            <p className="text-xs text-foreground/80">Cancelled bookings</p>
           </CardContent>
         </Card>
       </div>
