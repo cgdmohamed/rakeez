@@ -43,7 +43,7 @@ Preferred communication style: Simple, everyday language.
   - Status Updates: Update job status (confirmed, en route, in progress, completed)
   - Uploads: Upload invoices (PDF) and spare part images for bookings
   - Real-time Chat: WebSocket-based chat with customers for job coordination
-  - WebSocket URL configurable via `VITE_WS_URL` environment variable for dev/prod environments
+  - WebSocket URL auto-detects from page protocol (wss:// for https://, ws:// for http://)
 
 - **Authentication**: Unified login page (`/login`) with role-based routing
   - Detects user role (admin/technician) and redirects to appropriate dashboard
@@ -147,4 +147,4 @@ Preferred communication style: Simple, everyday language.
 - Comprehensive audit logging for security and compliance
 - Rate limiting at multiple layers (registration, login, API calls)
 - Redis-optional architecture: Full in-memory fallback with TTL-aware counters for sessions, rate limits, OTP, and cache operations
-- Environment-based configuration for WebSocket URLs and other deployment-specific settings
+- WebSocket auto-detection: Automatically uses secure wss:// for HTTPS and ws:// for HTTP
