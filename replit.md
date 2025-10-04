@@ -10,6 +10,64 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### User & Roles Management System (October 4, 2025)
+Implemented comprehensive user management system with role-based permissions:
+
+**Database Schema:**
+- Extended userRoleEnum with new roles: 'support' and 'finance' (in addition to existing admin, technician, customer)
+- Added userStatusEnum: 'active', 'inactive', 'suspended'
+- Added 'status' field to users table (defaults to 'active')
+- Added 'lastLogin' timestamp field to track user login activity
+- Migrated database schema using db:push --force
+
+**Backend API Endpoints:**
+- GET /api/v2/admin/users - List all internal users with optional role/status filters
+- GET /api/v2/admin/users/:id - Get user by ID
+- POST /api/v2/admin/users - Create new internal user (admin only)
+- PUT /api/v2/admin/users/:id - Update user information (admin only)
+- PATCH /api/v2/admin/users/:id/status - Update user status (admin only)
+- DELETE /api/v2/admin/users/:id - Delete user (admin only, with self-deletion prevention)
+- All endpoints include proper Zod validation and audit logging
+
+**Storage Layer:**
+- getAllUsers(role?, status?) - List users with optional filters
+- getInternalUsers(status?) - List only internal users (admin, technician, support, finance)
+- updateUserStatus(id, status) - Update user status
+- updateUserLastLogin(id) - Update last login timestamp
+- deleteUser(id) - Delete user
+
+**Permissions System (shared/permissions.ts):**
+- Defined 5 user roles: admin, finance, support, technician, customer
+- Comprehensive permission structure covering:
+  - User management (view, create, edit, delete)
+  - Customer management (view, edit, delete)
+  - Bookings/Orders (view, create, edit, delete, assign)
+  - Financial operations (view, process, refund, viewAll, reports)
+  - Support operations (view, respond, close)
+  - Services management (view, create, edit, delete)
+  - Analytics (view, export)
+  - Technician management (view, create, edit, delete)
+- Helper functions: hasPermission, hasAnyPermission, hasAllPermissions
+- Role labels in English and Arabic
+
+**Frontend UI (client/src/pages/admin/users.tsx):**
+- Professional Users Management page with Rakeez brand styling
+- Table displaying: name, email/phone, role, status, last login, created date
+- Role and status filters for easy navigation
+- Create user dialog with full validation
+- Edit user dialog with optional password update
+- Status dropdown for quick status changes (active/inactive/suspended)
+- Delete confirmation dialog with safety checks
+- All mutations trigger immediate table updates via React Query cache invalidation
+- Comprehensive data-testid attributes for testing
+- Color-coded role badges (Admin=Blue, Finance=Green, Support=Cyan, Technician=Orange)
+- Status badges using existing badge system (Active=Green, Inactive=Red, Suspended=Orange)
+
+**Navigation Integration:**
+- Added "Users" navigation item to admin sidebar with UserCog icon
+- Registered /admin/users route in AdminDashboard
+- Accessible only to admin users via authorizeRoles middleware
+
 ### Customer Profile UI Integration & Layout Unification (October 4, 2025)
 Completed comprehensive integration of Customer Profile page with unified admin dashboard layout and design system:
 
