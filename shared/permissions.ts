@@ -47,6 +47,66 @@ export type Permission =
   | 'technicians.edit'
   | 'technicians.delete';
 
+// Canonical list of all valid permissions
+export const VALID_PERMISSIONS: Permission[] = [
+  'users.view', 'users.create', 'users.edit', 'users.delete',
+  'customers.view', 'customers.edit', 'customers.delete',
+  'bookings.view', 'bookings.create', 'bookings.edit', 'bookings.delete', 'bookings.assign',
+  'payments.view', 'payments.process', 'payments.refund',
+  'financial.viewAll', 'financial.reports',
+  'support.view', 'support.respond', 'support.close',
+  'services.view', 'services.create', 'services.edit', 'services.delete',
+  'analytics.view', 'analytics.export',
+  'technicians.view', 'technicians.create', 'technicians.edit', 'technicians.delete',
+];
+
+// Structured permissions for UI display
+export interface PermissionInfo {
+  id: Permission;
+  label: string;
+  category: string;
+}
+
+export const PERMISSIONS_CATALOG: PermissionInfo[] = [
+  { id: 'users.view', label: 'View Users', category: 'Users' },
+  { id: 'users.create', label: 'Create Users', category: 'Users' },
+  { id: 'users.edit', label: 'Edit Users', category: 'Users' },
+  { id: 'users.delete', label: 'Delete Users', category: 'Users' },
+  
+  { id: 'customers.view', label: 'View Customers', category: 'Customers' },
+  { id: 'customers.edit', label: 'Edit Customers', category: 'Customers' },
+  { id: 'customers.delete', label: 'Delete Customers', category: 'Customers' },
+  
+  { id: 'bookings.view', label: 'View Bookings', category: 'Bookings' },
+  { id: 'bookings.create', label: 'Create Bookings', category: 'Bookings' },
+  { id: 'bookings.edit', label: 'Edit Bookings', category: 'Bookings' },
+  { id: 'bookings.delete', label: 'Delete Bookings', category: 'Bookings' },
+  { id: 'bookings.assign', label: 'Assign Bookings', category: 'Bookings' },
+  
+  { id: 'payments.view', label: 'View Payments', category: 'Finance' },
+  { id: 'payments.process', label: 'Process Payments', category: 'Finance' },
+  { id: 'payments.refund', label: 'Refund Payments', category: 'Finance' },
+  { id: 'financial.viewAll', label: 'View All Financial Data', category: 'Finance' },
+  { id: 'financial.reports', label: 'Financial Reports', category: 'Finance' },
+  
+  { id: 'support.view', label: 'View Support Tickets', category: 'Support' },
+  { id: 'support.respond', label: 'Respond to Tickets', category: 'Support' },
+  { id: 'support.close', label: 'Close Tickets', category: 'Support' },
+  
+  { id: 'services.view', label: 'View Services', category: 'Services' },
+  { id: 'services.create', label: 'Create Services', category: 'Services' },
+  { id: 'services.edit', label: 'Edit Services', category: 'Services' },
+  { id: 'services.delete', label: 'Delete Services', category: 'Services' },
+  
+  { id: 'analytics.view', label: 'View Analytics', category: 'Analytics' },
+  { id: 'analytics.export', label: 'Export Analytics', category: 'Analytics' },
+  
+  { id: 'technicians.view', label: 'View Technicians', category: 'Technicians' },
+  { id: 'technicians.create', label: 'Create Technicians', category: 'Technicians' },
+  { id: 'technicians.edit', label: 'Edit Technicians', category: 'Technicians' },
+  { id: 'technicians.delete', label: 'Delete Technicians', category: 'Technicians' },
+];
+
 export const rolePermissions: Record<UserRole, Permission[]> = {
   admin: [
     // Full access to everything

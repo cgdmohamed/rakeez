@@ -26,6 +26,7 @@ import {
   REFERRAL_CONSTANTS,
   HELPERS 
 } from "./utils/constants";
+import { VALID_PERMISSIONS } from "@shared/permissions";
 
 const app = express();
 
@@ -2833,7 +2834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: 'brand_created',
         resourceType: 'brand',
         resourceId: newBrand.id,
-        details: brandData,
+        newValues: brandData,
       });
       
       res.status(201).json({
@@ -2870,7 +2871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: 'brand_updated',
         resourceType: 'brand',
         resourceId: id,
-        details: updateData,
+        newValues: updateData,
       });
       
       res.json({
@@ -4021,6 +4022,265 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ==================== ADMIN - ROLE MANAGEMENT ====================
+  
+  // Get All Roles
+  app.get('/api/v2/admin/roles', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { isActive } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const roles = await storage.getRoles(isActive === 'true' ? true : isActive === 'false' ? false : undefined);
+      
+      res.json({
+        success: true,
+        message: 'Roles retrieved successfully',
+        data: roles,
+      });
+      
+    } catch (error) {
+      console.error('Get roles error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Role by ID
+  app.get('/api/v2/admin/roles/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const role = await storage.getRole(id);
+      
+      if (!role) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found',
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Role retrieved successfully',
+        data: role,
+      });
+      
+    } catch (error) {
+      console.error('Get role error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create New Role
+  app.post('/api/v2/admin/roles', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      permissions: z.array(z.string()),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Validate permissions against canonical list
+      const invalidPermissions = req.body.permissions.filter((p: string) => !VALID_PERMISSIONS.includes(p as any));
+      if (invalidPermissions.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid permissions: ${invalidPermissions.join(', ')}`,
+        });
+      }
+      
+      // Check if role name already exists
+      const existingRole = await storage.getRoleByName(req.body.name);
+      if (existingRole) {
+        return res.status(400).json({
+          success: false,
+          message: 'A role with this name already exists',
+        });
+      }
+      
+      // Force isSystemRole to false for all client-created roles
+      const newRole = await storage.createRole({
+        ...req.body,
+        isSystemRole: false,
+      });
+      
+      // Log audit
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'CREATE_ROLE',
+        resourceType: 'role',
+        resourceId: newRole.id,
+        newValues: { roleName: newRole.name },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: 'Role created successfully',
+        data: newRole,
+      });
+      
+    } catch (error) {
+      console.error('Create role error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Role
+  app.put('/api/v2/admin/roles/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      permissions: z.array(z.string()).optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const role = await storage.getRole(id);
+      if (!role) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found',
+        });
+      }
+      
+      // Prevent editing system roles
+      if (role.isSystemRole) {
+        return res.status(403).json({
+          success: false,
+          message: 'System roles cannot be modified',
+        });
+      }
+      
+      // Validate permissions if provided
+      if (req.body.permissions) {
+        const invalidPermissions = req.body.permissions.filter((p: string) => !VALID_PERMISSIONS.includes(p as any));
+        if (invalidPermissions.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid permissions: ${invalidPermissions.join(', ')}`,
+          });
+        }
+      }
+      
+      // If name is being changed, check it doesn't exist
+      if (req.body.name && req.body.name !== role.name) {
+        const existingRole = await storage.getRoleByName(req.body.name);
+        if (existingRole) {
+          return res.status(400).json({
+            success: false,
+            message: 'A role with this name already exists',
+          });
+        }
+      }
+      
+      // Prevent changing isSystemRole
+      const updateData = { ...req.body };
+      delete updateData.isSystemRole;
+      
+      const updatedRole = await storage.updateRole(id, updateData);
+      
+      // Log audit
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'UPDATE_ROLE',
+        resourceType: 'role',
+        resourceId: id,
+        newValues: req.body,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
+      res.json({
+        success: true,
+        message: 'Role updated successfully',
+        data: updatedRole,
+      });
+      
+    } catch (error) {
+      console.error('Update role error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Role
+  app.delete('/api/v2/admin/roles/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const role = await storage.getRole(id);
+      if (!role) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found',
+        });
+      }
+      
+      // Prevent deleting system roles
+      if (role.isSystemRole) {
+        return res.status(403).json({
+          success: false,
+          message: 'System roles cannot be deleted',
+        });
+      }
+      
+      // Check if any users have this role
+      const allUsers = await storage.getAllUsers();
+      const usersWithRole = allUsers.filter(u => u.customRoleId === id);
+      if (usersWithRole.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete role: ${usersWithRole.length} user(s) currently assigned to this role`,
+        });
+      }
+      
+      await storage.deleteRole(id);
+      
+      // Log audit
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'DELETE_ROLE',
+        resourceType: 'role',
+        resourceId: id,
+        oldValues: { roleName: role.name },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
+      res.json({
+        success: true,
+        message: 'Role deleted successfully',
+      });
+      
+    } catch (error) {
+      console.error('Delete role error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
   // ==================== ADMIN - USER MANAGEMENT ====================
   
   // Get All Internal Users (Admin only)
