@@ -2413,6 +2413,640 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Update Service (Admin)
+  app.put('/api/v2/admin/services/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      category_id: z.string().uuid().optional(),
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      base_price: z.number().min(0).optional(),
+      duration_minutes: z.number().min(30).optional(),
+      vat_percentage: z.number().optional(),
+      is_active: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const serviceData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const updateData: any = {};
+      if (serviceData.category_id) updateData.categoryId = serviceData.category_id;
+      if (serviceData.name) updateData.name = serviceData.name;
+      if (serviceData.description) updateData.description = serviceData.description;
+      if (serviceData.base_price !== undefined) updateData.basePrice = serviceData.base_price.toString();
+      if (serviceData.duration_minutes) updateData.durationMinutes = serviceData.duration_minutes;
+      if (serviceData.vat_percentage !== undefined) updateData.vatPercentage = serviceData.vat_percentage.toString();
+      if (serviceData.is_active !== undefined) updateData.isActive = serviceData.is_active;
+      
+      const service = await storage.updateService(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'service_updated',
+        resourceType: 'service',
+        resourceId: id,
+        newValues: service,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.service_updated', language),
+        data: service,
+      });
+      
+    } catch (error) {
+      console.error('Update service error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Service (Admin - soft delete)
+  app.delete('/api/v2/admin/services/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteService(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'service_deleted',
+        resourceType: 'service',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.service_deleted', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete service error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create Service Category (Admin)
+  app.post('/api/v2/admin/categories', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      icon: z.string().optional(),
+      sort_order: z.number().default(0),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const categoryData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const category = await storage.createServiceCategory({
+        name: categoryData.name,
+        description: categoryData.description,
+        icon: categoryData.icon,
+        sortOrder: categoryData.sort_order,
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'category_created',
+        resourceType: 'service_category',
+        resourceId: category.id,
+        newValues: category,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.category_created', language),
+        data: category,
+      });
+      
+    } catch (error) {
+      console.error('Create category error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Service Category (Admin)
+  app.put('/api/v2/admin/categories/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      icon: z.string().optional(),
+      sort_order: z.number().optional(),
+      is_active: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const categoryData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const updateData: any = {};
+      if (categoryData.name) updateData.name = categoryData.name;
+      if (categoryData.description) updateData.description = categoryData.description;
+      if (categoryData.icon !== undefined) updateData.icon = categoryData.icon;
+      if (categoryData.sort_order !== undefined) updateData.sortOrder = categoryData.sort_order;
+      if (categoryData.is_active !== undefined) updateData.isActive = categoryData.is_active;
+      
+      const category = await storage.updateServiceCategory(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'category_updated',
+        resourceType: 'service_category',
+        resourceId: id,
+        newValues: category,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.category_updated', language),
+        data: category,
+      });
+      
+    } catch (error) {
+      console.error('Update category error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Service Category (Admin - soft delete)
+  app.delete('/api/v2/admin/categories/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteServiceCategory(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'category_deleted',
+        resourceType: 'service_category',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.category_deleted', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete category error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create Service Package (Admin)
+  app.post('/api/v2/admin/packages', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      service_id: z.string().uuid(),
+      tier: z.string(),
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      price: z.number().min(0),
+      discount_percentage: z.number().min(0).max(100).default(0),
+      inclusions: z.object({
+        en: z.array(z.string()),
+        ar: z.array(z.string()),
+      }),
+      terms_and_conditions: z.object({
+        en: z.string(),
+        ar: z.string(),
+      }).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const packageData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const pkg = await storage.createServicePackage({
+        serviceId: packageData.service_id,
+        tier: packageData.tier,
+        name: packageData.name,
+        price: packageData.price.toString(),
+        discountPercentage: packageData.discount_percentage.toString(),
+        inclusions: packageData.inclusions,
+        termsAndConditions: packageData.terms_and_conditions,
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'package_created',
+        resourceType: 'service_package',
+        resourceId: pkg.id,
+        newValues: pkg,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.package_created', language),
+        data: pkg,
+      });
+      
+    } catch (error) {
+      console.error('Create package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Service Package (Admin)
+  app.put('/api/v2/admin/packages/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      tier: z.string().optional(),
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      price: z.number().min(0).optional(),
+      discount_percentage: z.number().min(0).max(100).optional(),
+      inclusions: z.object({
+        en: z.array(z.string()),
+        ar: z.array(z.string()),
+      }).optional(),
+      terms_and_conditions: z.object({
+        en: z.string(),
+        ar: z.string(),
+      }).optional(),
+      is_active: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const packageData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const updateData: any = {};
+      if (packageData.tier) updateData.tier = packageData.tier;
+      if (packageData.name) updateData.name = packageData.name;
+      if (packageData.price !== undefined) updateData.price = packageData.price.toString();
+      if (packageData.discount_percentage !== undefined) updateData.discountPercentage = packageData.discount_percentage.toString();
+      if (packageData.inclusions) updateData.inclusions = packageData.inclusions;
+      if (packageData.terms_and_conditions) updateData.termsAndConditions = packageData.terms_and_conditions;
+      if (packageData.is_active !== undefined) updateData.isActive = packageData.is_active;
+      
+      const pkg = await storage.updateServicePackage(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'package_updated',
+        resourceType: 'service_package',
+        resourceId: id,
+        newValues: pkg,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.package_updated', language),
+        data: pkg,
+      });
+      
+    } catch (error) {
+      console.error('Update package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Service Package (Admin - soft delete)
+  app.delete('/api/v2/admin/packages/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteServicePackage(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'package_deleted',
+        resourceType: 'service_package',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.package_deleted', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get All Spare Parts (Admin)
+  app.get('/api/v2/admin/spare-parts', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { category } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const spareParts = await storage.getSpareParts(category as string | undefined);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.spare_parts_retrieved', language),
+        data: spareParts.map((part: any) => ({
+          ...part,
+          price: Number(part.price) || 0,
+        })),
+      });
+      
+    } catch (error) {
+      console.error('Get spare parts error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create Spare Part (Admin)
+  app.post('/api/v2/admin/spare-parts', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      category: z.string(),
+      price: z.number().min(0),
+      stock: z.number().default(0),
+      image: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const partData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const sparePart = await storage.createSparePart({
+        name: partData.name,
+        description: partData.description,
+        category: partData.category,
+        price: partData.price.toString(),
+        stock: partData.stock,
+        image: partData.image,
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'spare_part_created',
+        resourceType: 'spare_part',
+        resourceId: sparePart.id,
+        newValues: sparePart,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.spare_part_created', language),
+        data: sparePart,
+      });
+      
+    } catch (error) {
+      console.error('Create spare part error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Spare Part (Admin)
+  app.put('/api/v2/admin/spare-parts/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      description: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      category: z.string().optional(),
+      price: z.number().min(0).optional(),
+      stock: z.number().optional(),
+      image: z.string().optional(),
+      is_active: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const partData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const updateData: any = {};
+      if (partData.name) updateData.name = partData.name;
+      if (partData.description) updateData.description = partData.description;
+      if (partData.category) updateData.category = partData.category;
+      if (partData.price !== undefined) updateData.price = partData.price.toString();
+      if (partData.stock !== undefined) updateData.stock = partData.stock;
+      if (partData.image !== undefined) updateData.image = partData.image;
+      if (partData.is_active !== undefined) updateData.isActive = partData.is_active;
+      
+      const sparePart = await storage.updateSparePart(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'spare_part_updated',
+        resourceType: 'spare_part',
+        resourceId: id,
+        newValues: sparePart,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.spare_part_updated', language),
+        data: sparePart,
+      });
+      
+    } catch (error) {
+      console.error('Update spare part error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Delete Spare Part (Admin - soft delete)
+  app.delete('/api/v2/admin/spare-parts/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteSparePart(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'spare_part_deleted',
+        resourceType: 'spare_part',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.spare_part_deleted', language),
+      });
+      
+    } catch (error) {
+      console.error('Delete spare part error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Create Quotation (Admin)
+  app.post('/api/v2/admin/quotations', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      booking_id: z.string().uuid(),
+      technician_id: z.string().uuid(),
+      additional_cost: z.number().min(0),
+      spare_parts: z.array(z.object({
+        spare_part_id: z.string().uuid(),
+        quantity: z.number().min(1),
+        unit_price: z.number().min(0),
+      })).optional(),
+      notes: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const quotationData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Set expiry date to 7 days from now
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7);
+      
+      const quotation = await storage.createQuotation({
+        bookingId: quotationData.booking_id,
+        technicianId: quotationData.technician_id,
+        additionalCost: quotationData.additional_cost.toString(),
+        expiresAt: expiryDate,
+        notes: quotationData.notes,
+      });
+      
+      // Add spare parts if provided
+      if (quotationData.spare_parts && quotationData.spare_parts.length > 0) {
+        await storage.addQuotationSpareParts(
+          quotation.id,
+          quotationData.spare_parts.map((sp: any) => ({
+            sparePartId: sp.spare_part_id,
+            quantity: sp.quantity,
+            unitPrice: sp.unit_price,
+          }))
+        );
+      }
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'quotation_created',
+        resourceType: 'quotation',
+        resourceId: quotation.id,
+        newValues: quotation,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.quotation_created', language),
+        data: quotation,
+      });
+      
+    } catch (error) {
+      console.error('Create quotation error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Reply to Support Ticket (Admin)
+  app.post('/api/v2/admin/support/tickets/:id/messages', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      message: z.string().min(1),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('support.ticket_not_found', language),
+        });
+      }
+      
+      const supportMessage = await storage.createSupportMessage({
+        ticketId: id,
+        senderId: req.user.id,
+        message,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('admin.message_sent', language),
+        data: supportMessage,
+      });
+      
+    } catch (error) {
+      console.error('Reply to ticket error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
   
   // Get Users (Admin) - with optional role filter
   app.get('/api/v2/admin/users', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
@@ -2796,12 +3430,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send push notifications
       await Promise.all(
         notifications.map(notification =>
-          notificationService.sendNotification(
-            notification.userId,
-            title.en,
-            body.en,
-            { notification_id: notification.id }
-          )
+          notificationService.sendNotification({
+            user_id: notification.userId,
+            title: title.en,
+            title_ar: title.ar,
+            body: body.en,
+            body_ar: body.ar,
+            type,
+            data: { notification_id: notification.id },
+          })
         )
       );
       

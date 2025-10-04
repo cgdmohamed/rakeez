@@ -42,6 +42,11 @@ export interface IStorage {
   createService(service: InsertService): Promise<Service>;
   createServicePackage(pkg: InsertServicePackage): Promise<ServicePackage>;
   updateService(id: string, service: Partial<InsertService>): Promise<Service>;
+  updateServiceCategory(id: string, category: Partial<InsertServiceCategory>): Promise<ServiceCategory>;
+  updateServicePackage(id: string, pkg: Partial<InsertServicePackage>): Promise<ServicePackage>;
+  deleteService(id: string): Promise<void>;
+  deleteServiceCategory(id: string): Promise<void>;
+  deleteServicePackage(id: string): Promise<void>;
   
   // Spare Parts
   getSpareParts(category?: string): Promise<SparePart[]>;
@@ -49,6 +54,7 @@ export interface IStorage {
   createSparePart(part: InsertSparePart): Promise<SparePart>;
   updateSparePart(id: string, part: Partial<InsertSparePart>): Promise<SparePart>;
   updateSparePartStock(id: string, quantity: number): Promise<void>;
+  deleteSparePart(id: string): Promise<void>;
   
   // Bookings
   createBooking(booking: InsertBooking): Promise<Booking>;
@@ -286,6 +292,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(services.id, id))
       .returning();
     return updatedService;
+  }
+
+  async updateServiceCategory(id: string, category: Partial<InsertServiceCategory>): Promise<ServiceCategory> {
+    const [updatedCategory] = await db
+      .update(serviceCategories)
+      .set(category)
+      .where(eq(serviceCategories.id, id))
+      .returning();
+    return updatedCategory;
+  }
+
+  async updateServicePackage(id: string, pkg: Partial<InsertServicePackage>): Promise<ServicePackage> {
+    const [updatedPackage] = await db
+      .update(servicePackages)
+      .set(pkg)
+      .where(eq(servicePackages.id, id))
+      .returning();
+    return updatedPackage;
+  }
+
+  async deleteService(id: string): Promise<void> {
+    await db.update(services).set({ isActive: false }).where(eq(services.id, id));
+  }
+
+  async deleteServiceCategory(id: string): Promise<void> {
+    await db.update(serviceCategories).set({ isActive: false }).where(eq(serviceCategories.id, id));
+  }
+
+  async deleteServicePackage(id: string): Promise<void> {
+    await db.update(servicePackages).set({ isActive: false }).where(eq(servicePackages.id, id));
+  }
+
+  async deleteSparePart(id: string): Promise<void> {
+    await db.update(spareParts).set({ isActive: false }).where(eq(spareParts.id, id));
   }
 
   // Spare Parts
