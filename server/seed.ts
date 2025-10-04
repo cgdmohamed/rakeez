@@ -72,7 +72,7 @@ async function seed() {
         isActive: true,
         sortOrder: 6,
       },
-    ]).returning();
+    ]).onConflictDoNothing().returning();
 
     console.log(`✅ Created ${categories.length} service categories`);
 
@@ -116,7 +116,7 @@ async function seed() {
       });
     });
 
-    const createdServices = await db.insert(services).values(servicesData).returning();
+    const createdServices = await db.insert(services).values(servicesData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdServices.length} services`);
 
     // 3. Seed Service Packages
@@ -161,7 +161,7 @@ async function seed() {
       });
     });
 
-    const createdPackages = await db.insert(servicePackages).values(packagesData).returning();
+    const createdPackages = await db.insert(servicePackages).values(packagesData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdPackages.length} service packages`);
 
     // 4. Seed Spare Parts
@@ -241,7 +241,7 @@ async function seed() {
       },
     ];
 
-    const createdSpareParts = await db.insert(spareParts).values(sparePartsData).returning();
+    const createdSpareParts = await db.insert(spareParts).values(sparePartsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdSpareParts.length} spare parts`);
 
     // 5. Seed Promotions
@@ -316,7 +316,7 @@ async function seed() {
       },
     ];
 
-    const createdPromotions = await db.insert(promotions).values(promotionsData).returning();
+    const createdPromotions = await db.insert(promotions).values(promotionsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdPromotions.length} promotions`);
 
     // 6. Seed FAQs
@@ -441,7 +441,7 @@ async function seed() {
       },
     ];
 
-    const createdFaqs = await db.insert(faqs).values(faqsData).returning();
+    const createdFaqs = await db.insert(faqs).values(faqsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdFaqs.length} FAQs`);
 
     console.log('');
