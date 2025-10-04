@@ -138,6 +138,8 @@ export const bookings = pgTable("bookings", {
   assignedAt: timestamp("assigned_at"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledBy: uuid("cancelled_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -186,6 +188,19 @@ export const payments = pgTable("payments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull().unique(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  filePath: text("file_path"), // Path to generated PDF
+  fileUrl: text("file_url"), // Public URL to invoice
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Wallet table
 export const wallets = pgTable("wallets", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -208,7 +223,8 @@ export const walletTransactions = pgTable("wallet_transactions", {
   balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
   descriptionAr: text("description_ar"),
-  referenceType: varchar("reference_type", { length: 50 }), // booking, topup, referral
+  reason: text("reason"), // Additional reason for admin-initiated transactions
+  referenceType: varchar("reference_type", { length: 50 }), // booking, topup, referral, refund
   referenceId: uuid("reference_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

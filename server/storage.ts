@@ -64,6 +64,8 @@ export interface IStorage {
   updateBookingStatus(id: string, status: string, updatedBy?: string): Promise<void>;
   assignTechnician(bookingId: string, technicianId: string): Promise<void>;
   updateBooking(id: string, booking: Partial<InsertBooking>): Promise<Booking>;
+  cancelBookingWithLog(bookingId: string, cancelledBy: string, reason: string): Promise<void>;
+  refundBookingPayment(bookingId: string, paymentId: string, refundedBy: string, reason: string): Promise<void>;
   
   // Quotations
   createQuotation(quotation: InsertQuotation): Promise<Quotation>;
@@ -83,6 +85,7 @@ export interface IStorage {
   getWallet(userId: string): Promise<Wallet | undefined>;
   updateWalletBalance(userId: string, amount: number, type: 'credit' | 'debit', description: string, referenceType?: string, referenceId?: string): Promise<WalletTransaction>;
   getWalletTransactions(userId: string, limit?: number): Promise<WalletTransaction[]>;
+  creditWallet(userId: string, amount: number, reason: string, adminId: string): Promise<WalletTransaction>;
   
   // Referrals
   createReferral(referral: InsertReferral): Promise<Referral>;
@@ -139,6 +142,20 @@ export interface IStorage {
   getOrderStats(startDate?: Date, endDate?: Date): Promise<any>;
   getRevenueStats(startDate?: Date, endDate?: Date): Promise<any>;
   getTechnicianStats(technicianId?: string): Promise<any>;
+  
+  // Customer Management
+  getCustomerOverview(userId: string): Promise<any>;
+  getCustomerInvoices(userId: string): Promise<any[]>;
+  getAllWallets(): Promise<any[]>;
+  getAllQuotations(status?: string): Promise<any[]>;
+  getAllPayments(startDate?: Date, endDate?: Date): Promise<any[]>;
+  getAllNotifications(): Promise<any[]>;
+  getAllSupportTickets(status?: string, priority?: string): Promise<any[]>;
+  getSupportMessages(ticketId: string): Promise<any[]>;
+  updateSparePartStockQuantity(id: string, stockQuantity: number): Promise<void>;
+  getUsersByRole(role: string): Promise<any[]>;
+  getAllUsers(): Promise<User[]>;
+  getBookings(startDate?: Date, endDate?: Date): Promise<Booking[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -367,6 +384,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(spareParts.id, id));
   }
 
+  async updateSparePartStockQuantity(id: string, stockQuantity: number): Promise<void> {
+    await db
+      .update(spareParts)
+      .set({ stock: stockQuantity })
+      .where(eq(spareParts.id, id));
+  }
+
   // Bookings
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const [newBooking] = await db.insert(bookings).values(booking).returning();
@@ -576,6 +600,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(payments.id, id));
   }
 
+  async getAllPayments(startDate?: Date, endDate?: Date): Promise<any[]> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(payments.createdAt, startDate));
+    if (endDate) conditions.push(lte(payments.createdAt, endDate));
+
+    return await db
+      .select({
+        id: payments.id,
+        bookingId: payments.bookingId,
+        userId: payments.userId,
+        userName: users.name,
+        userEmail: users.email,
+        paymentMethod: payments.paymentMethod,
+        amount: payments.amount,
+        currency: payments.currency,
+        status: payments.status,
+        walletAmount: payments.walletAmount,
+        gatewayAmount: payments.gatewayAmount,
+        refundAmount: payments.refundAmount,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(payments.createdAt));
+  }
+
   // Wallet
   async createWallet(userId: string): Promise<Wallet> {
     const [newWallet] = await db.insert(wallets).values({ userId }).returning();
@@ -629,6 +680,126 @@ export class DatabaseStorage implements IStorage {
       .where(eq(walletTransactions.userId, userId))
       .orderBy(desc(walletTransactions.createdAt))
       .limit(limit);
+  }
+
+  async creditWallet(userId: string, amount: number, reason: string, adminId: string): Promise<WalletTransaction> {
+    // Get wallet
+    const wallet = await this.getWallet(userId);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    const balanceBefore = parseFloat(wallet.balance.toString());
+    const balanceAfter = balanceBefore + amount;
+
+    // Update wallet balance
+    await db
+      .update(wallets)
+      .set({ 
+        balance: balanceAfter.toString(),
+        totalEarned: sql`${wallets.totalEarned} + ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(wallets.userId, userId));
+
+    // Create transaction log
+    const [transaction] = await db.insert(walletTransactions).values({
+      walletId: wallet.id,
+      userId,
+      type: 'credit',
+      amount: amount.toString(),
+      balanceBefore: balanceBefore.toString(),
+      balanceAfter: balanceAfter.toString(),
+      description: 'Admin wallet top-up',
+      descriptionAr: 'إضافة رصيد من المسؤول',
+      reason,
+      referenceType: 'topup',
+      referenceId: adminId,
+    }).returning();
+
+    return transaction;
+  }
+
+  async cancelBookingWithLog(bookingId: string, cancelledBy: string, reason: string): Promise<void> {
+    // Update booking status
+    await db
+      .update(bookings)
+      .set({
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelledBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId));
+
+    // Create order status log
+    await this.createOrderStatusLog({
+      bookingId,
+      toStatus: 'cancelled',
+      changedBy: cancelledBy,
+      notes: reason,
+    });
+  }
+
+  async refundBookingPayment(bookingId: string, paymentId: string, refundedBy: string, reason: string): Promise<void> {
+    // Get booking and payment
+    const booking = await this.getBooking(bookingId);
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    const payment = await this.getPayment(paymentId);
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+
+    // Verify payment is completed
+    if (payment.status !== 'paid') {
+      throw new Error('Can only refund completed payments');
+    }
+
+    const refundAmount = parseFloat(payment.amount.toString());
+
+    // Update payment status
+    await db
+      .update(payments)
+      .set({
+        status: 'refunded',
+        refundAmount: refundAmount.toString(),
+        refundReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, paymentId));
+
+    // Credit customer wallet with refund amount
+    await this.updateWalletBalance(
+      booking.userId,
+      refundAmount,
+      'credit',
+      `Refund for booking ${bookingId}`,
+      'refund',
+      bookingId
+    );
+
+    // Update booking payment status
+    await db
+      .update(bookings)
+      .set({
+        paymentStatus: 'refunded',
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId));
+
+    // Create audit log
+    await this.createAuditLog({
+      userId: refundedBy,
+      action: 'refund',
+      resourceType: 'payment',
+      resourceId: paymentId,
+      newValues: { refundAmount, reason },
+      ipAddress: '',
+      userAgent: '',
+    });
   }
 
   async getAllWallets(role?: string): Promise<any[]> {
@@ -1047,6 +1218,108 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
 
     return result[0];
+  }
+
+  async getCustomerOverview(userId: string): Promise<any> {
+    // Get user details
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('Customer not found');
+    }
+
+    // Get order history
+    const orderHistory = await db
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        scheduledDate: bookings.scheduledDate,
+        totalAmount: bookings.totalAmount,
+        paymentStatus: bookings.paymentStatus,
+        serviceName: services.name,
+        createdAt: bookings.createdAt,
+      })
+      .from(bookings)
+      .leftJoin(services, eq(bookings.serviceId, services.id))
+      .where(eq(bookings.userId, userId))
+      .orderBy(desc(bookings.createdAt));
+
+    // Get support tickets
+    const supportHistory = await db
+      .select({
+        id: supportTickets.id,
+        subject: supportTickets.subject,
+        status: supportTickets.status,
+        priority: supportTickets.priority,
+        createdAt: supportTickets.createdAt,
+      })
+      .from(supportTickets)
+      .where(eq(supportTickets.userId, userId))
+      .orderBy(desc(supportTickets.createdAt));
+
+    // Get assigned technicians and ratings
+    const technicians = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        avgRating: sql<number>`COALESCE(AVG(${reviews.technicianRating}), 0)`,
+        serviceCount: sql<number>`COUNT(DISTINCT ${bookings.id})::int`,
+      })
+      .from(bookings)
+      .leftJoin(users, eq(bookings.technicianId, users.id))
+      .leftJoin(reviews, and(
+        eq(reviews.bookingId, bookings.id),
+        eq(reviews.technicianId, bookings.technicianId)
+      ))
+      .where(and(
+        eq(bookings.userId, userId),
+        sql`${bookings.technicianId} IS NOT NULL`
+      ))
+      .groupBy(users.id, users.name);
+
+    // Get wallet info
+    const wallet = await this.getWallet(userId);
+    const walletHistory = await this.getWalletTransactions(userId, 100);
+
+    return {
+      customer: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        createdAt: user.createdAt,
+      },
+      orderHistory,
+      supportHistory,
+      technicians,
+      wallet,
+      walletHistory,
+    };
+  }
+
+  async getCustomerInvoices(userId: string): Promise<any[]> {
+    // Get all completed bookings with payment details
+    const customerInvoices = await db
+      .select({
+        bookingId: bookings.id,
+        invoiceNumber: sql<string>`CONCAT('INV-', ${bookings.id})`,
+        totalAmount: bookings.totalAmount,
+        serviceName: services.name,
+        scheduledDate: bookings.scheduledDate,
+        completedAt: bookings.completedAt,
+        paymentStatus: payments.status,
+        paymentMethod: payments.paymentMethod,
+        createdAt: bookings.createdAt,
+      })
+      .from(bookings)
+      .leftJoin(services, eq(bookings.serviceId, services.id))
+      .leftJoin(payments, eq(bookings.id, payments.bookingId))
+      .where(and(
+        eq(bookings.userId, userId),
+        sql`${bookings.status} IN ('completed', 'cancelled')`
+      ))
+      .orderBy(desc(bookings.createdAt));
+
+    return customerInvoices;
   }
 }
 
