@@ -1335,8 +1335,8 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Customer not found');
     }
 
-    // Get order history
-    const orderHistory = await db
+    // Get all bookings with stats
+    const allBookings = await db
       .select({
         id: bookings.id,
         status: bookings.status,
@@ -1351,8 +1351,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.userId, userId))
       .orderBy(desc(bookings.createdAt));
 
+    // Calculate booking stats
+    const totalBookings = allBookings.length;
+    const completedBookings = allBookings.filter(b => b.status === 'completed').length;
+    const cancelledBookings = allBookings.filter(b => b.status === 'cancelled').length;
+    const totalSpent = allBookings
+      .filter(b => b.status === 'completed')
+      .reduce((sum, b) => sum + Number(b.totalAmount || 0), 0);
+
+    // Get recent bookings (last 10)
+    const recentBookings = allBookings.slice(0, 10);
+
+    // Get payments
+    const allPayments = await db
+      .select({
+        id: payments.id,
+        paymentMethod: payments.paymentMethod,
+        amount: payments.amount,
+        status: payments.status,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .leftJoin(bookings, eq(payments.bookingId, bookings.id))
+      .where(eq(bookings.userId, userId))
+      .orderBy(desc(payments.createdAt));
+
+    const recentPayments = allPayments.slice(0, 10);
+
     // Get support tickets
-    const supportHistory = await db
+    const allTickets = await db
       .select({
         id: supportTickets.id,
         subject: supportTickets.subject,
@@ -1364,43 +1391,56 @@ export class DatabaseStorage implements IStorage {
       .where(eq(supportTickets.userId, userId))
       .orderBy(desc(supportTickets.createdAt));
 
-    // Get assigned technicians and ratings
-    const technicians = await db
+    const recentSupportTickets = allTickets.slice(0, 10);
+
+    // Get reviews with service and technician info
+    const allReviews = await db
       .select({
-        id: users.id,
-        name: users.name,
-        avgRating: sql<number>`COALESCE(AVG(${reviews.technicianRating}), 0)`,
-        serviceCount: sql<number>`COUNT(DISTINCT ${bookings.id})::int`,
+        serviceName: services.name,
+        technicianName: users.name,
+        rating: reviews.technicianRating,
+        comment: reviews.comment,
+        createdAt: reviews.createdAt,
       })
-      .from(bookings)
-      .leftJoin(users, eq(bookings.technicianId, users.id))
-      .leftJoin(reviews, and(
-        eq(reviews.bookingId, bookings.id),
-        eq(reviews.technicianId, bookings.technicianId)
-      ))
-      .where(and(
-        eq(bookings.userId, userId),
-        sql`${bookings.technicianId} IS NOT NULL`
-      ))
-      .groupBy(users.id, users.name);
+      .from(reviews)
+      .leftJoin(bookings, eq(reviews.bookingId, bookings.id))
+      .leftJoin(services, eq(bookings.serviceId, services.id))
+      .leftJoin(users, eq(reviews.technicianId, users.id))
+      .where(eq(bookings.userId, userId))
+      .orderBy(desc(reviews.createdAt));
+
+    const recentReviews = allReviews.slice(0, 10);
+    const totalReviews = allReviews.length;
+    const averageRating = totalReviews > 0 
+      ? allReviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / totalReviews 
+      : 0;
 
     // Get wallet info
     const wallet = await this.getWallet(userId);
-    const walletHistory = await this.getWalletTransactions(userId, 100);
+    const walletTransactions = await this.getWalletTransactions(userId, 100);
+    
+    const walletBalance = Number(wallet?.balance || 0);
+    const walletEarned = walletTransactions
+      .filter((t: any) => t.type === 'credit')
+      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+    const walletSpent = walletTransactions
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
 
     return {
-      customer: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        createdAt: user.createdAt,
-      },
-      orderHistory,
-      supportHistory,
-      technicians,
-      wallet,
-      walletHistory,
+      totalBookings,
+      completedBookings,
+      cancelledBookings,
+      totalSpent,
+      averageRating,
+      totalReviews,
+      walletBalance,
+      walletEarned,
+      walletSpent,
+      recentBookings,
+      recentPayments,
+      recentSupportTickets,
+      recentReviews,
     };
   }
 
