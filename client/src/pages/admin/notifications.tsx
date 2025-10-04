@@ -55,7 +55,7 @@ export default function AdminNotifications() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">Notifications</h1>
+          <h1 className="text-3xl font-bold text-primary" data-testid="text-page-title">Notifications</h1>
           <p className="text-muted-foreground" data-testid="text-page-description">
             Send and manage push notifications
           </p>

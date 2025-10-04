@@ -160,7 +160,7 @@ export default function AdminSpareParts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-title">Spare Parts Management</h1>
+          <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Spare Parts Management</h1>
           <p className="text-muted-foreground" data-testid="text-description">
             Manage spare parts inventory for quotations
           </p>

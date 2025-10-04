@@ -59,7 +59,7 @@ export default function AdminAnalytics() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold" data-testid="text-title">Analytics & Reports</h1>
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Analytics & Reports</h1>
         <div className="flex gap-2">
           <Select value={reportType} onValueChange={setReportType}>
             <SelectTrigger className="w-[180px]" data-testid="select-report-type">
