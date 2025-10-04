@@ -2157,7 +2157,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Convert all numeric values from strings to numbers
       const convertedOrderStats = {
-        ...orderStats,
         totalOrders: Number(orderStats.totalOrders) || 0,
         totalRevenue: Number(orderStats.totalRevenue) || 0,
         completedOrders: Number(orderStats.completedOrders) || 0,
@@ -2167,8 +2166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const convertedRevenueStats = {
-        total_revenue: Number(revenueStats.totalPayments) || 0,
-        revenue_by_payment_method: {
+        totalRevenue: Number(revenueStats.totalPayments) || 0,
+        revenueByPaymentMethod: {
           wallet: Number(revenueStats.walletPayments) || 0,
           moyasar: Number(revenueStats.moyasarPayments) || 0,
           tabby: Number(revenueStats.tabbyPayments) || 0,
@@ -2193,13 +2192,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: bilingual.getMessage('admin.analytics_retrieved', language),
         data: {
-          order_stats: convertedOrderStats,
-          revenue_stats: convertedRevenueStats,
-          technician_stats: convertedTechnicianStats,
-          top_services: topServices || [],
-          technician_performance: technicianPerformance || [],
-          monthly_revenue: monthlyRevenue || [],
-          monthly_bookings: monthlyBookings || [],
+          orderStats: convertedOrderStats,
+          revenueStats: convertedRevenueStats,
+          technicianStats: convertedTechnicianStats,
+          topServices: topServices || [],
+          technicianPerformance: technicianPerformance || [],
+          monthlyRevenue: monthlyRevenue || [],
+          monthlyBookings: monthlyBookings || [],
         }
       });
       

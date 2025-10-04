@@ -12,7 +12,7 @@ const COLORS = {
 };
 
 export default function AdminOverview() {
-  const { data: stats, isLoading } = useQuery<{ data: { order_stats: any; revenue_stats: any; monthly_revenue: any[]; monthly_bookings: any[] } }>({
+  const { data: stats, isLoading } = useQuery<{ data: { orderStats: any; revenueStats: any; monthlyRevenue: any[]; monthlyBookings: any[] } }>({
     queryKey: ['/api/v2/admin/analytics'],
   });
 
@@ -20,15 +20,15 @@ export default function AdminOverview() {
     return <div className="text-center py-8">Loading...</div>;
   }
 
-  const orderStats = stats?.data?.order_stats || {};
-  const revenueStats = stats?.data?.revenue_stats || {};
-  const monthlyRevenue = stats?.data?.monthly_revenue || [];
-  const monthlyBookings = stats?.data?.monthly_bookings || [];
+  const orderStats = stats?.data?.orderStats || {};
+  const revenueStats = stats?.data?.revenueStats || {};
+  const monthlyRevenue = stats?.data?.monthlyRevenue || [];
+  const monthlyBookings = stats?.data?.monthlyBookings || [];
 
   const paymentMethodData = [
-    { name: 'Wallet', value: Number(revenueStats.revenue_by_payment_method?.wallet) || 0, color: COLORS.primary },
-    { name: 'Moyasar', value: Number(revenueStats.revenue_by_payment_method?.moyasar) || 0, color: COLORS.secondary },
-    { name: 'Tabby', value: Number(revenueStats.revenue_by_payment_method?.tabby) || 0, color: COLORS.accent },
+    { name: 'Wallet', value: Number(revenueStats.revenueByPaymentMethod?.wallet) || 0, color: COLORS.primary },
+    { name: 'Moyasar', value: Number(revenueStats.revenueByPaymentMethod?.moyasar) || 0, color: COLORS.secondary },
+    { name: 'Tabby', value: Number(revenueStats.revenueByPaymentMethod?.tabby) || 0, color: COLORS.accent },
   ].filter(item => item.value > 0);
 
   const orderStatusData = [
@@ -53,7 +53,7 @@ export default function AdminOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-revenue">
-              {(Number(revenueStats.total_revenue) || 0).toLocaleString()} SAR
+              {(Number(revenueStats.totalRevenue) || 0).toLocaleString()} SAR
             </div>
             <p className="text-xs text-foreground/80">All-time earnings</p>
           </CardContent>

@@ -1217,6 +1217,8 @@ export class DatabaseStorage implements IStorage {
         totalRevenue: sql<number>`SUM(${bookings.totalAmount})`,
         completedOrders: sql<number>`SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)`,
         cancelledOrders: sql<number>`SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)`,
+        pendingOrders: sql<number>`SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)`,
+        inProgressOrders: sql<number>`SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END)`,
       })
       .from(bookings)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
