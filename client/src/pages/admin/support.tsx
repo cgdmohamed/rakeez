@@ -67,50 +67,60 @@ export default function AdminSupport() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets.map((ticket: any) => (
-                  <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`}>
-                    <TableCell>
-                      <div className="font-medium" data-testid={`text-ticket-name-${ticket.id}`}>
-                        {ticket.userName}
+                {tickets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="text-muted-foreground">
+                        No support tickets found.
                       </div>
                     </TableCell>
-                    <TableCell data-testid={`text-ticket-subject-${ticket.id}`}>
-                      {ticket.subject}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={ticket.priority === 'urgent' ? 'destructive' : ticket.priority === 'high' ? 'default' : 'secondary'}
-                        data-testid={`badge-ticket-priority-${ticket.id}`}
-                      >
-                        {ticket.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={ticket.status}
-                        onValueChange={(value) => updateMutation.mutate({ id: ticket.id, status: value })}
-                      >
-                        <SelectTrigger className="w-[140px]" data-testid={`select-ticket-status-${ticket.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="resolved">Resolved</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell data-testid={`text-ticket-created-${ticket.id}`}>
-                      {format(new Date(ticket.createdAt), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" data-testid={`button-view-ticket-${ticket.id}`}>
-                        View
-                      </Button>
-                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  tickets.map((ticket: any) => (
+                    <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`}>
+                      <TableCell>
+                        <div className="font-medium" data-testid={`text-ticket-name-${ticket.id}`}>
+                          {ticket.userName}
+                        </div>
+                      </TableCell>
+                      <TableCell data-testid={`text-ticket-subject-${ticket.id}`}>
+                        {ticket.subject}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={ticket.priority === 'urgent' ? 'destructive' : ticket.priority === 'high' ? 'default' : 'secondary'}
+                          data-testid={`badge-ticket-priority-${ticket.id}`}
+                        >
+                          {ticket.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={ticket.status}
+                          onValueChange={(value) => updateMutation.mutate({ id: ticket.id, status: value })}
+                        >
+                          <SelectTrigger className="w-[140px]" data-testid={`select-ticket-status-${ticket.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="resolved">Resolved</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell data-testid={`text-ticket-created-${ticket.id}`}>
+                        {format(new Date(ticket.createdAt), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" data-testid={`button-view-ticket-${ticket.id}`}>
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}

@@ -46,19 +46,29 @@ export default function AdminQuotations() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {quotations.map((quotation: any) => (
-                <TableRow key={quotation.id} data-testid={`row-quotation-${quotation.id}`}>
-                  <TableCell className="font-mono text-xs">{quotation.id.slice(0, 8)}</TableCell>
-                  <TableCell className="font-mono text-xs">{quotation.booking_id?.slice(0, 8)}</TableCell>
-                  <TableCell>{quotation.amount} SAR</TableCell>
-                  <TableCell>{quotation.vat_amount} SAR</TableCell>
-                  <TableCell className="font-medium">{quotation.total_amount} SAR</TableCell>
-                  <TableCell>{getStatusBadge(quotation.status)}</TableCell>
-                  <TableCell>
-                    {quotation.created_at && format(new Date(quotation.created_at), 'MMM dd, yyyy')}
+              {quotations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="text-muted-foreground">
+                      No quotations found.
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                quotations.map((quotation: any) => (
+                  <TableRow key={quotation.id} data-testid={`row-quotation-${quotation.id}`}>
+                    <TableCell className="font-mono text-xs">{quotation.id.slice(0, 8)}</TableCell>
+                    <TableCell className="font-mono text-xs">{quotation.booking_id?.slice(0, 8)}</TableCell>
+                    <TableCell>{quotation.amount} SAR</TableCell>
+                    <TableCell>{quotation.vat_amount} SAR</TableCell>
+                    <TableCell className="font-medium">{quotation.total_amount} SAR</TableCell>
+                    <TableCell>{getStatusBadge(quotation.status)}</TableCell>
+                    <TableCell>
+                      {quotation.created_at && format(new Date(quotation.created_at), 'MMM dd, yyyy')}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

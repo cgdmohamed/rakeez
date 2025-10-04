@@ -95,38 +95,48 @@ export default function AdminBookings() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredBookings.map((booking: any) => (
-                <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`}>
-                  <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
-                  <TableCell>{booking.user?.name || 'N/A'}</TableCell>
-                  <TableCell>{booking.service?.name?.en || 'N/A'}</TableCell>
-                  <TableCell>
-                    {booking.scheduled_date && format(new Date(booking.scheduled_date), 'MMM dd, yyyy')}
-                    <br />
-                    <span className="text-xs text-muted-foreground">{booking.scheduled_time}</span>
-                  </TableCell>
-                  <TableCell>{booking.total_amount} SAR</TableCell>
-                  <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={booking.status}
-                      onValueChange={(status) => updateStatusMutation.mutate({ id: booking.id, status })}
-                      data-testid={`select-status-${booking.id}`}
-                    >
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+              {filteredBookings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="text-muted-foreground">
+                      No bookings found. {statusFilter !== 'all' && 'Try changing the filter.'}
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredBookings.map((booking: any) => (
+                  <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`}>
+                    <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
+                    <TableCell>{booking.user?.name || 'N/A'}</TableCell>
+                    <TableCell>{booking.service?.name?.en || 'N/A'}</TableCell>
+                    <TableCell>
+                      {booking.scheduled_date && format(new Date(booking.scheduled_date), 'MMM dd, yyyy')}
+                      <br />
+                      <span className="text-xs text-muted-foreground">{booking.scheduled_time}</span>
+                    </TableCell>
+                    <TableCell>{booking.total_amount} SAR</TableCell>
+                    <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={booking.status}
+                        onValueChange={(status) => updateStatusMutation.mutate({ id: booking.id, status })}
+                        data-testid={`select-status-${booking.id}`}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

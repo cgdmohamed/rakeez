@@ -60,21 +60,31 @@ export default function AdminPayments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((payment: any) => (
-                <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
-                  <TableCell className="font-mono text-xs">{payment.id.slice(0, 8)}</TableCell>
-                  <TableCell className="font-mono text-xs">{payment.booking_id?.slice(0, 8)}</TableCell>
-                  <TableCell className="font-medium">{payment.amount} SAR</TableCell>
-                  <TableCell>{getMethodBadge(payment.payment_method)}</TableCell>
-                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {payment.gateway_transaction_id || 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {payment.created_at && format(new Date(payment.created_at), 'MMM dd, yyyy HH:mm')}
+              {payments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="text-muted-foreground">
+                      No payments found.
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                payments.map((payment: any) => (
+                  <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
+                    <TableCell className="font-mono text-xs">{payment.id.slice(0, 8)}</TableCell>
+                    <TableCell className="font-mono text-xs">{payment.booking_id?.slice(0, 8)}</TableCell>
+                    <TableCell className="font-medium">{payment.amount} SAR</TableCell>
+                    <TableCell>{getMethodBadge(payment.payment_method)}</TableCell>
+                    <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {payment.gateway_transaction_id || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {payment.created_at && format(new Date(payment.created_at), 'MMM dd, yyyy HH:mm')}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

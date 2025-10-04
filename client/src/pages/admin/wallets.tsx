@@ -48,43 +48,53 @@ export default function AdminWallets() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {wallets.map((wallet: any) => (
-                  <TableRow key={wallet.id} data-testid={`row-wallet-${wallet.id}`}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium" data-testid={`text-wallet-name-${wallet.id}`}>
-                          {wallet.userName}
-                        </div>
-                        <div className="text-sm text-muted-foreground" data-testid={`text-wallet-email-${wallet.id}`}>
-                          {wallet.userEmail}
-                        </div>
+                {wallets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="text-muted-foreground">
+                        No wallets found.
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" data-testid={`badge-wallet-role-${wallet.id}`}>
-                        {wallet.userRole}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-lg" data-testid={`text-wallet-balance-${wallet.id}`}>
-                        ${(Number(wallet.balance) || 0).toFixed(2)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-green-600" data-testid={`text-wallet-earned-${wallet.id}`}>
-                        +${(Number(wallet.totalEarned) || 0).toFixed(2)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-red-600" data-testid={`text-wallet-spent-${wallet.id}`}>
-                        -${(Number(wallet.totalSpent) || 0).toFixed(2)}
-                      </span>
-                    </TableCell>
-                    <TableCell data-testid={`text-wallet-created-${wallet.id}`}>
-                      {format(new Date(wallet.createdAt), 'MMM d, yyyy')}
-                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  wallets.map((wallet: any) => (
+                    <TableRow key={wallet.id} data-testid={`row-wallet-${wallet.id}`}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium" data-testid={`text-wallet-name-${wallet.id}`}>
+                            {wallet.userName}
+                          </div>
+                          <div className="text-sm text-muted-foreground" data-testid={`text-wallet-email-${wallet.id}`}>
+                            {wallet.userEmail}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" data-testid={`badge-wallet-role-${wallet.id}`}>
+                          {wallet.userRole}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-lg" data-testid={`text-wallet-balance-${wallet.id}`}>
+                          ${(Number(wallet.balance) || 0).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-green-600" data-testid={`text-wallet-earned-${wallet.id}`}>
+                          +${(Number(wallet.totalEarned) || 0).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-red-600" data-testid={`text-wallet-spent-${wallet.id}`}>
+                          -${(Number(wallet.totalSpent) || 0).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell data-testid={`text-wallet-created-${wallet.id}`}>
+                        {format(new Date(wallet.createdAt), 'MMM d, yyyy')}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}
