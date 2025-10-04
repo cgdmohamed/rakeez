@@ -7,6 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { webhookWorker } from "./workers/webhook";
 import { websocketService } from "./services/websocket";
 import { redisService } from "./services/redis";
+import { testDatabaseConnection } from "./db";
 
 const app = express();
 
@@ -53,6 +54,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Test database connection before starting server
+  const dbConnected = await testDatabaseConnection();
+  if (!dbConnected) {
+    console.error('⚠️  WARNING: Database connection failed. Server may not function properly.');
+    console.error('Please check your DATABASE_URL environment variable.');
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

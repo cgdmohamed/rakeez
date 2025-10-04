@@ -168,9 +168,21 @@ export class AuthController {
       }
 
       // Find user by email or phone
-      const user = identifier.includes('@')
-        ? await this.storage.getUserByEmail(identifier)
-        : await this.storage.getUserByPhone(identifier);
+      let user;
+      try {
+        user = identifier.includes('@')
+          ? await this.storage.getUserByEmail(identifier)
+          : await this.storage.getUserByPhone(identifier);
+      } catch (dbError) {
+        console.error('Database error during login user lookup:', dbError);
+        // Log detailed error information
+        if (dbError instanceof Error) {
+          console.error('Error name:', dbError.name);
+          console.error('Error message:', dbError.message);
+          console.error('Error stack:', dbError.stack);
+        }
+        throw dbError; // Re-throw to be caught by outer catch
+      }
 
       if (!user) {
         return res.status(401).json({
