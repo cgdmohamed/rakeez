@@ -2400,10 +2400,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         users = await storage.getAllUsers();
       }
       
+      // Sanitize user data - remove sensitive fields
+      const sanitizedUsers = users.map(user => {
+        const { password, resetToken, resetTokenExpiry, otpCode, otpExpiry, deviceToken, ...safeUser } = user;
+        return safeUser;
+      });
+      
       res.json({
         success: true,
         message: bilingual.getMessage('admin.users_retrieved', language),
-        data: users,
+        data: sanitizedUsers,
       });
       
     } catch (error) {
