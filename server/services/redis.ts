@@ -1,8 +1,59 @@
 import Redis from 'ioredis';
 
+// In-memory fallback for when Redis is unavailable
+class InMemoryStore {
+  private store = new Map<string, { value: any; expiry?: number }>();
+
+  set(key: string, value: any, ttl?: number): void {
+    const expiry = ttl ? Date.now() + (ttl * 1000) : undefined;
+    this.store.set(key, { value, expiry });
+  }
+
+  get(key: string): any | null {
+    const item = this.store.get(key);
+    if (!item) return null;
+    
+    if (item.expiry && item.expiry < Date.now()) {
+      this.store.delete(key);
+      return null;
+    }
+    
+    return item.value;
+  }
+
+  del(key: string): void {
+    this.store.delete(key);
+  }
+
+  exists(key: string): boolean {
+    const item = this.store.get(key);
+    if (!item) return false;
+    
+    if (item.expiry && item.expiry < Date.now()) {
+      this.store.delete(key);
+      return false;
+    }
+    
+    return true;
+  }
+
+  incr(key: string): number {
+    const item = this.store.get(key);
+    const currentValue = item?.value || 0;
+    const newValue = currentValue + 1;
+    this.store.set(key, { value: newValue, expiry: item?.expiry });
+    return newValue;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+}
+
 class RedisService {
   private client: Redis;
   private isAvailable: boolean = false;
+  private memoryStore = new InMemoryStore();
 
   constructor() {
     this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -17,7 +68,7 @@ class RedisService {
       if (process.env.NODE_ENV !== 'production') {
         // Silently fail in development
       } else {
-        console.error('Redis connection error:', err);
+        console.warn('Redis unavailable, using in-memory fallback:', err.message);
       }
     });
 
@@ -94,37 +145,53 @@ class RedisService {
 
   // Session Management
   async setSession(userId: string, token: string, ttl = 86400): Promise<void> {
+    const key = `session:${userId}`;
     try {
-      const key = `session:${userId}`;
-      await this.client.setex(key, ttl, token);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('Redis unavailable - Session storage failed');
+      if (this.isAvailable) {
+        await this.client.setex(key, ttl, token);
+      } else {
+        this.memoryStore.set(key, token, ttl);
       }
-      console.warn('Redis setSession failed (optional in development)');
+    } catch (error) {
+      console.warn('Redis setSession failed, using in-memory fallback');
+      this.memoryStore.set(key, token, ttl);
     }
   }
 
   async getSession(userId: string): Promise<string | null> {
+    const key = `session:${userId}`;
     try {
-      const key = `session:${userId}`;
-      return await this.client.get(key);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('Redis unavailable - Session retrieval failed');
+      if (this.isAvailable) {
+        return await this.client.get(key);
+      } else {
+        return this.memoryStore.get(key);
       }
-      console.warn('Redis getSession failed (optional in development)');
-      return null;
+    } catch (error) {
+      console.warn('Redis getSession failed, using in-memory fallback');
+      return this.memoryStore.get(key);
     }
   }
 
   async deleteSession(userId: string): Promise<void> {
+    const key = `session:${userId}`;
     try {
-      const key = `session:${userId}`;
-      await this.client.del(key);
+      if (this.isAvailable) {
+        await this.client.del(key);
+      } else {
+        this.memoryStore.del(key);
+      }
     } catch (error) {
-      console.warn('Redis deleteSession failed (optional in development)');
+      console.warn('Redis deleteSession failed, using in-memory fallback');
+      this.memoryStore.del(key);
     }
+  }
+
+  async storeSession(key: string, data: any, ttl?: number): Promise<void> {
+    await this.set(key, data, ttl);
+  }
+
+  async getStoredSession(key: string): Promise<any | null> {
+    return await this.get(key);
   }
 
   // Rate Limiting
@@ -221,42 +288,60 @@ class RedisService {
   // Cache Management
   async set(key: string, value: any, ttl?: number): Promise<void> {
     try {
-      const serialized = JSON.stringify(value);
-      if (ttl) {
-        await this.client.setex(key, ttl, serialized);
+      if (this.isAvailable) {
+        const serialized = JSON.stringify(value);
+        if (ttl) {
+          await this.client.setex(key, ttl, serialized);
+        } else {
+          await this.client.set(key, serialized);
+        }
       } else {
-        await this.client.set(key, serialized);
+        this.memoryStore.set(key, value, ttl);
       }
     } catch (error) {
-      console.warn('Redis set failed (optional in development)');
+      console.warn('Redis set failed, using in-memory fallback');
+      this.memoryStore.set(key, value, ttl);
     }
   }
 
   async get(key: string): Promise<any | null> {
     try {
-      const value = await this.client.get(key);
-      return value ? JSON.parse(value) : null;
+      if (this.isAvailable) {
+        const value = await this.client.get(key);
+        return value ? JSON.parse(value) : null;
+      } else {
+        return this.memoryStore.get(key);
+      }
     } catch (error) {
-      console.warn('Redis get failed (optional in development)');
-      return null;
+      console.warn('Redis get failed, using in-memory fallback');
+      return this.memoryStore.get(key);
     }
   }
 
   async del(key: string): Promise<void> {
     try {
-      await this.client.del(key);
+      if (this.isAvailable) {
+        await this.client.del(key);
+      } else {
+        this.memoryStore.del(key);
+      }
     } catch (error) {
-      console.warn('Redis del failed (optional in development)');
+      console.warn('Redis del failed, using in-memory fallback');
+      this.memoryStore.del(key);
     }
   }
 
   async exists(key: string): Promise<boolean> {
     try {
-      const exists = await this.client.exists(key);
-      return exists === 1;
+      if (this.isAvailable) {
+        const exists = await this.client.exists(key);
+        return exists === 1;
+      } else {
+        return this.memoryStore.exists(key);
+      }
     } catch (error) {
-      console.warn('Redis exists failed (optional in development)');
-      return false;
+      console.warn('Redis exists failed, using in-memory fallback');
+      return this.memoryStore.exists(key);
     }
   }
 

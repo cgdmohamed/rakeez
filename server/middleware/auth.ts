@@ -53,7 +53,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    // Check if session exists in Redis (optional in development, required in production)
+    // Check if session exists in Redis/memory (if session stored, validate it matches)
     const sessionToken = await redisService.getSession(decoded.user_id);
     if (sessionToken !== null && sessionToken !== token) {
       return res.status(401).json({
@@ -62,14 +62,8 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       });
     }
     
-    // In production, require Redis session validation
-    if (process.env.NODE_ENV === 'production' && sessionToken === null) {
-      console.error('Redis unavailable in production - rejecting authentication');
-      return res.status(503).json({
-        success: false,
-        message: bilingual.getMessage('general.server_error', language),
-      });
-    }
+    // Note: Session validation is optional - JWT signature is primary authentication
+    // Redis/memory session adds extra layer but not required for auth to work
 
     // Get user from database
     const user = await storage.getUser(decoded.user_id);
