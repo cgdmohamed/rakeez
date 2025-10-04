@@ -3,7 +3,7 @@ interface SarSymbolProps {
   size?: number;
 }
 
-export function SarSymbol({ className = '', size = 14 }: SarSymbolProps) {
+export function SarSymbol({ className = '', size = 16 }: SarSymbolProps) {
   return (
     <svg
       className={`inline-block ${className}`}
