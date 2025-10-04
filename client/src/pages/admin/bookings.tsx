@@ -55,7 +55,7 @@ export default function AdminBookings() {
     reason: '',
   });
 
-  const { data: bookingsData, isLoading } = useQuery<BookingResponse>({
+  const { data: bookingsData, isLoading, isError, error } = useQuery<BookingResponse>({
     queryKey: ['/api/v2/admin/bookings'],
   });
 
@@ -174,6 +174,24 @@ export default function AdminBookings() {
 
   if (isLoading) {
     return <div className="text-center py-8">Loading bookings...</div>;
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Error Loading Bookings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : 'Failed to load bookings. Please try again.'}
+          </p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] })} data-testid="button-retry">
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
