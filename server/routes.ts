@@ -2605,6 +2605,360 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // ==================== ADMIN - WALLETS ====================
+  
+  // Get All Wallets
+  app.get('/api/v2/admin/wallets', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { role } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const wallets = await storage.getAllWallets(role as string | undefined);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.wallets_retrieved', language),
+        data: wallets.map((w: any) => ({
+          ...w,
+          balance: Number(w.balance) || 0,
+          totalEarned: Number(w.totalEarned) || 0,
+          totalSpent: Number(w.totalSpent) || 0,
+        })),
+      });
+      
+    } catch (error) {
+      console.error('Get all wallets error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Wallet Transactions
+  app.get('/api/v2/admin/wallets/:userId/transactions', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const { limit = 50 } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const transactions = await storage.getWalletTransactions(userId, parseInt(limit as string));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.transactions_retrieved', language),
+        data: transactions.map((t: any) => ({
+          ...t,
+          amount: Number(t.amount) || 0,
+          balanceBefore: Number(t.balanceBefore) || 0,
+          balanceAfter: Number(t.balanceAfter) || 0,
+        })),
+      });
+      
+    } catch (error) {
+      console.error('Get wallet transactions error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== ADMIN - QUOTATIONS ====================
+  
+  // Get All Quotations
+  app.get('/api/v2/admin/quotations', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { status } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const quotations = await storage.getAllQuotations(status as string | undefined);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.quotations_retrieved', language),
+        data: quotations.map((q: any) => ({
+          ...q,
+          additionalCost: Number(q.additionalCost) || 0,
+        })),
+      });
+      
+    } catch (error) {
+      console.error('Get all quotations error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Quotation Status (Admin)
+  app.put('/api/v2/admin/quotations/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      status: z.enum(['approved', 'rejected', 'pending']),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const quotation = await storage.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('quotation.not_found', language),
+        });
+      }
+      
+      await storage.updateQuotationStatus(id, status, req.user.id);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.quotation_updated', language),
+      });
+      
+    } catch (error) {
+      console.error('Update quotation error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== ADMIN - NOTIFICATIONS ====================
+  
+  // Get All Notifications
+  app.get('/api/v2/admin/notifications', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { limit = 100 } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const notifications = await storage.getAllNotifications(parseInt(limit as string));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.notifications_retrieved', language),
+        data: notifications,
+      });
+      
+    } catch (error) {
+      console.error('Get all notifications error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Send Notification (Admin)
+  app.post('/api/v2/admin/notifications/send', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      user_ids: z.array(z.string().uuid()).optional(),
+      role: z.enum(['customer', 'technician', 'admin']).optional(),
+      type: z.enum(['booking', 'payment', 'promotion', 'system']),
+      title: z.object({
+        en: z.string(),
+        ar: z.string().optional(),
+      }),
+      body: z.object({
+        en: z.string(),
+        ar: z.string().optional(),
+      }),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { user_ids, role, type, title, body } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      let targetUsers: string[] = [];
+      if (user_ids) {
+        targetUsers = user_ids;
+      } else if (role) {
+        const users = await storage.getUsersByRole(role);
+        targetUsers = users.map(u => u.id);
+      }
+      
+      // Create notifications for all target users
+      const notifications = await Promise.all(
+        targetUsers.map(userId =>
+          storage.createNotification({
+            userId,
+            type,
+            title,
+            body,
+          })
+        )
+      );
+      
+      // Send push notifications
+      await Promise.all(
+        notifications.map(notification =>
+          notificationService.sendNotification(
+            notification.userId,
+            title.en,
+            body.en,
+            { notification_id: notification.id }
+          )
+        )
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.notifications_sent', language),
+        data: { sent_count: notifications.length },
+      });
+      
+    } catch (error) {
+      console.error('Send notification error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== ADMIN - SUPPORT TICKETS ====================
+  
+  // Get All Support Tickets
+  app.get('/api/v2/admin/support/tickets', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { status, priority } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const tickets = await storage.getAllSupportTickets(
+        status as string | undefined,
+        priority as string | undefined
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.support_tickets_retrieved', language),
+        data: tickets,
+      });
+      
+    } catch (error) {
+      console.error('Get all support tickets error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Support Ticket
+  app.put('/api/v2/admin/support/tickets/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      status: z.enum(['open', 'in_progress', 'resolved', 'closed']).optional(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+      assigned_to: z.string().uuid().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('support.ticket_not_found', language),
+        });
+      }
+      
+      await storage.updateSupportTicket(id, {
+        status: updateData.status,
+        priority: updateData.priority,
+        assignedTo: updateData.assigned_to,
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.support_ticket_updated', language),
+      });
+      
+    } catch (error) {
+      console.error('Update support ticket error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Support Ticket Messages
+  app.get('/api/v2/admin/support/tickets/:id/messages', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const messages = await storage.getSupportMessages(id);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.messages_retrieved', language),
+        data: messages,
+      });
+      
+    } catch (error) {
+      console.error('Get support messages error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // ==================== ADMIN - SERVICES & PRICING ====================
+  
+  // Get All Services (Admin)
+  app.get('/api/v2/admin/services', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const categories = await storage.getServiceCategories();
+      
+      const servicesWithCategories = await Promise.all(
+        categories.map(async (category) => {
+          const services = await storage.getServicesByCategory(category.id);
+          const servicesWithPackages = await Promise.all(
+            services.map(async (service) => {
+              const packages = await storage.getServicePackages(service.id);
+              return {
+                ...service,
+                basePrice: Number(service.basePrice) || 0,
+                vatPercentage: Number(service.vatPercentage) || 0,
+                packages: packages.map(pkg => ({
+                  ...pkg,
+                  price: Number(pkg.price) || 0,
+                  discountPercentage: Number(pkg.discountPercentage) || 0,
+                })),
+              };
+            })
+          );
+          return {
+            category,
+            services: servicesWithPackages,
+          };
+        })
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.services_retrieved', language),
+        data: servicesWithCategories,
+      });
+      
+    } catch (error) {
+      console.error('Get all services error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
   
   // ==================== TECHNICIAN ENDPOINTS ====================
   

@@ -469,6 +469,31 @@ export class DatabaseStorage implements IStorage {
     await db.insert(quotationSpareParts).values(sparePartsData);
   }
 
+  async getAllQuotations(status?: string): Promise<any[]> {
+    const conditions = [];
+    if (status) {
+      conditions.push(eq(quotations.status, status as any));
+    }
+
+    return await db
+      .select({
+        id: quotations.id,
+        bookingId: quotations.bookingId,
+        technicianId: quotations.technicianId,
+        status: quotations.status,
+        additionalCost: quotations.additionalCost,
+        notes: quotations.notes,
+        expiresAt: quotations.expiresAt,
+        approvedAt: quotations.approvedAt,
+        createdAt: quotations.createdAt,
+        technicianName: users.name,
+      })
+      .from(quotations)
+      .leftJoin(users, eq(quotations.technicianId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(quotations.createdAt));
+  }
+
   // Payments
   async createPayment(payment: InsertPayment): Promise<Payment> {
     const [newPayment] = await db.insert(payments).values(payment).returning();
@@ -566,6 +591,43 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
+  async getAllWallets(role?: string): Promise<any[]> {
+    if (role) {
+      return await db
+        .select({
+          id: wallets.id,
+          userId: wallets.userId,
+          balance: wallets.balance,
+          totalEarned: wallets.totalEarned,
+          totalSpent: wallets.totalSpent,
+          createdAt: wallets.createdAt,
+          userName: users.name,
+          userEmail: users.email,
+          userRole: users.role,
+        })
+        .from(wallets)
+        .leftJoin(users, eq(wallets.userId, users.id))
+        .where(eq(users.role, role as any))
+        .orderBy(desc(wallets.createdAt));
+    } else {
+      return await db
+        .select({
+          id: wallets.id,
+          userId: wallets.userId,
+          balance: wallets.balance,
+          totalEarned: wallets.totalEarned,
+          totalSpent: wallets.totalSpent,
+          createdAt: wallets.createdAt,
+          userName: users.name,
+          userEmail: users.email,
+          userRole: users.role,
+        })
+        .from(wallets)
+        .leftJoin(users, eq(wallets.userId, users.id))
+        .orderBy(desc(wallets.createdAt));
+    }
+  }
+
   // Referrals
   async createReferral(referral: InsertReferral): Promise<Referral> {
     const [newReferral] = await db.insert(referrals).values(referral).returning();
@@ -618,6 +680,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.id, id));
   }
 
+  async getAllNotifications(limit = 100): Promise<any[]> {
+    return await db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        body: notifications.body,
+        isRead: notifications.isRead,
+        createdAt: notifications.createdAt,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(notifications)
+      .leftJoin(users, eq(notifications.userId, users.id))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
   // Support
   async createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket> {
     const [newTicket] = await db.insert(supportTickets).values(ticket).returning();
@@ -635,6 +716,53 @@ export class DatabaseStorage implements IStorage {
       .from(supportTickets)
       .where(eq(supportTickets.userId, userId))
       .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getAllSupportTickets(status?: string, priority?: string): Promise<any[]> {
+    const conditions = [];
+    if (status) {
+      conditions.push(eq(supportTickets.status, status as any));
+    }
+    if (priority) {
+      conditions.push(eq(supportTickets.priority, priority));
+    }
+
+    return await db
+      .select({
+        id: supportTickets.id,
+        userId: supportTickets.userId,
+        subject: supportTickets.subject,
+        priority: supportTickets.priority,
+        status: supportTickets.status,
+        assignedTo: supportTickets.assignedTo,
+        createdAt: supportTickets.createdAt,
+        updatedAt: supportTickets.updatedAt,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(supportTickets)
+      .leftJoin(users, eq(supportTickets.userId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getSupportMessages(ticketId: string): Promise<any[]> {
+    return await db
+      .select({
+        id: supportMessages.id,
+        ticketId: supportMessages.ticketId,
+        senderId: supportMessages.senderId,
+        message: supportMessages.message,
+        attachments: supportMessages.attachments,
+        isInternal: supportMessages.isInternal,
+        createdAt: supportMessages.createdAt,
+        senderName: users.name,
+        senderEmail: users.email,
+      })
+      .from(supportMessages)
+      .leftJoin(users, eq(supportMessages.senderId, users.id))
+      .where(eq(supportMessages.ticketId, ticketId))
+      .orderBy(supportMessages.createdAt);
   }
 
   async createSupportMessage(message: InsertSupportMessage): Promise<SupportMessage> {
