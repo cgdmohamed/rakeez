@@ -43,6 +43,7 @@ Preferred communication style: Simple, everyday language.
   - Status Updates: Update job status (confirmed, en route, in progress, completed)
   - Uploads: Upload invoices (PDF) and spare part images for bookings
   - Real-time Chat: WebSocket-based chat with customers for job coordination
+  - WebSocket URL configurable via `VITE_WS_URL` environment variable for dev/prod environments
 
 - **Authentication**: Unified login page (`/login`) with role-based routing
   - Detects user role (admin/technician) and redirects to appropriate dashboard
@@ -60,9 +61,11 @@ Preferred communication style: Simple, everyday language.
 
 **Authentication & Authorization:**
 - JWT-based authentication with access and refresh tokens
-- Token blacklisting via Redis for logout functionality
+- Session management: Access tokens stored at `session:${userId}`, refresh tokens at `refresh:${userId}`
+- Token blacklisting with Redis or in-memory fallback for logout functionality
 - Role-based access control (customer, technician, admin)
 - OTP verification for registration and password reset via Twilio
+- Auth middleware validates sessions without requiring Redis in production
 
 **Business Logic Organization:**
 - AuthController: User registration, login, OTP verification, password reset
@@ -118,7 +121,10 @@ Preferred communication style: Simple, everyday language.
 - **Expo Push Notifications**: Mobile push notifications via FCM/APNS
 
 **Infrastructure Services:**
-- **Redis**: Session management, rate limiting, OTP storage, webhook deduplication
+- **Redis (Optional)**: Session management, rate limiting, OTP storage, webhook deduplication
+  - Fully optional with automatic in-memory fallback when unavailable
+  - Production-safe TTL-aware in-memory implementation for all operations
+  - No Redis dependency required for core auth/booking workflows
 - **Neon Database (PostgreSQL)**: Primary data store with connection pooling
 
 **Utilities:**
@@ -140,3 +146,5 @@ Preferred communication style: Simple, everyday language.
 - Worker queues for asynchronous notification and webhook processing
 - Comprehensive audit logging for security and compliance
 - Rate limiting at multiple layers (registration, login, API calls)
+- Redis-optional architecture: Full in-memory fallback with TTL-aware counters for sessions, rate limits, OTP, and cache operations
+- Environment-based configuration for WebSocket URLs and other deployment-specific settings
