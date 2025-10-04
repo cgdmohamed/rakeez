@@ -14,7 +14,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import { SarSymbol } from '@/components/sar-symbol';
 import {
   AlertDialog,
@@ -46,6 +46,7 @@ export default function AdminSpareParts() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSparePart, setSelectedSparePart] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data: sparePartsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/spare-parts'],
@@ -72,6 +73,47 @@ export default function AdminSpareParts() {
       sku: '',
     },
   });
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image size must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const { uploadURL } = await apiRequest('POST', '/api/v2/objects/upload', {});
+      
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const imageUrl = uploadURL.split('?')[0];
+      form.setValue('image', imageUrl);
+      toast({ title: 'Success', description: 'Image uploaded successfully' });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: 'Error', description: 'Failed to upload image', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/spare-parts', data),
@@ -374,10 +416,37 @@ export default function AdminSpareParts() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL (optional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-image" />
-                    </FormControl>
+                    <FormLabel>Image</FormLabel>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-image" />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={uploading}
+                          onClick={() => document.getElementById('file-upload-create')?.click()}
+                          data-testid="button-upload-image"
+                        >
+                          {uploading ? '...' : <Upload className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <input
+                        id="file-upload-create"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      {field.value && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <ImageIcon className="h-4 w-4" />
+                          <span className="truncate">{field.value}</span>
+                        </div>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -562,10 +631,37 @@ export default function AdminSpareParts() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL (optional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-edit-image" />
-                    </FormControl>
+                    <FormLabel>Image</FormLabel>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input {...field} placeholder="https://example.com/image.jpg" data-testid="input-edit-image" />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={uploading}
+                          onClick={() => document.getElementById('file-upload-edit')?.click()}
+                          data-testid="button-upload-image-edit"
+                        >
+                          {uploading ? '...' : <Upload className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <input
+                        id="file-upload-edit"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      {field.value && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <ImageIcon className="h-4 w-4" />
+                          <span className="truncate">{field.value}</span>
+                        </div>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
