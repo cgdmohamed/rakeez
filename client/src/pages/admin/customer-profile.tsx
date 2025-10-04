@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -90,17 +91,6 @@ export default function CustomerProfile() {
     enabled: !!id,
   });
 
-  // Debug logging
-  console.log('🔍 [Frontend] CustomerProfile - Customer ID from params:', id);
-  console.log('🔍 [Frontend] CustomerProfile - Query state:', {
-    isLoading,
-    isError,
-    hasData: !!overviewData,
-    hasDataData: !!overviewData?.data,
-    error: error instanceof Error ? error.message : error,
-  });
-  console.log('🔍 [Frontend] CustomerProfile - Full overviewData:', overviewData);
-
   const topupWalletMutation = useMutation({
     mutationFn: async ({ amount, reason }: { amount: number; reason: string }) => {
       return apiRequest('POST', `/api/v2/admin/customers/${id}/wallet/topup`, {
@@ -136,16 +126,67 @@ export default function CustomerProfile() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusLower = status?.toLowerCase();
+    const classMap: Record<string, string> = {
+      pending: 'badge-pending',
+      confirmed: 'badge-confirmed',
+      in_progress: 'badge-in-progress',
+      completed: 'badge-completed',
+      cancelled: 'badge-cancelled',
+      paid: 'badge-paid',
+      failed: 'badge-failed',
+      refunded: 'badge-refunded',
+      open: 'badge-open',
+      closed: 'badge-closed',
+      high: 'badge-failed',
+      medium: 'badge-pending',
+      low: 'badge-confirmed',
+    };
+    
+    return <Badge className={classMap[statusLower] || 'badge-confirmed'}>{status}</Badge>;
+  };
+
   if (isLoading) {
-    return <div className="text-center py-8">Loading customer profile...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <div>
+              <Skeleton className="h-9 w-64 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="shadow-sm">
+              <CardHeader>
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  if (!overviewData?.data) {
+  if (isError || !overviewData?.data) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground" data-testid="text-not-found">Customer not found</p>
+      <div className="text-center py-12">
+        <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-primary mb-2">Customer Not Found</h2>
+        <p className="text-muted-foreground mb-6" data-testid="text-not-found">
+          {error instanceof Error ? error.message : 'The customer you are looking for does not exist or has been removed.'}
+        </p>
         <Link href="/admin/customers">
-          <Button variant="link" className="mt-4" data-testid="button-back-to-customers">
+          <Button variant="default" data-testid="button-back-to-customers">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Customers
           </Button>
@@ -155,22 +196,6 @@ export default function CustomerProfile() {
   }
 
   const { user, stats, recentBookings, recentPayments, recentSupportTickets, recentReviews } = overviewData.data;
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      confirmed: 'default',
-      in_progress: 'default',
-      completed: 'outline',
-      cancelled: 'destructive',
-      paid: 'outline',
-      failed: 'destructive',
-      refunded: 'secondary',
-      open: 'secondary',
-      closed: 'outline',
-    };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
-  };
 
   return (
     <div className="space-y-6">
@@ -182,8 +207,8 @@ export default function CustomerProfile() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-customer-name">{user.name}</h1>
-            <p className="text-muted-foreground">{user.email}</p>
+            <h1 className="text-3xl font-bold text-primary" data-testid="text-customer-name">{user.name}</h1>
+            <p className="text-foreground/70">{user.email}</p>
           </div>
         </div>
         <Button
@@ -197,57 +222,60 @@ export default function CustomerProfile() {
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card data-testid="card-total-bookings" className="card-accent-blue shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+            <CardTitle className="text-sm font-medium text-primary">Total Bookings</CardTitle>
+            <Calendar className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="stat-total-bookings">{stats.totalBookings}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.completedBookings} completed, {stats.cancelledBookings} cancelled
+            <div className="text-2xl font-bold" data-testid="stat-total-bookings">{stats.totalBookings || 0}</div>
+            <p className="text-xs text-foreground/80">
+              {stats.completedBookings || 0} completed, {stats.cancelledBookings || 0} cancelled
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="card-total-spent" className="card-accent-cyan shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+            <CardTitle className="text-sm font-medium text-secondary">Total Spent</CardTitle>
+            <DollarSign className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-1" data-testid="stat-total-spent">
-              {(Number(stats.totalSpent) || 0).toFixed(2)}
-              <SarSymbol size={20} />
+            <div className="text-2xl font-bold" data-testid="stat-total-spent">
+              {(Number(stats.totalSpent) || 0).toLocaleString()} <span className="text-lg">SAR</span>
             </div>
-            <p className="text-xs text-muted-foreground">Lifetime spending</p>
+            <p className="text-xs text-foreground/80">Lifetime spending</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="card-wallet-balance" className="card-accent-green shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
+            <CardTitle className="text-sm font-medium text-accent">Wallet Balance</CardTitle>
+            <Wallet className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center gap-1" data-testid="stat-wallet-balance">
               {(Number(stats.walletBalance) || 0).toFixed(2)}
               <SarSymbol size={20} />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Earned: {(Number(stats.walletEarned) || 0).toFixed(2)}, 
-              Spent: {(Number(stats.walletSpent) || 0).toFixed(2)}
+            <p className="text-xs text-foreground/80">
+              +{(Number(stats.walletEarned) || 0).toFixed(0)} earned, 
+              -{(Number(stats.walletSpent) || 0).toFixed(0)} spent
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="card-avg-rating" className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center gap-1" data-testid="stat-avg-rating">
-              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
               {(Number(stats.averageRating) || 0).toFixed(1)}
+              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
             </div>
-            <p className="text-xs text-muted-foreground">{stats.totalReviews} reviews</p>
+            <p className="text-xs text-foreground/80">{stats.totalReviews || 0} reviews</p>
           </CardContent>
         </Card>
       </div>
@@ -263,9 +291,9 @@ export default function CustomerProfile() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
+              <CardTitle className="text-primary">Customer Information</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-2 gap-4">
@@ -285,9 +313,12 @@ export default function CustomerProfile() {
                   <dt className="text-sm font-medium text-muted-foreground">Verified</dt>
                   <dd className="mt-1">
                     {user.isVerified ? (
-                      <Badge variant="outline">Verified</Badge>
+                      <Badge className="badge-completed">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Verified
+                      </Badge>
                     ) : (
-                      <Badge variant="secondary">Not Verified</Badge>
+                      <Badge className="badge-pending">Not Verified</Badge>
                     )}
                   </dd>
                 </div>
@@ -303,172 +334,166 @@ export default function CustomerProfile() {
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Recent Orders</CardTitle>
+              <CardTitle className="text-primary">Recent Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentBookings && recentBookings.length > 0 ? (
-                    recentBookings.map((booking: any) => (
-                      <TableRow key={booking.id} data-testid={`row-order-${booking.id}`}>
+              {recentBookings && recentBookings.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Order ID</TableHead>
+                      <TableHead className="table-header-primary">Service</TableHead>
+                      <TableHead className="table-header-primary">Date</TableHead>
+                      <TableHead className="table-header-primary text-right">Amount</TableHead>
+                      <TableHead className="table-header-primary">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentBookings.map((booking: any, idx: number) => (
+                      <TableRow key={booking.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-order-${booking.id}`}>
                         <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
                         <TableCell>{booking.serviceName?.en || 'N/A'}</TableCell>
                         <TableCell>{format(new Date(booking.scheduledDate), 'MMM dd, yyyy')}</TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          {(Number(booking.totalAmount) || 0).toFixed(2)}
-                          <SarSymbol size={14} />
+                        <TableCell className="numeric-cell">
+                          {(Number(booking.totalAmount) || 0).toLocaleString()} SAR
                         </TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        <div className="text-muted-foreground">No orders found</div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No orders found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Recent Payments</CardTitle>
+              <CardTitle className="text-primary">Recent Payments</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Payment ID</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentPayments && recentPayments.length > 0 ? (
-                    recentPayments.map((payment: any) => (
-                      <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
+              {recentPayments && recentPayments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Payment ID</TableHead>
+                      <TableHead className="table-header-primary">Method</TableHead>
+                      <TableHead className="table-header-primary text-right">Amount</TableHead>
+                      <TableHead className="table-header-primary">Date</TableHead>
+                      <TableHead className="table-header-primary">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentPayments.map((payment: any, idx: number) => (
+                      <TableRow key={payment.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-payment-${payment.id}`}>
                         <TableCell className="font-mono text-xs">{payment.id.slice(0, 8)}</TableCell>
                         <TableCell className="capitalize">{payment.paymentMethod}</TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          {(Number(payment.amount) || 0).toFixed(2)}
-                          <SarSymbol size={14} />
+                        <TableCell className="numeric-cell">
+                          {(Number(payment.amount) || 0).toLocaleString()} SAR
                         </TableCell>
                         <TableCell>{format(new Date(payment.createdAt), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        <div className="text-muted-foreground">No payments found</div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No payments found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="tickets" className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Recent Support Tickets</CardTitle>
+              <CardTitle className="text-primary">Recent Support Tickets</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ticket ID</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentSupportTickets && recentSupportTickets.length > 0 ? (
-                    recentSupportTickets.map((ticket: any) => (
-                      <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`}>
+              {recentSupportTickets && recentSupportTickets.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Ticket ID</TableHead>
+                      <TableHead className="table-header-primary">Subject</TableHead>
+                      <TableHead className="table-header-primary">Priority</TableHead>
+                      <TableHead className="table-header-primary">Status</TableHead>
+                      <TableHead className="table-header-primary">Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentSupportTickets.map((ticket: any, idx: number) => (
+                      <TableRow key={ticket.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-ticket-${ticket.id}`}>
                         <TableCell className="font-mono text-xs">{ticket.id.slice(0, 8)}</TableCell>
                         <TableCell>{ticket.subject}</TableCell>
                         <TableCell>{getStatusBadge(ticket.priority)}</TableCell>
                         <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                         <TableCell>{format(new Date(ticket.createdAt), 'MMM dd, yyyy')}</TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        <div className="text-muted-foreground">No support tickets found</div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No support tickets found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="reviews" className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Recent Reviews</CardTitle>
+              <CardTitle className="text-primary">Recent Reviews</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Technician</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Comment</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentReviews && recentReviews.length > 0 ? (
-                    recentReviews.map((review: any, index: number) => (
-                      <TableRow key={index} data-testid={`row-review-${index}`}>
+              {recentReviews && recentReviews.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Service</TableHead>
+                      <TableHead className="table-header-primary">Technician</TableHead>
+                      <TableHead className="table-header-primary">Rating</TableHead>
+                      <TableHead className="table-header-primary">Comment</TableHead>
+                      <TableHead className="table-header-primary">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentReviews.map((review: any, index: number) => (
+                      <TableRow key={index} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-review-${index}`}>
                         <TableCell>{review.serviceName?.en || 'N/A'}</TableCell>
                         <TableCell>{review.technicianName || 'N/A'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            {review.rating}
+                            <span className="font-medium">{review.rating}</span>
                           </div>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{review.comment || 'No comment'}</TableCell>
                         <TableCell>{format(new Date(review.createdAt), 'MMM dd, yyyy')}</TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        <div className="text-muted-foreground">No reviews found</div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Star className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No reviews found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
