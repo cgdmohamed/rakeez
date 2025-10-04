@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,38 +6,112 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
+import { MessageSquare, Send } from 'lucide-react';
 
 export default function AdminSupport() {
   const { toast } = useToast();
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [replyMessage, setReplyMessage] = useState('');
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/support/tickets'],
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest('PUT', `/api/v2/admin/support/tickets/${id}`, { status });
-    },
+  const { data: messagesData, isLoading: messagesLoading } = useQuery<any>({
+    queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'],
+    enabled: !!selectedTicket?.id,
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiRequest('PUT', `/api/v2/admin/support/tickets/${id}`, { status }),
     onSuccess: () => {
-      toast({ title: 'Success', description: 'Ticket updated successfully' });
+      toast({ title: 'Success', description: 'Ticket status updated successfully' });
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'Failed to update ticket', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to update ticket status', variant: 'destructive' });
+    },
+  });
+
+  const updatePriorityMutation = useMutation({
+    mutationFn: ({ id, priority }: { id: string; priority: string }) =>
+      apiRequest('PUT', `/api/v2/admin/support/tickets/${id}`, { priority }),
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Ticket priority updated successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update ticket priority', variant: 'destructive' });
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      apiRequest('POST', `/api/v2/admin/support/tickets/${id}/messages`, { message }),
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Reply sent successfully' });
+      setReplyMessage('');
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'] });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to send reply', variant: 'destructive' });
     },
   });
 
   const tickets = data?.data || [];
+  const messages = messagesData?.data || [];
+
+  const handleViewTicket = (ticket: any) => {
+    setSelectedTicket(ticket);
+    setViewDialogOpen(true);
+  };
+
+  const handleSendReply = () => {
+    if (!replyMessage.trim() || !selectedTicket) return;
+    replyMutation.mutate({ id: selectedTicket.id, message: replyMessage });
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'destructive';
+      case 'high':
+        return 'default';
+      case 'medium':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'default';
+      case 'in_progress':
+        return 'secondary';
+      case 'resolved':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold" data-testid="text-page-title">Support Tickets</h1>
         <p className="text-muted-foreground" data-testid="text-page-description">
-          Manage customer support requests
+          Manage customer support requests and conversations
         </p>
       </div>
 
@@ -87,20 +162,36 @@ export default function AdminSupport() {
                         {ticket.subject}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={ticket.priority === 'urgent' ? 'destructive' : ticket.priority === 'high' ? 'default' : 'secondary'}
-                          data-testid={`badge-ticket-priority-${ticket.id}`}
+                        <Select
+                          value={ticket.priority}
+                          onValueChange={(value) => updatePriorityMutation.mutate({ id: ticket.id, priority: value })}
                         >
-                          {ticket.priority}
-                        </Badge>
+                          <SelectTrigger className="w-[120px]" data-testid={`select-ticket-priority-${ticket.id}`}>
+                            <SelectValue>
+                              <Badge variant={getPriorityColor(ticket.priority)}>
+                                {ticket.priority}
+                              </Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Select
                           value={ticket.status}
-                          onValueChange={(value) => updateMutation.mutate({ id: ticket.id, status: value })}
+                          onValueChange={(value) => updateStatusMutation.mutate({ id: ticket.id, status: value })}
                         >
                           <SelectTrigger className="w-[140px]" data-testid={`select-ticket-status-${ticket.id}`}>
-                            <SelectValue />
+                            <SelectValue>
+                              <Badge variant={getStatusColor(ticket.status)}>
+                                {ticket.status}
+                              </Badge>
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
@@ -114,7 +205,13 @@ export default function AdminSupport() {
                         {format(new Date(ticket.createdAt), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" data-testid={`button-view-ticket-${ticket.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewTicket(ticket)}
+                          data-testid={`button-view-ticket-${ticket.id}`}
+                        >
+                          <MessageSquare className="mr-2 h-4 w-4" />
                           View
                         </Button>
                       </TableCell>
@@ -126,6 +223,114 @@ export default function AdminSupport() {
           )}
         </CardContent>
       </Card>
+
+      {/* View Ticket Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col" data-testid="dialog-ticket-details">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-title">
+              {selectedTicket?.subject}
+            </DialogTitle>
+            <DialogDescription>
+              <div className="flex items-center gap-2 mt-2">
+                <span>Created by {selectedTicket?.userName}</span>
+                <Separator orientation="vertical" className="h-4" />
+                <Badge variant={getPriorityColor(selectedTicket?.priority)}>
+                  {selectedTicket?.priority}
+                </Badge>
+                <Badge variant={getStatusColor(selectedTicket?.status)}>
+                  {selectedTicket?.status}
+                </Badge>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Initial Message */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Initial Request</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{selectedTicket?.description}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {selectedTicket?.createdAt && format(new Date(selectedTicket.createdAt), 'MMM d, yyyy h:mm a')}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <h4 className="font-semibold mb-2">Conversation</h4>
+              <ScrollArea className="flex-1 pr-4">
+                {messagesLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No messages yet. Be the first to reply!
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((message: any, idx: number) => (
+                      <Card
+                        key={idx}
+                        className={message.isAdmin ? 'ml-8 bg-primary/5' : 'mr-8'}
+                        data-testid={`message-${idx}`}
+                      >
+                        <CardHeader className="py-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">
+                              {message.isAdmin ? 'Support Team' : selectedTicket?.userName}
+                            </CardTitle>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(message.createdAt), 'MMM d, h:mm a')}
+                            </span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="py-3 pt-0">
+                          <p className="text-sm">{message.message}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+
+            {/* Reply Section */}
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Type your reply..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                rows={3}
+                data-testid="input-reply-message"
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setViewDialogOpen(false)}
+                  data-testid="button-close-dialog"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={handleSendReply}
+                  disabled={!replyMessage.trim() || replyMutation.isPending}
+                  data-testid="button-send-reply"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Reply
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
