@@ -75,15 +75,12 @@ export default function AdminDashboard() {
   };
 
   const Sidebar = () => (
-    <div className="flex h-full flex-col bg-card border-r">
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <Link href="/admin/dashboard" className="flex items-center space-x-2">
-          <span className="text-2xl">🧽</span>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold">Rakeez</span>
-            <span className="text-xs text-muted-foreground">Admin Portal</span>
-          </div>
+        <Link href="/admin/dashboard" className="flex items-center justify-center">
+          <img src="/logo.svg" alt="Rakeez" className="h-12 w-auto" />
         </Link>
+        <p className="text-center text-xs mt-2 text-sidebar-foreground/70">Admin Portal</p>
       </div>
       <Separator />
       <ScrollArea className="flex-1 px-3 py-4">
@@ -96,8 +93,8 @@ export default function AdminDashboard() {
                 <a
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                   }`}
                   data-testid={`nav-${item.name.toLowerCase()}`}
                   onClick={() => setMobileMenuOpen(false)}
