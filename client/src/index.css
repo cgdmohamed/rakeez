@@ -3,27 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(229 100% 15%);
-  --card: hsl(0 0% 98%);
-  --card-foreground: hsl(229 100% 15%);
+  --background: hsl(0 0% 98%);
+  --foreground: hsl(0 0% 20%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 20%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(229 100% 15%);
+  --popover-foreground: hsl(0 0% 20%);
   /* Primary: Dark Blue from brand guidelines #00269a */
   --primary: hsl(229 100% 30%);
   --primary-foreground: hsl(0 0% 100%);
   /* Secondary: Cyan from brand guidelines #6bdad5 */
   --secondary: hsl(177 60% 64%);
-  --secondary-foreground: hsl(229 100% 15%);
+  --secondary-foreground: hsl(229 100% 30%);
   --muted: hsl(0 0% 96%);
-  --muted-foreground: hsl(229 20% 40%);
+  --muted-foreground: hsl(0 0% 40%);
   /* Accent: Green from brand guidelines #45d492 */
   --accent: hsl(152 62% 55%);
   --accent-foreground: hsl(0 0% 100%);
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(229 20% 90%);
-  --input: hsl(229 20% 95%);
+  --border: hsl(0 0% 90%);
+  --input: hsl(0 0% 100%);
   --ring: hsl(229 100% 30%);
   /* Chart colors using brand palette */
   --chart-1: hsl(229 100% 30%);
@@ -31,14 +31,14 @@
   --chart-3: hsl(152 62% 55%);
   --chart-4: hsl(73 70% 71%);
   --chart-5: hsl(229 80% 50%);
-  /* Sidebar using Dark Blue primary */
-  --sidebar: hsl(229 100% 30%);
-  --sidebar-foreground: hsl(0 0% 100%);
+  /* Sidebar: Light background with Dark Blue text */
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(229 100% 30%);
   --sidebar-primary: hsl(177 60% 64%);
-  --sidebar-primary-foreground: hsl(229 100% 15%);
-  --sidebar-accent: hsl(229 100% 25%);
-  --sidebar-accent-foreground: hsl(0 0% 100%);
-  --sidebar-border: hsl(229 100% 20%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(177 60% 92%);
+  --sidebar-accent-foreground: hsl(229 100% 30%);
+  --sidebar-border: hsl(0 0% 90%);
   --sidebar-ring: hsl(177 60% 64%);
   --font-sans: Open Sans, sans-serif;
   --font-serif: Georgia, serif;
@@ -192,5 +192,18 @@
   
   .badge-closed {
     @apply bg-muted text-muted-foreground;
+  }
+  
+  /* Card accent borders */
+  .card-accent-cyan {
+    @apply border-l-4 border-l-secondary;
+  }
+  
+  .card-accent-green {
+    @apply border-l-4 border-l-accent;
+  }
+  
+  .card-accent-blue {
+    @apply border-l-4 border-l-primary;
   }
 }

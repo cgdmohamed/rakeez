@@ -22,10 +22,10 @@ export default function AdminOverview() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card data-testid="card-total-revenue">
+        <Card data-testid="card-total-revenue" className="card-accent-blue shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary/60" />
+            <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-revenue">
@@ -35,10 +35,10 @@ export default function AdminOverview() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-total-orders">
+        <Card data-testid="card-total-orders" className="card-accent-cyan shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Calendar className="h-4 w-4 text-primary/60" />
+            <CardTitle className="text-sm font-medium text-secondary">Total Orders</CardTitle>
+            <Calendar className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-orders">
@@ -48,10 +48,10 @@ export default function AdminOverview() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-completed">
+        <Card data-testid="card-completed" className="card-accent-green shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium text-accent">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-completed">
@@ -61,10 +61,10 @@ export default function AdminOverview() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-cancelled">
+        <Card data-testid="card-cancelled" className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium text-destructive">Cancelled</CardTitle>
+            <XCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-cancelled">
@@ -76,9 +76,9 @@ export default function AdminOverview() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Revenue by Payment Method</CardTitle>
+            <CardTitle className="text-primary">Revenue by Payment Method</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -98,9 +98,9 @@ export default function AdminOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Order Status Breakdown</CardTitle>
+            <CardTitle className="text-primary">Order Status Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
