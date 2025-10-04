@@ -175,6 +175,39 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
+  async getUsersByRole(role: string): Promise<any[]> {
+    const userList = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, role as any))
+      .orderBy(desc(users.createdAt));
+
+    // If role is technician, get additional stats for each technician
+    if (role === 'technician') {
+      const techniciansWithStats = await Promise.all(
+        userList.map(async (user) => {
+          const stats = await this.getTechnicianStats(user.id);
+          return {
+            ...user,
+            completed_orders: stats.completedOrders || 0,
+            total_revenue: stats.totalRevenue || 0,
+            avg_rating: stats.avgRating || 0,
+          };
+        })
+      );
+      return techniciansWithStats;
+    }
+
+    return userList;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt));
+  }
+
   // Addresses
   async getUserAddresses(userId: string): Promise<Address[]> {
     return await db.select().from(addresses).where(eq(addresses.userId, userId));
