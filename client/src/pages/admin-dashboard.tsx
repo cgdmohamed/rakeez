@@ -29,6 +29,7 @@ import AdminBookings from './admin/bookings';
 import AdminQuotations from './admin/quotations';
 import AdminPayments from './admin/payments';
 import AdminCustomers from './admin/customers';
+import CustomerProfile from './admin/customer-profile';
 import AdminTechnicians from './admin/technicians';
 import AdminAnalytics from './admin/analytics';
 import AdminWallets from './admin/wallets';
@@ -155,6 +156,7 @@ export default function AdminDashboard() {
             <Route path="/admin/quotations" component={AdminQuotations} />
             <Route path="/admin/payments" component={AdminPayments} />
             <Route path="/admin/wallets" component={AdminWallets} />
+            <Route path="/admin/customers/:id" component={CustomerProfile} />
             <Route path="/admin/customers" component={AdminCustomers} />
             <Route path="/admin/technicians" component={AdminTechnicians} />
             <Route path="/admin/notifications" component={AdminNotifications} />
