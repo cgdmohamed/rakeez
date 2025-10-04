@@ -35,7 +35,7 @@ export default function AdminCustomers() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('/api/v2/admin/users', 'POST', {
+      return apiRequest('POST', '/api/v2/admin/users', {
         ...data,
         role: 'customer',
       });
@@ -60,7 +60,7 @@ export default function AdminCustomers() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return apiRequest(`/api/v2/admin/users/${id}`, 'PUT', data);
+      return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
