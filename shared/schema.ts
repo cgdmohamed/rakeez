@@ -16,7 +16,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const userRoleEnum = pgEnum('user_role', ['customer', 'technician', 'admin']);
+export const userRoleEnum = pgEnum('user_role', ['customer', 'technician', 'admin', 'support', 'finance']);
+export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
 export const orderStatusEnum = pgEnum('order_status', [
   'pending', 'confirmed', 'technician_assigned', 'en_route', 
   'in_progress', 'quotation_pending', 'completed', 'cancelled'
@@ -41,10 +42,12 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   nameAr: text("name_ar"),
   role: userRoleEnum("role").default('customer').notNull(),
+  status: userStatusEnum("status").default('active').notNull(),
   language: varchar("language", { length: 2 }).default('en').notNull(),
   isVerified: boolean("is_verified").default(false).notNull(),
   deviceToken: text("device_token"),
   avatar: text("avatar"),
+  lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
