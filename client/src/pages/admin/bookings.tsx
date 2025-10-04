@@ -5,13 +5,40 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { XCircle, DollarSign, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function AdminBookings() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [cancelDialog, setCancelDialog] = useState<{ open: boolean; bookingId: string | null; reason: string }>({
+    open: false,
+    bookingId: null,
+    reason: '',
+  });
+  const [refundDialog, setRefundDialog] = useState<{
+    open: boolean;
+    bookingId: string | null;
+    paymentId: string;
+    reason: string;
+  }>({
+    open: false,
+    bookingId: null,
+    paymentId: '',
+    reason: '',
+  });
 
   const { data: bookingsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/bookings'],
@@ -38,6 +65,54 @@ export default function AdminBookings() {
     },
   });
 
+  const cancelBookingMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await apiRequest('PATCH', `/api/v2/admin/bookings/${id}/cancel`, { reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      setCancelDialog({ open: false, bookingId: null, reason: '' });
+      toast({
+        title: 'Booking cancelled',
+        description: 'Booking has been cancelled successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to cancel booking',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const refundPaymentMutation = useMutation({
+    mutationFn: async ({ id, payment_id, reason }: { id: string; payment_id: string; reason: string }) => {
+      const response = await apiRequest('POST', `/api/v2/admin/bookings/${id}/refund`, {
+        payment_id,
+        reason,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/payments'] });
+      setRefundDialog({ open: false, bookingId: null, paymentId: '', reason: '' });
+      toast({
+        title: 'Payment refunded',
+        description: 'Payment has been refunded successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to refund payment',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const bookings = bookingsData?.data || [];
   const filteredBookings = statusFilter === 'all' 
     ? bookings 
@@ -52,6 +127,33 @@ export default function AdminBookings() {
       cancelled: 'destructive',
     };
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+  };
+
+  const handleCancelClick = (bookingId: string) => {
+    setCancelDialog({ open: true, bookingId, reason: '' });
+  };
+
+  const handleRefundClick = (bookingId: string, paymentId: string) => {
+    setRefundDialog({ open: true, bookingId, paymentId, reason: '' });
+  };
+
+  const handleCancelSubmit = () => {
+    if (cancelDialog.bookingId && cancelDialog.reason.trim()) {
+      cancelBookingMutation.mutate({
+        id: cancelDialog.bookingId,
+        reason: cancelDialog.reason,
+      });
+    }
+  };
+
+  const handleRefundSubmit = () => {
+    if (refundDialog.bookingId && refundDialog.paymentId && refundDialog.reason.trim()) {
+      refundPaymentMutation.mutate({
+        id: refundDialog.bookingId,
+        payment_id: refundDialog.paymentId,
+        reason: refundDialog.reason,
+      });
+    }
   };
 
   if (isLoading) {
@@ -117,22 +219,53 @@ export default function AdminBookings() {
                     <TableCell>{booking.total_amount} SAR</TableCell>
                     <TableCell>{getStatusBadge(booking.status)}</TableCell>
                     <TableCell>
-                      <Select
-                        value={booking.status}
-                        onValueChange={(status) => updateStatusMutation.mutate({ id: booking.id, status })}
-                        data-testid={`select-status-${booking.id}`}
-                      >
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={booking.status}
+                          onValueChange={(status) => updateStatusMutation.mutate({ id: booking.id, status })}
+                          data-testid={`select-status-${booking.id}`}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid={`button-actions-${booking.id}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleCancelClick(booking.id)}
+                              disabled={booking.status === 'completed' || booking.status === 'cancelled'}
+                              data-testid={`button-cancel-${booking.id}`}
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Cancel Booking
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRefundClick(booking.id, booking.payment_id || '')}
+                              disabled={
+                                booking.status !== 'completed' && booking.status !== 'confirmed' ||
+                                !booking.payment_id
+                              }
+                              data-testid={`button-refund-${booking.id}`}
+                            >
+                              <DollarSign className="mr-2 h-4 w-4" />
+                              Refund Payment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -141,6 +274,99 @@ export default function AdminBookings() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog open={cancelDialog.open} onOpenChange={(open) => setCancelDialog({ ...cancelDialog, open })}>
+        <DialogContent data-testid="dialog-cancel-booking">
+          <DialogHeader>
+            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling this booking. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="cancel-reason">Cancellation Reason</Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelDialog.reason}
+                onChange={(e) => setCancelDialog({ ...cancelDialog, reason: e.target.value })}
+                placeholder="Enter reason for cancellation..."
+                rows={4}
+                data-testid="input-cancel-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialog({ open: false, bookingId: null, reason: '' })}
+              data-testid="button-cancel-dialog-close"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSubmit}
+              disabled={!cancelDialog.reason.trim() || cancelBookingMutation.isPending}
+              data-testid="button-cancel-confirm"
+            >
+              {cancelBookingMutation.isPending ? 'Cancelling...' : 'Confirm Cancellation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refund Payment Dialog */}
+      <Dialog open={refundDialog.open} onOpenChange={(open) => setRefundDialog({ ...refundDialog, open })}>
+        <DialogContent data-testid="dialog-refund-payment">
+          <DialogHeader>
+            <DialogTitle>Refund Payment</DialogTitle>
+            <DialogDescription>
+              This will refund the payment to the customer's wallet. Please provide a reason for the refund.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="payment-id">Payment ID</Label>
+              <Input
+                id="payment-id"
+                value={refundDialog.paymentId}
+                onChange={(e) => setRefundDialog({ ...refundDialog, paymentId: e.target.value })}
+                placeholder="Enter payment ID..."
+                data-testid="input-payment-id"
+              />
+            </div>
+            <div>
+              <Label htmlFor="refund-reason">Refund Reason</Label>
+              <Textarea
+                id="refund-reason"
+                value={refundDialog.reason}
+                onChange={(e) => setRefundDialog({ ...refundDialog, reason: e.target.value })}
+                placeholder="Enter reason for refund..."
+                rows={4}
+                data-testid="input-refund-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRefundDialog({ open: false, bookingId: null, paymentId: '', reason: '' })}
+              data-testid="button-refund-dialog-close"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRefundSubmit}
+              disabled={!refundDialog.paymentId.trim() || !refundDialog.reason.trim() || refundPaymentMutation.isPending}
+              data-testid="button-refund-confirm"
+            >
+              {refundPaymentMutation.isPending ? 'Processing...' : 'Confirm Refund'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
