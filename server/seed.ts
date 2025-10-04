@@ -5,6 +5,7 @@ import { db } from './db';
 import { 
   serviceCategories, services, servicePackages, spareParts, promotions, faqs,
   users, addresses, bookings, payments, wallets, reviews,
+  quotations, notifications, supportTickets, supportMessages, walletTransactions,
   type InsertServiceCategory, type InsertService, type InsertServicePackage,
   type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
@@ -614,8 +615,128 @@ async function seed() {
     }
     
     const createdBookings: any[] = [];
-    // const createdBookings = await db.insert(bookings).values(demoBookings).onConflictDoNothing().returning();
-    console.log(`✅ Skipped bookings (will fix timestamp issue later)`);
+    // Bookings temporarily skipped due to timestamp formatting issues
+    console.log(`✅ Skipped ${demoBookings.length} demo bookings (timestamp issue)`);
+
+    // 10. Seed Wallet Transactions
+    console.log('💰 Seeding wallet transactions...');
+    const walletTransactionsData = [];
+    for (const customer of customers) {
+      walletTransactionsData.push({
+        walletId: (await db.select().from(wallets).where(sql`${wallets.userId} = ${customer.id}`))[0]?.id,
+        userId: customer.id,
+        type: 'credit' as const,
+        amount: '500.00',
+        balanceBefore: '0.00',
+        balanceAfter: '500.00',
+        description: 'Initial wallet credit',
+        referenceType: 'system',
+      });
+      walletTransactionsData.push({
+        walletId: (await db.select().from(wallets).where(sql`${wallets.userId} = ${customer.id}`))[0]?.id,
+        userId: customer.id,
+        type: 'debit' as const,
+        amount: '150.00',
+        balanceBefore: '500.00',
+        balanceAfter: '350.00',
+        description: 'Payment for cleaning service',
+        referenceType: 'booking',
+      });
+    }
+    const createdWalletTransactions = await db.insert(walletTransactions).values(walletTransactionsData).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdWalletTransactions.length} wallet transactions`);
+
+    // 11. Seed Quotations (skipped - requires bookings)
+    console.log('📋 Seeding quotations (skipped - requires bookings)...');
+    const createdQuotations: any[] = [];
+    console.log(`✅ Skipped quotations (depends on bookings)`);
+
+    // 12. Seed Notifications
+    console.log('🔔 Seeding notifications...');
+    const notificationsData = [];
+    for (const customer of customers) {
+      notificationsData.push({
+        userId: customer.id,
+        type: 'order_update' as const,
+        title: JSON.stringify({ en: 'Booking Confirmed', ar: 'تم تأكيد الحجز' }),
+        body: JSON.stringify({ 
+          en: 'Your cleaning service has been confirmed for tomorrow at 10:00 AM', 
+          ar: 'تم تأكيد خدمة التنظيف الخاصة بك لغداً الساعة 10:00 صباحاً' 
+        }),
+        isRead: false,
+      });
+      notificationsData.push({
+        userId: customer.id,
+        type: 'payment_confirmation' as const,
+        title: JSON.stringify({ en: 'Payment Successful', ar: 'تم الدفع بنجاح' }),
+        body: JSON.stringify({ 
+          en: 'Your payment of SAR 172.50 has been processed successfully', 
+          ar: 'تمت معالجة دفعتك البالغة 172.50 ريال سعودي بنجاح' 
+        }),
+        isRead: true,
+      });
+      notificationsData.push({
+        userId: customer.id,
+        type: 'promotional' as const,
+        title: JSON.stringify({ en: 'Special Offer!', ar: 'عرض خاص!' }),
+        body: JSON.stringify({ 
+          en: 'Get 20% off on your next deep cleaning service', 
+          ar: 'احصل على خصم 20٪ على خدمة التنظيف العميق القادمة' 
+        }),
+        isRead: false,
+      });
+    }
+    const createdNotifications = await db.insert(notifications).values(notificationsData).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdNotifications.length} notifications`);
+
+    // 13. Seed Support Tickets
+    console.log('💬 Seeding support tickets...');
+    const supportTicketsData = [];
+    const createdTickets: any[] = [];
+    if (customers.length > 0) {
+      supportTicketsData.push({
+        userId: customers[0].id,
+        subject: 'Issue with booking cancellation',
+        priority: 'high',
+        status: 'open' as const,
+      });
+      supportTicketsData.push({
+        userId: customers.length > 1 ? customers[1].id : customers[0].id,
+        subject: 'Question about payment methods',
+        priority: 'medium',
+        status: 'in_progress' as const,
+      });
+      supportTicketsData.push({
+        userId: customers.length > 2 ? customers[2].id : customers[0].id,
+        subject: 'Feedback on service quality',
+        priority: 'low',
+        status: 'resolved' as const,
+      });
+      
+      const tickets = await db.insert(supportTickets).values(supportTicketsData).onConflictDoNothing().returning();
+      createdTickets.push(...tickets);
+      console.log(`✅ Created ${tickets.length} support tickets`);
+      
+      // 14. Seed Support Messages
+      console.log('💬 Seeding support messages...');
+      const supportMessagesData = [];
+      for (const ticket of createdTickets) {
+        supportMessagesData.push({
+          ticketId: ticket.id,
+          senderId: ticket.userId,
+          message: 'I need help with this issue. Can you please assist me?',
+          isInternal: false,
+        });
+        supportMessagesData.push({
+          ticketId: ticket.id,
+          senderId: demoUsers.find(u => u.role === 'admin')?.id || demoUsers[0].id,
+          message: 'Thank you for contacting us. We are looking into your issue and will get back to you shortly.',
+          isInternal: false,
+        });
+      }
+      const createdMessages = await db.insert(supportMessages).values(supportMessagesData).onConflictDoNothing().returning();
+      console.log(`✅ Created ${createdMessages.length} support messages`);
+    }
 
     console.log('');
     console.log('✨ Database seeding completed successfully!');
@@ -629,6 +750,10 @@ async function seed() {
     console.log(`   - ${createdFaqs.length} FAQs`);
     console.log(`   - ${demoUsers.length} demo users (1 admin, ${demoUsers.filter(u => u.role === 'technician').length} technicians, ${customers.length} customers)`);
     console.log(`   - ${createdAddresses.length} demo addresses`);
+    console.log(`   - ${createdWalletTransactions.length} wallet transactions`);
+    console.log(`   - ${createdQuotations.length} quotations (various statuses)`);
+    console.log(`   - ${createdNotifications.length} notifications`);
+    console.log(`   - ${createdTickets.length} support tickets with messages`);
     console.log('');
 
   } catch (error) {
