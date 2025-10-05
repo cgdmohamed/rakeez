@@ -27,6 +27,7 @@ import {
   HELPERS 
 } from "./utils/constants";
 import { VALID_PERMISSIONS } from "@shared/permissions";
+import * as referralController from "./controllers/referralController";
 
 const app = express();
 
@@ -640,103 +641,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ==================== REFERRAL SYSTEM ENDPOINTS ====================
   
-  // Generate Referral Code
-  app.post('/api/v2/referrals/generate', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = await storage.getUser(req.user.id);
-      const language = req.headers['accept-language'] || 'en';
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: bilingual.getMessage('auth.user_not_found', language),
-        });
-      }
-      
-      // Check if user already has a referral code
-      const existingReferrals = await storage.getUserReferrals(req.user.id);
-      if (existingReferrals.length > 0) {
-        const existing = existingReferrals[0];
-        const stats = {
-          total_invites: existingReferrals.length,
-          successful_referrals: existingReferrals.filter(r => r.status === 'completed').length,
-          total_earned: existingReferrals
-            .filter(r => r.status === 'rewarded')
-            .reduce((sum, r) => sum + parseFloat(r.inviterReward.toString()), 0),
-        };
-        
-        return res.json({
-          success: true,
-          message: bilingual.getMessage('referral.existing_code', language),
-          data: {
-            referral_code: existing.referralCode,
-            referral_link: `${process.env.APP_URL || 'https://cleanserve.sa'}/ref/${existing.referralCode}`,
-            stats,
-          }
-        });
-      }
-      
-      // Generate new referral code
-      const referralCode = HELPERS.generateReferralCode(user.name);
-      const referral = await storage.createReferral({
-        inviterId: req.user.id,
-        referralCode,
-        inviterReward: REFERRAL_CONSTANTS.INVITER_REWARD.toString(),
-        inviteeReward: REFERRAL_CONSTANTS.INVITEE_REWARD.toString(),
-      });
-      
-      res.json({
-        success: true,
-        message: bilingual.getMessage('referral.code_generated', language),
-        data: {
-          referral_code: referral.referralCode,
-          referral_link: `${process.env.APP_URL || 'https://cleanserve.sa'}/ref/${referral.referralCode}`,
-          stats: {
-            total_invites: 0,
-            successful_referrals: 0,
-            total_earned: 0,
-          }
-        }
-      });
-      
-    } catch (error) {
-      console.error('Generate referral error:', error);
-      res.status(500).json({
-        success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
-      });
-    }
-  });
+  // Validate Referral Code
+  app.post('/api/v2/referrals/validate', referralController.validateReferralCode);
+  
+  // Redeem Referral Code
+  app.post('/api/v2/referrals/redeem', authenticateToken, referralController.redeemReferralCode);
   
   // Get Referral Stats
-  app.get('/api/v2/referrals/stats', authenticateToken, async (req: any, res: any) => {
-    try {
-      const referrals = await storage.getUserReferrals(req.user.id);
-      const language = req.headers['accept-language'] || 'en';
-      
-      const stats = {
-        total_invites: referrals.length,
-        successful_referrals: referrals.filter(r => r.status === 'completed' || r.status === 'rewarded').length,
-        total_earned: referrals
-          .filter(r => r.status === 'rewarded')
-          .reduce((sum, r) => sum + parseFloat(r.inviterReward.toString()), 0),
-        pending_referrals: referrals.filter(r => r.status === 'pending').length,
-      };
-      
-      res.json({
-        success: true,
-        message: bilingual.getMessage('referral.stats_retrieved', language),
-        data: stats,
-      });
-      
-    } catch (error) {
-      console.error('Get referral stats error:', error);
-      res.status(500).json({
-        success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
-      });
-    }
-  });
+  app.get('/api/v2/referrals/stats', authenticateToken, referralController.getReferralStats);
+  
+  // Admin: Get all referrals
+  app.get('/api/v2/admin/referrals', authenticateToken, authorizeRoles('admin'), referralController.getAdminReferrals);
+  
+  // Admin: Get referral analytics
+  app.get('/api/v2/admin/referrals/analytics', authenticateToken, authorizeRoles('admin'), referralController.getReferralAnalytics);
+  
+  // Admin: Create campaign
+  app.post('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles('admin'), referralController.createCampaign);
+  
+  // Admin: Update campaign
+  app.put('/api/v2/admin/referrals/campaigns/:id', authenticateToken, authorizeRoles('admin'), referralController.updateCampaign);
+  
+  // Admin: Get campaigns
+  app.get('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles('admin'), referralController.getCampaigns);
   
   // ==================== SERVICES & PACKAGES ENDPOINTS ====================
   
