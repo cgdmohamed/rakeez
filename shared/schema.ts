@@ -32,6 +32,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'order_update', 'technician_assigned', 'payment_confirmation', 'promotional', 'quotation_request'
 ]);
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
+export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
 
 // Roles table (for custom role management)
 export const roles = pgTable("roles", {
@@ -62,6 +63,7 @@ export const users = pgTable("users", {
   isVerified: boolean("is_verified").default(false).notNull(),
   deviceToken: text("device_token"),
   avatar: text("avatar"),
+  referralCode: varchar("referral_code", { length: 20 }).unique(), // User's unique referral code
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -257,15 +259,32 @@ export const walletTransactions = pgTable("wallet_transactions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Referral campaigns table
+export const referralCampaigns = pgTable("referral_campaigns", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: jsonb("name").notNull(), // { "en": "Launch Campaign", "ar": "حملة الإطلاق" }
+  description: jsonb("description").notNull(),
+  inviterReward: decimal("inviter_reward", { precision: 10, scale: 2 }).notNull(), // Reward for referrer
+  inviteeDiscountType: discountTypeEnum("invitee_discount_type").notNull(), // percentage or fixed
+  inviteeDiscountValue: decimal("invitee_discount_value", { precision: 10, scale: 2 }).notNull(), // Discount for new user
+  maxUsagePerUser: integer("max_usage_per_user").default(1).notNull(), // How many times each user can refer
+  isActive: boolean("is_active").default(true).notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Referrals table
 export const referrals = pgTable("referrals", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: uuid("campaign_id").references(() => referralCampaigns.id).notNull(),
   inviterId: uuid("inviter_id").references(() => users.id).notNull(),
   inviteeId: uuid("invitee_id").references(() => users.id),
-  referralCode: varchar("referral_code", { length: 50 }).notNull().unique(),
+  referralCode: varchar("referral_code", { length: 50 }).notNull(),
   status: referralStatusEnum("status").default('pending').notNull(),
-  inviterReward: decimal("inviter_reward", { precision: 10, scale: 2 }).default('50').notNull(),
-  inviteeReward: decimal("invitee_reward", { precision: 10, scale: 2 }).default('25').notNull(),
+  inviterReward: decimal("inviter_reward", { precision: 10, scale: 2 }).notNull(),
+  inviteeDiscount: decimal("invitee_discount", { precision: 10, scale: 2 }).notNull(),
   completedAt: timestamp("completed_at"),
   rewardDistributedAt: timestamp("reward_distributed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -504,7 +523,15 @@ export const walletTransactionsRelations = relations(walletTransactions, ({ one 
   }),
 }));
 
+export const referralCampaignsRelations = relations(referralCampaigns, ({ many }) => ({
+  referrals: many(referrals),
+}));
+
 export const referralsRelations = relations(referrals, ({ one }) => ({
+  campaign: one(referralCampaigns, {
+    fields: [referrals.campaignId],
+    references: [referralCampaigns.id],
+  }),
   inviter: one(users, {
     fields: [referrals.inviterId],
     references: [users.id],
@@ -582,6 +609,12 @@ export const insertWalletTransactionSchema = createInsertSchema(walletTransactio
   createdAt: true,
 });
 
+export const insertReferralCampaignSchema = createInsertSchema(referralCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertReferralSchema = createInsertSchema(referrals).omit({
   id: true,
   createdAt: true,
@@ -650,6 +683,8 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Wallet = typeof wallets.$inferSelect;
 export type WalletTransaction = typeof walletTransactions.$inferSelect;
 export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+export type ReferralCampaign = typeof referralCampaigns.$inferSelect;
+export type InsertReferralCampaign = z.infer<typeof insertReferralCampaignSchema>;
 export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
 export type Notification = typeof notifications.$inferSelect;

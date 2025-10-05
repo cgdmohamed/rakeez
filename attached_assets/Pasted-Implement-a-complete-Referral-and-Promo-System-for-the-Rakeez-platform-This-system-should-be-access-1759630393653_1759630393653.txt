@@ -1,0 +1,142 @@
+Implement a complete Referral and Promo System for the Rakeez platform.
+This system should be accessible in the Admin Dashboard under “Promos”, and integrated with the user wallet, checkout, and API used by the mobile app.
+
+🎯 Main Objectives
+
+Each registered user should automatically have a unique referral code.
+
+The referral code can be shared and used by new users during sign-up or checkout.
+
+When the referral code is used:
+
+The new user (referred) gets a discount on their first order.
+
+The existing user (referrer) gets a reward added to their wallet balance.
+
+All referral activities should be tracked and visible in the Admin Dashboard → Promos section.
+
+🧩 Referral Flow
+
+Each user has a unique code shown in their profile or in-app referral page.
+
+When another user registers or books using this code:
+
+Validate that it’s a valid, active code.
+
+Prevent users from using their own code.
+
+Register the referral link between both users.
+
+After the first successful payment:
+
+Apply the discount to the referred user.
+
+Credit the referrer’s wallet with the specified reward amount.
+
+💰 Wallet & Reward Logic
+
+Rewards for referrers should be credited to their wallet as a new transaction (type: referral_reward).
+
+Discounts for referred users should be applied instantly at checkout.
+
+All referral-related wallet entries must appear in the Transactions table with a clear reference (e.g., “Referral Reward from user #1234”).
+
+Wallet balances should automatically update after every referral transaction.
+
+⚙️ Admin Dashboard (Promos Section)
+
+Add a new Promos module under Admin Dashboard with the following features:
+
+Manage referral campaigns:
+
+Set reward amount for referrer.
+
+Set discount percentage or amount for referred user.
+
+Set start and end dates for campaign validity.
+
+Set max usage per user.
+
+Enable/disable campaign status.
+
+View referral analytics:
+
+Total successful referrals.
+
+Total rewards paid.
+
+Top referrers with number of successful invites.
+
+Conversion rate (referrals → paid users).
+
+🧾 Promo Rules
+
+Each code must be unique and tied to a user ID.
+
+Codes can expire or be temporarily disabled.
+
+Validation should prevent:
+
+Reusing the same referral more than once per new user.
+
+Self-referral (user can’t use their own code).
+
+Using inactive or expired codes.
+
+🧮 Admin Analytics Dashboard
+
+In the Promos section, add charts and stats:
+
+Number of referrals per month.
+
+Total discount amount used.
+
+Total reward amount issued.
+
+Leaderboard of top referrers.
+
+📦 API Endpoints
+
+Implement or verify these endpoints:
+
+POST /api/v2/referrals/validate → verify a referral code.
+
+POST /api/v2/referrals/redeem → process referral on checkout.
+
+GET /api/v2/referrals/stats → return referral history and totals for the logged-in user.
+
+GET /api/v2/admin/referrals → list all referrals for admin (with filters).
+
+Each endpoint must respond with clear success/failure messages and relevant JSON data (examples should be included in the API docs).
+
+📱 Mobile App Integration
+
+Add a “Invite Friends” section in the app showing:
+
+The user’s referral code.
+
+A share button that copies or shares a deep link (e.g., rakeez://register?ref=ABC123).
+
+On registration or checkout, the app should:
+
+Detect referral code in URL.
+
+Apply discount automatically.
+
+Display confirmation (“Your friend’s code gives you 10 SAR off!”).
+
+🔒 Security
+
+Validate all referral requests server-side.
+
+Ensure transactions and wallet updates are atomic.
+
+Prevent abuse (limit referral usage per IP, device, or user).
+
+🧠 Additional Tasks
+
+Add logging for referral events (created, redeemed, reward_credited) to simplify debugging.
+
+Display referral summaries in the admin “Customer Profile” page.
+
+Ensure translations and bilingual support (English/Arabic) for all labels.
