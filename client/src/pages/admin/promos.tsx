@@ -60,6 +60,8 @@ export default function AdminPromos() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<ReferralCampaign | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
   const [formData, setFormData] = useState({
     name_en: '',
     name_ar: '',
@@ -78,8 +80,13 @@ export default function AdminPromos() {
     staleTime: 0,
   });
 
+  const analyticsQueryParams = new URLSearchParams();
+  if (dateFrom) analyticsQueryParams.append('from_date', dateFrom);
+  if (dateTo) analyticsQueryParams.append('to_date', dateTo);
+  const analyticsQueryString = analyticsQueryParams.toString();
+
   const { data: analyticsData } = useQuery<{ success: boolean; data: ReferralAnalytics }>({
-    queryKey: ['/api/v2/admin/referrals/analytics'],
+    queryKey: ['/api/v2/admin/referrals/analytics', analyticsQueryString],
     staleTime: 0,
   });
 
@@ -499,7 +506,7 @@ export default function AdminPromos() {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_name_en">Name (English)</Label>
                       <Input
                         id="edit_name_en"
@@ -508,7 +515,7 @@ export default function AdminPromos() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_name_ar">Name (Arabic)</Label>
                       <Input
                         id="edit_name_ar"
@@ -520,7 +527,7 @@ export default function AdminPromos() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_description_en">Description (English)</Label>
                       <Textarea
                         id="edit_description_en"
@@ -529,7 +536,7 @@ export default function AdminPromos() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_description_ar">Description (Arabic)</Label>
                       <Textarea
                         id="edit_description_ar"
@@ -541,7 +548,7 @@ export default function AdminPromos() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_inviter_reward">Inviter Reward (SAR)</Label>
                       <Input
                         id="edit_inviter_reward"
@@ -552,7 +559,7 @@ export default function AdminPromos() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_max_usage">Max Usage Per User</Label>
                       <Input
                         id="edit_max_usage"
@@ -565,7 +572,7 @@ export default function AdminPromos() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_discount_type">Invitee Discount Type</Label>
                       <Select
                         value={formData.invitee_discount_type}
@@ -582,7 +589,7 @@ export default function AdminPromos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_discount_value">
                         Invitee Discount {formData.invitee_discount_type === 'percentage' ? '(%)' : '(SAR)'}
                       </Label>
@@ -598,7 +605,7 @@ export default function AdminPromos() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_valid_from">Valid From</Label>
                       <Input
                         id="edit_valid_from"
@@ -608,7 +615,7 @@ export default function AdminPromos() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="edit_valid_until">Valid Until (Optional)</Label>
                       <Input
                         id="edit_valid_until"
@@ -631,7 +638,45 @@ export default function AdminPromos() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date-from">From Date</Label>
+                  <Input
+                    id="date-from"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    data-testid="input-date-from"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date-to">To Date</Label>
+                  <Input
+                    id="date-to"
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    data-testid="input-date-to"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                  className="mt-8"
+                  data-testid="button-reset-dates"
+                >
+                  Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center">
@@ -695,7 +740,24 @@ export default function AdminPromos() {
                   {analytics?.monthly_data.reduce((sum, month) => sum + (Number(month.total_rewards) || 0), 0).toFixed(0) || 0} SAR
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Total paid out
+                  Paid to referrers
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center">
+                  <DollarSign className="w-4 h-4 mr-2 text-cyan-500" />
+                  Total Discounts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="stat-total-discounts">
+                  {analytics?.monthly_data.reduce((sum, month) => sum + (Number(month.total_discounts) || 0), 0).toFixed(0) || 0} SAR
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Given to invitees
                 </p>
               </CardContent>
             </Card>
