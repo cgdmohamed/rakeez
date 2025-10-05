@@ -301,6 +301,90 @@ export async function getReferralStats(req: Request, res: Response) {
   }
 }
 
+export async function getAdminUserReferralStats(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+
+    let user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (!user.referralCode) {
+      const newCode = generateReferralCode();
+      await db.update(users)
+        .set({ referralCode: newCode })
+        .where(eq(users.id, userId));
+      
+      user.referralCode = newCode;
+    }
+
+    const referralList = await db.query.referrals.findMany({
+      where: eq(referrals.inviterId, userId),
+      with: {
+        invitee: true,
+        campaign: true,
+      },
+      orderBy: [desc(referrals.createdAt)],
+    });
+
+    const referralsUsed = await db.query.referrals.findMany({
+      where: eq(referrals.inviteeId, userId),
+      with: {
+        inviter: true,
+        campaign: true,
+      },
+      orderBy: [desc(referrals.createdAt)],
+    });
+
+    const totalReferrals = referralList.length;
+    const completedReferrals = referralList.filter(r => r.status === 'rewarded').length;
+    const totalRewardsEarned = referralList
+      .filter(r => r.status === 'rewarded')
+      .reduce((sum, r) => sum + Number(r.inviterReward), 0);
+
+    res.json({
+      success: true,
+      data: {
+        referral_code: user.referralCode,
+        total_referrals: totalReferrals,
+        completed_referrals: completedReferrals,
+        pending_referrals: totalReferrals - completedReferrals,
+        total_rewards_earned: totalRewardsEarned,
+        referrals: referralList.map(r => ({
+          id: r.id,
+          invitee_name: r.invitee?.name || 'New User',
+          invitee_email: r.invitee?.email || 'N/A',
+          status: r.status,
+          reward: r.inviterReward,
+          campaign_name: r.campaign?.name || { en: 'N/A', ar: 'غير متوفر' },
+          created_at: r.createdAt,
+          completed_at: r.completedAt,
+        })),
+        referrals_used: referralsUsed.map(r => ({
+          id: r.id,
+          inviter_name: r.inviter?.name || 'Unknown',
+          discount: r.inviteeDiscount,
+          campaign_name: r.campaign?.name || { en: 'N/A', ar: 'غير متوفر' },
+          created_at: r.createdAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Error getting admin user referral stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user referral stats',
+    });
+  }
+}
+
 export async function getAdminReferrals(req: Request, res: Response) {
   try {
     const { status, from_date, to_date, campaign_id } = req.query;
@@ -308,7 +392,7 @@ export async function getAdminReferrals(req: Request, res: Response) {
     let conditions: any[] = [];
 
     if (status) {
-      conditions.push(eq(referrals.status, status as string));
+      conditions.push(eq(referrals.status, status as any));
     }
 
     if (campaign_id) {

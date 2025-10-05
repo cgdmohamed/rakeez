@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -55,6 +55,31 @@ export default function CustomerProfile() {
     createdAt: Date;
   }
 
+  interface ReferralData {
+    referral_code: string;
+    total_referrals: number;
+    completed_referrals: number;
+    pending_referrals: number;
+    total_rewards_earned: number;
+    referrals: Array<{
+      id: string;
+      invitee_name: string;
+      invitee_email: string;
+      status: string;
+      reward: string;
+      campaign_name: { en: string; ar: string };
+      created_at: Date;
+      completed_at: Date | null;
+    }>;
+    referrals_used: Array<{
+      id: string;
+      inviter_name: string;
+      discount: string;
+      campaign_name: { en: string; ar: string };
+      created_at: Date;
+    }>;
+  }
+
   interface CustomerOverviewResponse {
     success: boolean;
     message: string;
@@ -88,6 +113,11 @@ export default function CustomerProfile() {
 
   const { data: overviewData, isLoading, error, isError } = useQuery<CustomerOverviewResponse>({
     queryKey: [`/api/v2/admin/customers/${id}/overview`],
+    enabled: !!id,
+  });
+
+  const { data: referralData } = useQuery<{ success: boolean; data: ReferralData }>({
+    queryKey: [`/api/v2/admin/users/${id}/referrals`],
     enabled: !!id,
   });
 
@@ -288,6 +318,7 @@ export default function CustomerProfile() {
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
           <TabsTrigger value="tickets" data-testid="tab-tickets">Support Tickets</TabsTrigger>
           <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="referrals" data-testid="tab-referrals">Referrals</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -496,6 +527,146 @@ export default function CustomerProfile() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="referrals" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center">
+                  <Award className="w-4 h-4 mr-2 text-blue-500" />
+                  Referral Code
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <code className="text-2xl font-bold font-mono" data-testid="text-referral-code">
+                    {referralData?.data.referral_code || 'N/A'}
+                  </code>
+                  {referralData?.data.referral_code && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(referralData.data.referral_code);
+                        toast({ title: 'Copied!', description: 'Referral code copied to clipboard' });
+                      }}
+                      data-testid="button-copy-code"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-green-500" />
+                  Total Referrals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-referrals">
+                  {referralData?.data.total_referrals || 0}
+                </div>
+                <p className="text-xs text-foreground/80">
+                  {referralData?.data.completed_referrals || 0} completed
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center">
+                  <DollarSign className="w-4 h-4 mr-2 text-orange-500" />
+                  Rewards Earned
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-rewards-earned">
+                  {(referralData?.data.total_rewards_earned || 0).toFixed(0)} SAR
+                </div>
+                <p className="text-xs text-foreground/80">
+                  From referrals
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-primary">Referrals Made</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {referralData?.data.referrals && referralData.data.referrals.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Invitee</TableHead>
+                      <TableHead className="table-header-primary">Email</TableHead>
+                      <TableHead className="table-header-primary">Campaign</TableHead>
+                      <TableHead className="table-header-primary">Status</TableHead>
+                      <TableHead className="table-header-primary text-right">Reward</TableHead>
+                      <TableHead className="table-header-primary">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {referralData.data.referrals.map((referral: any, idx: number) => (
+                      <TableRow key={referral.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-referral-${referral.id}`}>
+                        <TableCell>{referral.invitee_name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{referral.invitee_email}</TableCell>
+                        <TableCell>{referral.campaign_name?.en || 'N/A'}</TableCell>
+                        <TableCell>{getStatusBadge(referral.status)}</TableCell>
+                        <TableCell className="numeric-cell">
+                          {Number(referral.reward).toFixed(0)} SAR
+                        </TableCell>
+                        <TableCell>{format(new Date(referral.created_at), 'MMM dd, yyyy')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No referrals made yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {referralData?.data.referrals_used && referralData.data.referrals_used.length > 0 && (
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary">Referral Codes Used</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Inviter</TableHead>
+                      <TableHead className="table-header-primary">Campaign</TableHead>
+                      <TableHead className="table-header-primary text-right">Discount</TableHead>
+                      <TableHead className="table-header-primary">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {referralData.data.referrals_used.map((referral: any, idx: number) => (
+                      <TableRow key={referral.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-referral-used-${referral.id}`}>
+                        <TableCell>{referral.inviter_name}</TableCell>
+                        <TableCell>{referral.campaign_name?.en || 'N/A'}</TableCell>
+                        <TableCell className="numeric-cell">
+                          {Number(referral.discount).toFixed(0)} SAR
+                        </TableCell>
+                        <TableCell>{format(new Date(referral.created_at), 'MMM dd, yyyy')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

@@ -85,8 +85,20 @@ export default function AdminPromos() {
   if (dateTo) analyticsQueryParams.append('to_date', dateTo);
   const analyticsQueryString = analyticsQueryParams.toString();
 
-  const { data: analyticsData } = useQuery<{ success: boolean; data: ReferralAnalytics }>({
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery<{ success: boolean; data: ReferralAnalytics }>({
     queryKey: ['/api/v2/admin/referrals/analytics', analyticsQueryString],
+    queryFn: async () => {
+      const url = analyticsQueryString 
+        ? `/api/v2/admin/referrals/analytics?${analyticsQueryString}`
+        : '/api/v2/admin/referrals/analytics';
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      if (!res.ok) throw new Error('Failed to fetch analytics');
+      return res.json();
+    },
     staleTime: 0,
   });
 
@@ -638,6 +650,10 @@ export default function AdminPromos() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
+          {analyticsLoading ? (
+            <div className="text-center py-12">Loading analytics...</div>
+          ) : (
+            <div className="space-y-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -801,6 +817,8 @@ export default function AdminPromos() {
               </CardContent>
             </Card>
           </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="leaderboard" className="space-y-4">

@@ -650,20 +650,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get Referral Stats
   app.get('/api/v2/referrals/stats', authenticateToken, referralController.getReferralStats);
   
+  // Admin: Get user referral stats
+  app.get('/api/v2/admin/users/:userId/referrals', authenticateToken, authorizeRoles(['admin']), referralController.getAdminUserReferralStats);
+  
   // Admin: Get all referrals
-  app.get('/api/v2/admin/referrals', authenticateToken, authorizeRoles('admin'), referralController.getAdminReferrals);
+  app.get('/api/v2/admin/referrals', authenticateToken, authorizeRoles(['admin']), referralController.getAdminReferrals);
   
   // Admin: Get referral analytics
-  app.get('/api/v2/admin/referrals/analytics', authenticateToken, authorizeRoles('admin'), referralController.getReferralAnalytics);
+  app.get('/api/v2/admin/referrals/analytics', authenticateToken, authorizeRoles(['admin']), referralController.getReferralAnalytics);
   
   // Admin: Create campaign
-  app.post('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles('admin'), referralController.createCampaign);
+  app.post('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles(['admin']), referralController.createCampaign);
   
   // Admin: Update campaign
-  app.put('/api/v2/admin/referrals/campaigns/:id', authenticateToken, authorizeRoles('admin'), referralController.updateCampaign);
+  app.put('/api/v2/admin/referrals/campaigns/:id', authenticateToken, authorizeRoles(['admin']), referralController.updateCampaign);
   
   // Admin: Get campaigns
-  app.get('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles('admin'), referralController.getCampaigns);
+  app.get('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles(['admin']), referralController.getCampaigns);
   
   // ==================== SERVICES & PACKAGES ENDPOINTS ====================
   
