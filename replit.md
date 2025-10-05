@@ -109,7 +109,8 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/v2/referrals/admin/list`: List all referrals (admin)
 - `POST /api/v2/referrals/campaigns`: Create referral campaign (admin)
 - `GET /api/v2/referrals/campaigns`: List all campaigns (admin)
-- `GET /api/v2/referrals/analytics`: Get referral analytics with charts (admin)
+- `GET /api/v2/referrals/analytics`: Get referral analytics with date filtering (admin, supports from_date/to_date query params)
+- `GET /api/v2/admin/users/:userId/referrals`: Get user-specific referral data (auto-generates referral code if missing)
 
 **Validation & Safety:**
 - Zod schema validation for referral_code (1-20 chars, transforms empty → undefined)
@@ -121,14 +122,24 @@ Preferred communication style: Simple, everyday language.
 **Admin Dashboard:**
 - Promos page (`/admin/promos`) with campaign CRUD operations
 - Analytics charts: monthly referrals, rewards distribution, referral leaderboard
-- Real-time campaign status management
+- Date filtering for analytics (from_date/to_date query parameters)
+- Enhanced KPIs: Total Referrals, Total Rewards, Total Discounts with loading states
+- Real-time campaign status management with instant cache invalidation
+- Customer Profile integration: Referrals tab showing referral code (with copy), stats, referral history, and campaigns used
+- UI/UX consistency: Unified layout spacing (space-y-6), header styling (text-3xl font-bold text-primary), dialog forms (space-y-2), and tab navigation across all admin pages
 
 **Implementation:**
-- `server/controllers/referralController.ts`: Referral business logic
+- `server/controllers/referralController.ts`: Referral business logic and admin endpoints
 - `server/controllers/bookingsController.ts`: Booking integration with referral validation
 - `server/utils/webhook.ts`: Payment webhook with referral reward processing
-- `client/src/pages/admin/promos.tsx`: Admin dashboard for campaign management
+- `client/src/pages/admin/promos.tsx`: Admin dashboard for campaign management and analytics
+- `client/src/pages/admin/customer-profile.tsx`: Customer profile with integrated referrals tab
 - `server/middleware/validation.ts`: Schema validation including referral_code
+
+**Technical Notes:**
+- Analytics query uses two-part queryKey `['/api/v2/admin/referrals/analytics', queryParams]` with custom queryFn for proper cache invalidation
+- Cache invalidation via `queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] })` ensures analytics refresh after campaign mutations
+- All admin pages follow consistent design pattern: `space-y-6` containers, `text-3xl font-bold text-primary` headers, `space-y-2` form fields
 
 ### File Upload System
 **Object Storage Configuration:**
