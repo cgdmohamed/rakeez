@@ -200,6 +200,243 @@ const endpoints: Record<string, ApiEndpoint[]> = {
         '201': { description: 'Tabby checkout created' }
       }
     }
+  ],
+  referrals: [
+    {
+      method: 'POST',
+      path: '/api/v2/referrals/validate',
+      title: 'Validate Referral Code',
+      description: 'Validate a referral code and get discount details',
+      auth: false,
+      requestBody: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', minLength: 1, maxLength: 20, description: 'Referral code to validate' }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Referral code validated successfully',
+          schema: {
+            success: true,
+            data: {
+              valid: true,
+              referrer_name: 'Ahmed',
+              discount_type: 'percentage',
+              discount_value: 10,
+              discount_amount: 0,
+              campaign_id: 'camp_123'
+            }
+          }
+        },
+        '400': { description: 'Invalid referral code or no active campaign' },
+        '404': { description: 'Referral code not found' }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/referrals/redeem',
+      title: 'Redeem Referral Code',
+      description: 'Redeem a referral code for an order (creates referral record)',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', description: 'Referral code' },
+          order_amount: { type: 'number', description: 'Order amount for discount calculation' }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Referral redeemed successfully',
+          schema: {
+            success: true,
+            message: 'Referral code applied successfully',
+            data: {
+              discount_amount: 50.00,
+              referral_id: 'ref_123'
+            }
+          }
+        },
+        '400': { description: 'Cannot use own referral code, already used referral, or no active campaign' },
+        '404': { description: 'Invalid referral code' }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/referrals/stats',
+      title: 'Get Referral Statistics',
+      description: 'Get referral statistics for authenticated user',
+      auth: true,
+      responses: {
+        '200': {
+          description: 'Statistics retrieved successfully',
+          schema: {
+            success: true,
+            data: {
+              referral_code: 'AHMED123',
+              total_referrals: 15,
+              total_rewards: 450.00,
+              pending_rewards: 100.00
+            }
+          }
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals',
+      title: 'List All Referrals (Admin)',
+      description: 'List all referrals in the system (Admin only)',
+      auth: true,
+      responses: {
+        '200': {
+          description: 'Referrals retrieved successfully',
+          schema: {
+            success: true,
+            data: [
+              {
+                id: 'ref_123',
+                inviter_name: 'Ahmed',
+                invitee_name: 'Sara',
+                campaign_name: { en: 'Summer Promo', ar: 'عرض الصيف' },
+                status: 'rewarded',
+                reward_amount: 30.00,
+                discount_applied: 15.00,
+                created_at: '2024-01-15T10:00:00Z'
+              }
+            ]
+          }
+        },
+        '403': { description: 'Admin access required' }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/referrals/campaigns',
+      title: 'Create Referral Campaign (Admin)',
+      description: 'Create a new referral campaign with rewards and discounts (Admin only)',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        properties: {
+          name: { type: 'object', properties: { en: 'string', ar: 'string' } },
+          description: { type: 'object', properties: { en: 'string', ar: 'string' }, optional: true },
+          inviter_reward: { type: 'number', minimum: 0 },
+          invitee_discount_type: { type: 'string', enum: ['percentage', 'fixed'] },
+          invitee_discount_value: { type: 'number', minimum: 0 },
+          max_uses_per_user: { type: 'number', minimum: 0 },
+          valid_from: { type: 'string', format: 'date' },
+          valid_until: { type: 'string', format: 'date', optional: true }
+        }
+      },
+      responses: {
+        '201': {
+          description: 'Campaign created successfully',
+          schema: {
+            success: true,
+            data: {
+              id: 'camp_123',
+              name: { en: 'Summer Referral', ar: 'إحالة الصيف' },
+              is_active: true
+            }
+          }
+        },
+        '403': { description: 'Admin access required' }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals/campaigns',
+      title: 'List Referral Campaigns (Admin)',
+      description: 'List all referral campaigns (Admin only)',
+      auth: true,
+      responses: {
+        '200': {
+          description: 'Campaigns retrieved successfully',
+          schema: {
+            success: true,
+            data: [
+              {
+                id: 'camp_123',
+                name: { en: 'Summer Referral', ar: 'إحالة الصيف' },
+                is_active: true,
+                inviter_reward: 50.00,
+                invitee_discount_type: 'percentage',
+                invitee_discount_value: 10,
+                valid_from: '2024-01-01',
+                valid_until: '2024-12-31'
+              }
+            ]
+          }
+        },
+        '403': { description: 'Admin access required' }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals/analytics',
+      title: 'Get Referral Analytics (Admin)',
+      description: 'Get referral analytics with date filtering (Admin only)',
+      auth: true,
+      parameters: [
+        { name: 'from_date', type: 'string', required: false, description: 'Start date (YYYY-MM-DD)' },
+        { name: 'to_date', type: 'string', required: false, description: 'End date (YYYY-MM-DD)' }
+      ],
+      responses: {
+        '200': {
+          description: 'Analytics retrieved successfully',
+          schema: {
+            success: true,
+            data: {
+              total_referrals: 150,
+              total_rewards: 4500.00,
+              total_discounts: 1200.00,
+              monthly_referrals: [{ month: 'January', count: 45 }],
+              rewards_distribution: [{ status: 'rewarded', amount: 3000.00 }],
+              top_referrers: [{ user: 'Ahmed', referral_count: 12, total_rewards: 360.00 }]
+            }
+          }
+        },
+        '403': { description: 'Admin access required' }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/users/:userId/referrals',
+      title: 'Get User Referral Data (Admin)',
+      description: 'Get user-specific referral data (auto-generates referral code if missing)',
+      auth: true,
+      parameters: [
+        { name: 'userId', type: 'string', required: true, description: 'User ID' }
+      ],
+      responses: {
+        '200': {
+          description: 'User referral data retrieved successfully',
+          schema: {
+            success: true,
+            data: {
+              referral_code: 'AHMED123',
+              stats: {
+                total_referrals: 15,
+                total_rewards: 450.00,
+                total_discounts: 120.00
+              },
+              referrals: [
+                {
+                  id: 'ref_123',
+                  invitee_name: 'Sara',
+                  status: 'rewarded',
+                  created_at: '2024-01-15T10:00:00Z'
+                }
+              ]
+            }
+          }
+        },
+        '403': { description: 'Admin access required' },
+        '404': { description: 'User not found' }
+      }
+    }
   ]
 };
 
@@ -326,7 +563,8 @@ export default function ApiDocumentation() {
                           <div className="font-medium text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">
                             {category === 'auth' ? (isArabic ? 'المصادقة' : 'Authentication') :
                              category === 'bookings' ? (isArabic ? 'الحجوزات' : 'Bookings') :
-                             category === 'payments' ? (isArabic ? 'الدفعات' : 'Payments') : category}
+                             category === 'payments' ? (isArabic ? 'الدفعات' : 'Payments') :
+                             category === 'referrals' ? (isArabic ? 'الإحالات والعروض' : 'Referrals & Promos') : category}
                           </div>
                           {categoryEndpoints.map((endpoint, index) => (
                             <Button
