@@ -6,6 +6,7 @@ import {
   serviceCategories, services, servicePackages, spareParts, promotions, faqs,
   users, addresses, bookings, payments, wallets, reviews,
   quotations, notifications, supportTickets, supportMessages, walletTransactions,
+  referralCampaigns,
   type InsertServiceCategory, type InsertService, type InsertServicePackage,
   type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
@@ -334,7 +335,49 @@ async function seed() {
     const createdPromotions = await db.insert(promotions).values(promotionsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdPromotions.length} promotions`);
 
-    // 6. Seed FAQs
+    // 6. Seed Referral Campaigns
+    console.log('🎁 Seeding referral campaigns...');
+    const referralCampaignsData = [
+      {
+        name: JSON.stringify({ 
+          en: 'Spring Referral Campaign', 
+          ar: 'حملة إحالة الربيع' 
+        }),
+        description: JSON.stringify({ 
+          en: 'Refer friends and earn rewards this spring season!', 
+          ar: 'أحل أصدقائك واربح مكافآت في موسم الربيع!' 
+        }),
+        inviterReward: '25.00',
+        inviteeDiscountType: 'fixed' as const,
+        inviteeDiscountValue: '15.00',
+        maxUsagePerUser: 5,
+        validFrom: now,
+        validUntil: futureDate,
+        isActive: true,
+      },
+      {
+        name: JSON.stringify({ 
+          en: 'VIP Referral Program', 
+          ar: 'برنامج الإحالة المميز' 
+        }),
+        description: JSON.stringify({ 
+          en: 'Premium referral program with higher rewards', 
+          ar: 'برنامج إحالة مميز بمكافآت أعلى' 
+        }),
+        inviterReward: '50.00',
+        inviteeDiscountType: 'percentage' as const,
+        inviteeDiscountValue: '20.00',
+        maxUsagePerUser: 3,
+        validFrom: now,
+        validUntil: futureDate,
+        isActive: false,
+      },
+    ];
+
+    const createdReferralCampaigns = await db.insert(referralCampaigns).values(referralCampaignsData).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdReferralCampaigns.length} referral campaigns`);
+
+    // 7. Seed FAQs
     console.log('📚 Seeding FAQs...');
     const faqsData: InsertFaq[] = [
       {
@@ -459,7 +502,7 @@ async function seed() {
     const createdFaqs = await db.insert(faqs).values(faqsData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdFaqs.length} FAQs`);
 
-    // 7. Seed Demo Users (Admin, Technicians, Customers)
+    // 8. Seed Demo Users (Admin, Technicians, Customers)
     console.log('👥 Seeding demo users...');
     const defaultPassword = await bcrypt.hash('admin123', 10);
     
