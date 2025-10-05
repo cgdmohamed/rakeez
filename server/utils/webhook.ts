@@ -211,6 +211,9 @@ async function handleMoyasarPaymentPaid(payment: any): Promise<void> {
       // Update booking status
       await storage.updateBookingStatus(bookingId, 'confirmed');
       
+      // Process referral rewards if applicable
+      await processReferralReward(bookingId);
+      
       console.log(`Moyasar payment ${payment.id} marked as paid`);
     }
   } catch (error) {
@@ -263,6 +266,10 @@ async function handleMoyasarPaymentCaptured(payment: any): Promise<void> {
     if (paymentRecord) {
       await storage.updatePaymentStatus(paymentRecord.id, 'paid', payment);
       await storage.updateBookingStatus(bookingId, 'confirmed');
+      
+      // Process referral rewards if applicable
+      await processReferralReward(bookingId);
+      
       console.log(`Moyasar payment ${payment.id} captured`);
     }
   } catch (error) {
@@ -447,6 +454,89 @@ export const cleanupWebhookEvents = async (olderThanDays: number = 30): Promise<
     return 0;
   }
 };
+
+// Process referral rewards
+async function processReferralReward(bookingId: string): Promise<void> {
+  try {
+    const db = (await import('../db')).db;
+    const { referrals, walletTransactions, wallets } = await import('../../shared/schema');
+    const { eq, sql } = await import('drizzle-orm');
+    
+    // Find the referral record by bookingId
+    const referral = await db.query.referrals.findFirst({
+      where: eq(referrals.bookingId, bookingId),
+    });
+    
+    if (!referral || referral.status !== 'pending') {
+      return; // No pending referral for this booking
+    }
+    
+    const inviterReward = parseFloat(referral.inviterReward);
+    
+    // Use transaction for atomicity
+    await db.transaction(async (tx) => {
+      const now = new Date();
+      
+      // If no reward, just mark as completed
+      if (inviterReward <= 0) {
+        await tx.update(referrals)
+          .set({ 
+            status: 'completed',
+            completedAt: now
+          })
+          .where(eq(referrals.id, referral.id));
+        return;
+      }
+      
+      // Get current wallet balance
+      const wallet = await tx.query.wallets.findFirst({
+        where: eq(wallets.userId, referral.inviterId),
+      });
+      
+      const currentBalance = wallet ? parseFloat(wallet.balance) : 0;
+      const newBalance = currentBalance + inviterReward;
+      
+      // Create wallet transaction
+      await tx.insert(walletTransactions).values({
+        userId: referral.inviterId,
+        amount: inviterReward.toFixed(2),
+        type: 'credit',
+        balanceBefore: currentBalance.toFixed(2),
+        balanceAfter: newBalance.toFixed(2),
+        referenceType: 'referral',
+        referenceId: referral.id,
+        description: `Referral reward for inviting user`,
+        descriptionAr: `مكافأة الإحالة لدعوة مستخدم`
+      });
+      
+      // Update wallet balance
+      if (wallet) {
+        await tx.update(wallets)
+          .set({ balance: newBalance.toFixed(2) })
+          .where(eq(wallets.userId, referral.inviterId));
+      } else {
+        await tx.insert(wallets).values({
+          userId: referral.inviterId,
+          balance: inviterReward.toFixed(2)
+        });
+      }
+      
+      // Only mark as rewarded after successful wallet credit
+      await tx.update(referrals)
+        .set({ 
+          status: 'rewarded',
+          completedAt: now,
+          rewardDistributedAt: now
+        })
+        .where(eq(referrals.id, referral.id));
+      
+      console.log(`Referral reward of ${inviterReward} SAR credited to user ${referral.inviterId}`);
+    });
+  } catch (error) {
+    console.error('Error processing referral reward:', error);
+    throw error; // Re-throw to allow caller to handle
+  }
+}
 
 export default {
   verifyWebhookSignature,

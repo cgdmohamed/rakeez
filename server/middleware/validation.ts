@@ -2,6 +2,37 @@ import { Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { bilingual } from '../utils/bilingual';
 
+// Booking validation schema
+export const createBookingSchema = z.object({
+  service_id: z.string().uuid('Invalid service ID'),
+  package_id: z.string().uuid('Invalid package ID').optional(),
+  address_id: z.string().uuid('Invalid address ID'),
+  scheduled_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
+  scheduled_time: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format, expected HH:MM'),
+  notes: z.string().optional(),
+  notes_ar: z.string().optional(),
+  referral_code: z.string().transform(val => val?.trim() || undefined).optional().refine(val => !val || (val.length >= 1 && val.length <= 20), {
+    message: 'Referral code must be between 1 and 20 characters'
+  }),
+});
+
+// Quotation validation schema
+export const createQuotationSchema = z.object({
+  booking_id: z.string().uuid('Invalid booking ID'),
+  additional_cost: z.number().min(0).optional(),
+  spare_parts: z.array(z.object({
+    spare_part_id: z.string().uuid(),
+    quantity: z.number().int().min(1),
+  })).optional(),
+  notes: z.string().optional(),
+  notes_ar: z.string().optional(),
+});
+
+// Generic validation function
+export const validateSchema = <T>(schema: z.ZodSchema<T>, data: any): T => {
+  return schema.parse(data);
+};
+
 interface ValidationSchema {
   body?: z.ZodSchema;
   query?: z.ZodSchema;

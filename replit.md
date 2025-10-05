@@ -89,6 +89,47 @@ Preferred communication style: Simple, everyday language.
 - **Zod**: Schema validation.
 - **Axios**: HTTP client.
 
+### Referral and Promo System
+**Database Schema:**
+- `referral_campaigns`: Campaign configuration with reward settings, discount types, usage limits, validity dates
+- `referrals`: Tracking table linking inviters, invitees, bookings, and reward status
+- `bookings`: Extended with `referralCode` and `referralDiscount` fields for tracking
+
+**Referral Flow:**
+1. **Campaign Creation** (Admin): Configure inviter rewards, invitee discounts (percentage/fixed), max usage per user, date range
+2. **Code Validation** (Booking): Validates referral code, checks active campaign, verifies usage limits
+3. **Discount Application**: Applies discount to booking total, clamps at 0 to prevent negatives
+4. **Referral Tracking**: Creates referral record linked to booking via `bookingId`
+5. **Reward Distribution** (Webhook): On payment success, atomically credits inviter wallet and marks referral as rewarded
+
+**API Endpoints:**
+- `POST /api/v2/referrals/validate`: Validate referral code and get discount details
+- `POST /api/v2/referrals/redeem`: Redeem referral code for an order (creates referral record)
+- `GET /api/v2/referrals/stats`: Get referral statistics for authenticated user
+- `GET /api/v2/referrals/admin/list`: List all referrals (admin)
+- `POST /api/v2/referrals/campaigns`: Create referral campaign (admin)
+- `GET /api/v2/referrals/campaigns`: List all campaigns (admin)
+- `GET /api/v2/referrals/analytics`: Get referral analytics with charts (admin)
+
+**Validation & Safety:**
+- Zod schema validation for referral_code (1-20 chars, transforms empty → undefined)
+- Subtotal clamping prevents negative totals when discounts exceed base price
+- Transaction-wrapped wallet operations ensure atomicity
+- Direct bookingId lookup for reliable referral identification
+- Error propagation (no silent failures)
+
+**Admin Dashboard:**
+- Promos page (`/admin/promos`) with campaign CRUD operations
+- Analytics charts: monthly referrals, rewards distribution, referral leaderboard
+- Real-time campaign status management
+
+**Implementation:**
+- `server/controllers/referralController.ts`: Referral business logic
+- `server/controllers/bookingsController.ts`: Booking integration with referral validation
+- `server/utils/webhook.ts`: Payment webhook with referral reward processing
+- `client/src/pages/admin/promos.tsx`: Admin dashboard for campaign management
+- `server/middleware/validation.ts`: Schema validation including referral_code
+
 ### File Upload System
 **Object Storage Configuration:**
 - Bucket: `replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4`

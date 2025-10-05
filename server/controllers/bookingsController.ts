@@ -107,7 +107,8 @@ export class BookingsController {
         scheduled_date,
         scheduled_time,
         notes,
-        notes_ar
+        notes_ar,
+        referral_code
       } = validation.data;
 
       // Verify service exists
@@ -142,45 +143,138 @@ export class BookingsController {
         });
       }
 
+      // Validate referral code if provided
+      let referralDiscount = 0;
+      let referralData = null;
+      if (referral_code) {
+        const db = await import('../db').then(m => m.db);
+        const { users, referralCampaigns, referrals } = await import('../../shared/schema');
+        const { eq, and, lte, sql } = await import('drizzle-orm');
+        const { count } = await import('drizzle-orm');
+
+        const referrer = await db.query.users.findFirst({
+          where: eq(users.referralCode, referral_code),
+        });
+
+        if (!referrer) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('referral.invalid_code', userLanguage),
+            error: 'Invalid referral code'
+          });
+        }
+
+        // Prevent self-referral
+        if (referrer.id === userId) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('referral.cannot_use_own_code', userLanguage),
+            error: 'Cannot use your own referral code'
+          });
+        }
+
+        const activeCampaign = await db.query.referralCampaigns.findFirst({
+          where: and(
+            eq(referralCampaigns.isActive, true),
+            lte(referralCampaigns.validFrom, new Date()),
+            sql`(${referralCampaigns.validUntil} IS NULL OR ${referralCampaigns.validUntil} >= NOW())`
+          ),
+        });
+
+        if (!activeCampaign) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('referral.no_active_campaign', userLanguage),
+            error: 'No active referral campaign available'
+          });
+        }
+
+        const referralCount = await db
+          .select({ count: count() })
+          .from(referrals)
+          .where(
+            and(
+              eq(referrals.inviterId, referrer.id),
+              eq(referrals.campaignId, activeCampaign.id)
+            )
+          );
+
+        const usageCount = referralCount[0]?.count || 0;
+
+        if (usageCount >= activeCampaign.maxUsagePerUser) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('referral.usage_limit_reached', userLanguage),
+            error: 'This referral code has reached its usage limit'
+          });
+        }
+
+        referralData = {
+          referrerId: referrer.id,
+          campaignId: activeCampaign.id,
+          discountType: activeCampaign.inviteeDiscountType,
+          discountValue: Number(activeCampaign.inviteeDiscountValue),
+          inviterReward: Number(activeCampaign.inviterRewardValue)
+        };
+      }
+
       // Calculate pricing
       const basePrice = selectedPackage ? parseFloat(selectedPackage.price) : parseFloat(service.basePrice);
       const discountPercentage = selectedPackage ? parseFloat(selectedPackage.discountPercentage || '0') : 0;
       const discountAmount = (basePrice * discountPercentage) / 100;
-      const subtotal = basePrice - discountAmount;
+      
+      // Apply referral discount
+      if (referralData) {
+        if (referralData.discountType === 'percentage') {
+          referralDiscount = (basePrice * referralData.discountValue) / 100;
+        } else {
+          referralDiscount = referralData.discountValue;
+        }
+      }
+      
+      // Calculate subtotal and clamp at 0 to prevent negative values
+      const subtotal = Math.max(0, basePrice - discountAmount - referralDiscount);
       const vatPercentage = parseFloat(service.vatPercentage || '15');
       const vatAmount = (subtotal * vatPercentage) / 100;
       const totalAmount = subtotal + vatAmount;
 
       // Create booking
-      const booking = await this.storage.createOrder({
+      const booking = await this.storage.createBooking({
         userId,
         serviceId: service_id,
-        packageId: package_id || null,
+        packageId: package_id || undefined,
         addressId: address_id,
-        technicianId: null,
         status: 'pending',
         scheduledDate: new Date(scheduled_date + 'T' + scheduled_time),
         scheduledTime: scheduled_time,
-        notes: notes || null,
-        notesAr: notes_ar || null,
+        notes: notes || undefined,
+        notesAr: notes_ar || undefined,
         serviceCost: basePrice.toFixed(2),
-        discount: discountAmount.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        referralCode: referral_code || undefined,
+        referralDiscount: referralDiscount.toFixed(2),
         sparePartsCost: '0.00',
-        subtotal: subtotal.toFixed(2),
         vatAmount: vatAmount.toFixed(2),
         totalAmount: totalAmount.toFixed(2),
-        currency: 'SAR',
         paymentStatus: 'pending'
       });
 
-      // Create status log
-      await this.storage.createOrderStatusLog({
-        orderId: booking.id,
-        status: 'pending',
-        message: 'Order created',
-        messageAr: 'تم إنشاء الطلب',
-        userId: userId
-      });
+      // Create referral record if referral code was used
+      if (referralData && referral_code) {
+        const db = await import('../db').then(m => m.db);
+        const { referrals } = await import('../../shared/schema');
+        
+        await db.insert(referrals).values({
+          campaignId: referralData.campaignId,
+          inviterId: referralData.referrerId,
+          inviteeId: userId,
+          bookingId: booking.id,
+          referralCode: referral_code,
+          status: 'pending',
+          inviterReward: referralData.inviterReward.toFixed(2),
+          inviteeDiscount: referralDiscount.toFixed(2),
+        });
+      }
 
       return res.status(201).json({
         success: true,
@@ -202,12 +296,11 @@ export class BookingsController {
           scheduled_time: booking.scheduledTime,
           pricing: {
             service_cost: parseFloat(booking.serviceCost),
-            discount: parseFloat(booking.discount),
-            subtotal: parseFloat(booking.subtotal),
+            discount: parseFloat(booking.discountAmount),
+            referral_discount: parseFloat(booking.referralDiscount || '0'),
             vat_percentage: vatPercentage,
             vat_amount: parseFloat(booking.vatAmount),
-            total_amount: parseFloat(booking.totalAmount),
-            currency: booking.currency
+            total_amount: parseFloat(booking.totalAmount)
           },
           created_at: booking.createdAt
         }
