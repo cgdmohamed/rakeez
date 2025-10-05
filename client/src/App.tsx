@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import Dashboard from '@/pages/dashboard';
 import ApiDocumentation from '@/components/api-documentation';
+import ApiDocs from '@/pages/api-docs';
 import NotFound from '@/pages/not-found';
 import Login from '@/pages/login';
 import AdminDashboard, { AdminLayoutWrapper } from '@/pages/admin-dashboard';
@@ -129,6 +130,7 @@ function App() {
       <div className="min-h-screen bg-background">
         <Switch>
           <Route path="/" component={ApiDocumentation} />
+          <Route path="/api-docs" component={ApiDocs} />
           <Route path="/login" component={Login} />
           <Route path="/admin/customers/:id/overview">
             {(params) => (
