@@ -28,6 +28,9 @@ import {
 } from "./utils/constants";
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
+import { db } from "./db";
+import { bookings } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 const app = express();
 
@@ -3318,6 +3321,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== ADMIN - BOOKING MANAGEMENT ====================
+
+  // Get All Bookings
+  app.get('/api/v2/admin/bookings', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    query: z.object({
+      status: z.enum(['all', 'pending', 'confirmed', 'technician_assigned', 'en_route', 'in_progress', 'quotation_pending', 'completed', 'cancelled']).optional().default('all'),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { status } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const bookingsList = await db.query.bookings.findMany({
+        where: status && status !== 'all' ? eq(bookings.status, status) : undefined,
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            }
+          },
+          service: {
+            columns: {
+              id: true,
+              name: true,
+            }
+          },
+          technician: {
+            columns: {
+              id: true,
+              name: true,
+            }
+          },
+          address: true,
+        },
+        orderBy: [desc(bookings.createdAt)],
+      });
+      
+      res.json({
+        success: true,
+        data: bookingsList.map(booking => ({
+          id: booking.id,
+          user: booking.user ? {
+            id: booking.user.id,
+            name: booking.user.name,
+            email: booking.user.email,
+            phone: booking.user.phone,
+          } : undefined,
+          service: booking.service ? {
+            id: booking.service.id,
+            name: booking.service.name,
+          } : undefined,
+          technician: booking.technician ? {
+            id: booking.technician.id,
+            name: booking.technician.name,
+          } : undefined,
+          address: booking.address,
+          status: booking.status,
+          scheduled_date: booking.scheduledDate,
+          scheduled_time: booking.scheduledTime,
+          total_amount: Number(booking.totalAmount),
+          payment_status: booking.paymentStatus,
+          created_at: booking.createdAt,
+          notes: booking.notes,
+          payment_id: undefined,
+        })),
+      });
+    } catch (error) {
+      console.error('Get bookings error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
 
   // Cancel Booking
   app.patch('/api/v2/admin/bookings/:id/cancel', authenticateToken, authorizeRoles(['admin']), validateRequest({
