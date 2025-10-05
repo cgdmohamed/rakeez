@@ -217,10 +217,9 @@ export default function AdminPromos() {
   };
 
   return (
-    <div className="p-6 space-y-6" data-testid="admin-promos-page">
-      <div>
-        <h1 className="text-3xl font-bold">Referral & Promo Management</h1>
-        <p className="text-gray-500">Manage referral campaigns, track analytics, and view performance</p>
+    <div className="space-y-6" data-testid="admin-promos-page">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Referral & Promo Management</h1>
       </div>
 
       <Tabs defaultValue="campaigns" className="w-full">
@@ -250,7 +249,7 @@ export default function AdminPromos() {
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="name_en">Name (English)</Label>
                         <Input
                           id="name_en"
@@ -260,7 +259,7 @@ export default function AdminPromos() {
                           required
                         />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="name_ar">Name (Arabic)</Label>
                         <Input
                           id="name_ar"
@@ -273,7 +272,7 @@ export default function AdminPromos() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="description_en">Description (English)</Label>
                         <Textarea
                           id="description_en"
@@ -283,7 +282,7 @@ export default function AdminPromos() {
                           required
                         />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="description_ar">Description (Arabic)</Label>
                         <Textarea
                           id="description_ar"
@@ -296,7 +295,7 @@ export default function AdminPromos() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="inviter_reward">Inviter Reward (SAR)</Label>
                         <Input
                           id="inviter_reward"
@@ -308,7 +307,7 @@ export default function AdminPromos() {
                           required
                         />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="max_usage">Max Usage Per User</Label>
                         <Input
                           id="max_usage"
@@ -322,7 +321,7 @@ export default function AdminPromos() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="discount_type">Invitee Discount Type</Label>
                         <Select
                           value={formData.invitee_discount_type}
@@ -339,7 +338,7 @@ export default function AdminPromos() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="discount_value">
                           Invitee Discount {formData.invitee_discount_type === 'percentage' ? '(%)' : '(SAR)'}
                         </Label>
@@ -356,7 +355,7 @@ export default function AdminPromos() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="valid_from">Valid From</Label>
                         <Input
                           id="valid_from"
@@ -367,7 +366,7 @@ export default function AdminPromos() {
                           required
                         />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="valid_until">Valid Until (Optional)</Label>
                         <Input
                           id="valid_until"
