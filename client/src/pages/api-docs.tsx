@@ -1217,6 +1217,242 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           message: 'Role created successfully'
         }
       }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/bookings',
+      title: 'Get All Bookings',
+      titleAr: 'جميع الحجوزات',
+      description: 'Retrieve all bookings with filters (Admin only)',
+      descriptionAr: 'استرداد جميع الحجوزات مع التصفية (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status',
+          descriptionAr: 'التصفية حسب الحالة'
+        },
+        {
+          name: 'from_date',
+          type: 'string',
+          required: false,
+          description: 'Start date filter',
+          descriptionAr: 'تصفية تاريخ البدء'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'bkg_123',
+              customer_name: 'Ahmed Ali',
+              service_name: 'Deep Cleaning',
+              status: 'confirmed',
+              total_amount: 500,
+              scheduled_date: '2024-01-20'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'PATCH',
+      path: '/api/v2/admin/bookings/:id/cancel',
+      title: 'Cancel Booking',
+      titleAr: 'إلغاء الحجز',
+      description: 'Cancel a booking (Admin only)',
+      descriptionAr: 'إلغاء حجز (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          cancellation_reason: 'Customer request'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Booking cancelled successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/services',
+      title: 'Manage Services',
+      titleAr: 'إدارة الخدمات',
+      description: 'Get all services for management (Admin only)',
+      descriptionAr: 'الحصول على جميع الخدمات للإدارة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'srv_123',
+              name: { en: 'Deep Cleaning', ar: 'تنظيف عميق' },
+              category: 'Home Cleaning',
+              base_price: 500,
+              is_active: true
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/support/tickets',
+      title: 'All Support Tickets',
+      titleAr: 'جميع تذاكر الدعم',
+      description: 'Get all support tickets with filters (Admin only)',
+      descriptionAr: 'الحصول على جميع تذاكر الدعم مع التصفية (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (open, in_progress, resolved, closed)',
+          descriptionAr: 'التصفية حسب الحالة (مفتوح، قيد التنفيذ، محلول، مغلق)'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'tkt_123',
+              ticket_number: '#12345',
+              customer_name: 'Ahmed Ali',
+              subject: 'Payment Issue',
+              status: 'open',
+              priority: 'high',
+              created_at: '2024-01-15T10:00:00Z'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/support/tickets/:id',
+      title: 'Update Ticket',
+      titleAr: 'تحديث التذكرة',
+      description: 'Update support ticket status/assignment (Admin only)',
+      descriptionAr: 'تحديث حالة/تعيين تذكرة الدعم (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          status: 'in_progress',
+          assigned_to: 'support_usr_456',
+          priority: 'medium'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Ticket updated successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/customers/:id/overview',
+      title: 'Customer Overview',
+      titleAr: 'نظرة عامة على العميل',
+      description: 'Get comprehensive customer information (Admin only)',
+      descriptionAr: 'الحصول على معلومات شاملة عن العميل (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            customer: {
+              id: 'usr_123',
+              name: 'Ahmed Ali',
+              email: 'ahmed@example.com',
+              phone: '+966501234567',
+              total_bookings: 15,
+              total_spent: 7500,
+              wallet_balance: 250
+            },
+            recent_bookings: [],
+            wallet_transactions: []
+          }
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/notifications/send',
+      title: 'Send Notification',
+      titleAr: 'إرسال إشعار',
+      description: 'Send push notification to users (Admin only)',
+      descriptionAr: 'إرسال إشعار دفع للمستخدمين (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          title: { en: 'New Offer', ar: 'عرض جديد' },
+          body: { en: '50% discount on all services', ar: 'خصم 50٪ على جميع الخدمات' },
+          target_type: 'all',
+          role_filter: 'customer'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Notifications sent successfully',
+          data: {
+            sent_count: 150
+          }
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/analytics/export',
+      title: 'Export Analytics',
+      titleAr: 'تصدير التحليلات',
+      description: 'Export analytics data to CSV/Excel (Admin only)',
+      descriptionAr: 'تصدير بيانات التحليلات إلى CSV/Excel (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'format',
+          type: 'string',
+          required: false,
+          description: 'Export format (csv or excel)',
+          descriptionAr: 'تنسيق التصدير (csv أو excel)'
+        },
+        {
+          name: 'from',
+          type: 'string',
+          required: false,
+          description: 'Start date',
+          descriptionAr: 'تاريخ البدء'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            download_url: 'https://storage.rakeez.sa/exports/analytics_2024.csv'
+          }
+        }
+      }
     }
   ],
   uploads: [
