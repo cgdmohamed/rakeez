@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { storage } from '../storage';
 import { redisService } from '../services/redis';
 import { bilingual } from '../utils/bilingual';
+import { verifyToken } from '../utils/jwt';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -13,9 +14,6 @@ interface AuthenticatedRequest extends Request {
     language: string;
   };
 }
-
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'cleanserve_secret_key';
 
 /**
  * Middleware to authenticate JWT token
@@ -41,8 +39,8 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    // Verify JWT token using the utility function that includes issuer/audience validation
+    const decoded = verifyToken(token);
     
     // Check if token is blacklisted in Redis (optional in development)
     const isBlacklisted = await redisService.exists(`blacklist:${token}`);
@@ -145,7 +143,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
       return next();
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = verifyToken(token);
     
     // Check if token is blacklisted
     const isBlacklisted = await redisService.exists(`blacklist:${token}`);
