@@ -32,7 +32,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    hmr: false,
+    hmr: true,
     fs: {
       strict: true,
       deny: ["**/.*"],

@@ -1,0 +1,171 @@
+Perform a full Security and Performance Audit for the entire Rakeez platform (backend, admin dashboard, and API).
+Review authentication, authorization, booking flow, and all admin operations to identify vulnerabilities, missing validations, or insecure configurations without editing any code.
+Deliver a detailed and prioritized report with findings, impact level, and clear recommendations.
+
+🔐 Authentication & Authorization
+
+Verify secure JWT generation, signature, and validation across all routes.
+
+Ensure admin-only routes under /api/v2/admin are fully restricted.
+
+Review token expiration and refresh handling.
+
+Confirm rate limiting and anti-brute-force protections exist on login and registration.
+
+🧾 Access Control
+
+Ensure role-based access enforcement for admin, technician, and customer.
+
+Test whether users can access or modify others’ data (cross-user protection).
+
+Validate wallet, payments, and promos are properly restricted by role.
+
+Confirm all admin actions (refunds, cancellations, technician assignment) are logged and protected.
+
+🧼 Data Validation & Sanitization
+
+Review input validation across all endpoints and forms.
+
+Ensure schema validation is in place for POST/PUT requests.
+
+Validate input sanitization to prevent SQL injection, XSS, or malformed JSON.
+
+Verify all uploaded files (logos, spare parts images) are validated by type and size.
+
+🧍‍♂️ Sensitive Data Protection
+
+Confirm all passwords are hashed securely using bcrypt or Argon2.
+
+Verify that secrets (JWT keys, DB credentials, Twilio keys) are stored securely in .env.
+
+Ensure no personal data is exposed in public API responses.
+
+Check system logging to confirm no sensitive info is being logged.
+
+🌐 API Security
+
+Validate HTTPS-only access and proper SSL setup.
+
+Review and restrict CORS configuration to approved domains.
+
+Ensure consistent rate limiting on:
+
+/auth/login
+
+/bookings/create
+
+/payments/*
+
+/wallet/*
+
+Confirm standardized, secure error responses (no stack traces or internal details).
+
+💥 Rate Limiting & Abuse Prevention
+
+Test for spam booking or abuse scenarios.
+
+Ensure users can’t create multiple overlapping pending bookings.
+
+Add per-user and per-IP rate limits for booking creation and login.
+
+Verify booking time validation (no duplicates or past-time entries).
+
+Ensure cooldowns for booking edits, cancellations, and re-requests.
+
+📊 Audit Logs & Monitoring
+
+Confirm logging of critical actions (admin ops, authentication events, booking lifecycle).
+
+Verify log immutability and secure storage with rotation.
+
+Ensure no logs expose credentials or tokens.
+
+Recommend alerting system for suspicious activities (e.g., repeated failed logins).
+
+🧱 Database & Infrastructure
+
+Ensure PostgreSQL and Redis are secured (no public access).
+
+Verify SSL database connections.
+
+Check migrations and seed data for test or placeholder accounts.
+
+Validate schema constraints, foreign keys, and cascading behavior for integrity.
+
+🧭 Admin Dashboard Security
+
+Ensure all admin API calls are JWT-authenticated and role-protected.
+
+Verify unauthorized users cannot access admin pages via direct URLs.
+
+Confirm logout invalidates sessions and refresh tokens in Redis.
+
+Test UI for hidden but accessible backend actions (privilege escalation attempts).
+
+⚙️ Performance & Load Safety
+
+Run stress tests on core endpoints (/bookings, /payments, /auth).
+
+Validate Redis and PostgreSQL connection pooling and limits.
+
+Test concurrent booking creation for:
+
+Race conditions
+
+Duplicate entries
+
+Technician double-assignments
+
+Simulate high load (100–1000 concurrent users) and track system stability.
+
+Ensure large operations (uploads, notifications, payments) are queued or throttled.
+
+Check Redis cleanup for expired sessions and tokens.
+
+Measure response times for core user flows (login, booking, dashboard loading).
+
+📘 API Documentation Update
+
+After completing the security and performance audit, update the API Documentation landing page automatically to reflect:
+
+Updated base URL and branding for “Rakeez API”.
+
+Documented authentication flow and token usage.
+
+Clearly shown rate limits per endpoint.
+
+Example requests and responses for:
+
+Login / Register
+
+Create Booking
+
+Wallet operations
+
+Referral & Promo usage
+
+Include a short “Security & Rate Limiting” section summarizing protections in place.
+
+Keep bilingual (English + Arabic) structure consistent.
+
+🧩 Deliverables
+
+Security & Performance Report with:
+
+All vulnerabilities categorized by severity (Critical / High / Medium / Low).
+
+Recommended mitigations for each.
+
+Performance Analysis Summary:
+
+Throughput under concurrent load.
+
+Booking request handling behavior.
+
+Updated API Documentation Page:
+
+Live example requests/responses.
+
+Endpoint rate limits.
+
+Security overview and usage guidelines.
