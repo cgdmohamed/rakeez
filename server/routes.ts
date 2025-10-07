@@ -2079,7 +2079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = start_date ? new Date(start_date as string) : undefined;
       const endDate = end_date ? new Date(end_date as string) : undefined;
       
-      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians, monthlyRevenue, monthlyBookings] = await Promise.all([
+      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians, monthlyRevenue, monthlyBookings, userGrowth, recentActivity, walletTotals, uncollectedPayments, bookingsByPaymentMethod] = await Promise.all([
         storage.getOrderStats(startDate, endDate),
         storage.getRevenueStats(startDate, endDate),
         storage.getTechnicianStats(),
@@ -2087,6 +2087,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getUsersByRole('technician'),
         storage.getMonthlyRevenueStats(),
         storage.getMonthlyBookingStats(),
+        storage.getMonthlyUserGrowth(6),
+        storage.getRecentActivity(20),
+        storage.getWalletTotals(),
+        storage.getUncollectedPayments(),
+        storage.getBookingsByPaymentMethod(),
       ]);
       
       // Convert all numeric values from strings to numbers
@@ -2133,6 +2138,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           technicianPerformance: technicianPerformance || [],
           monthlyRevenue: monthlyRevenue || [],
           monthlyBookings: monthlyBookings || [],
+          userGrowth: userGrowth || [],
+          recentActivity: recentActivity || [],
+          walletTotals: walletTotals || { totalBalance: 0, totalEarned: 0, totalSpent: 0 },
+          uncollectedPayments: uncollectedPayments || 0,
+          bookingsByPaymentMethod: bookingsByPaymentMethod || [],
         }
       });
       

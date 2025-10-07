@@ -1,0 +1,97 @@
+Update and enhance the Admin Dashboard of the Rakeez platform to transform it from a static stats view into a fully interactive operational analytics panel.
+Do not change the general layout or color scheme — keep it aligned with the Rakeez branding — but improve the depth, structure, and user experience to match enterprise-grade dashboards.
+
+🎯 Primary Goal
+
+Make the Admin Dashboard a central operational and analytical hub that lets administrators:
+
+Monitor live performance (KPIs, revenue, technician efficiency).
+
+Act quickly (approve bookings, assign technicians, handle refunds).
+
+Gain insights through trends and behavioral data.
+
+🧭 Section 1 – KPIs & Performance Cards
+
+Expand the top cards to include the following:
+
+Pending Bookings – highlighted in amber (color warning).
+
+Active / In Progress Orders – total count and total value.
+
+Technician Performance – number of completed jobs and average rating.
+
+Uncollected Payments / Wallet Totals – shows revenue not yet settled.
+
+Top Service Demand – short summary of most booked service this month.
+
+📊 Section 2 – Analytics Charts & Trends
+
+Upgrade the charts area to display multi-metric analytics for the last 6 months:
+
+Revenue vs Expenses line chart.
+
+Bookings by Source (pie chart – app / web / referrals).
+
+Customer Growth Curve (new users per month).
+
+Referral Performance (total discount cost + new customers acquired).
+
+All charts must be dynamic and refresh from the latest API data without page reload.
+
+⚙️ Section 3 – Operational Insights
+
+Add interactive widgets:
+
+Recent Activity Feed – latest bookings, refunds, support tickets, wallet updates.
+
+Alerts & Tasks Widget – “3 pending bookings need approval”, “1 technician delayed”, etc.
+
+Quick Actions Panel – buttons for “Create Booking”, “Assign Technician”, “Issue Refund”.
+
+Each action should open a modal instead of redirecting the user.
+
+🧩 Section 4 – Deep Integration
+
+Make every stat card and chart clickable and redirect to its related management page:
+
+Card / Chart	Target Page
+Total Orders	Bookings page (All)
+Pending Bookings	Bookings page (Pending)
+Completed	Bookings page (Completed)
+Revenue	Payments page
+Technician Performance	Technicians management page
+Referral Stats	Promos / Referrals analytics tab
+💅 Section 5 – UX/UI Enhancements
+
+Unify padding, margins, and title colors with the rest of the app.
+
+Add light micro-animations on cards and charts for smooth loading.
+
+Replace “$” symbol with “SAR” and Rakeez currency icon.
+
+Add small tooltips on hover (e.g., “This month vs previous month trend”).
+
+Keep the dashboard fully responsive and maintain RTL compatibility.
+
+🧮 Section 6 – Data Integrity & Reporting
+
+All data must come from live API endpoints (/api/v2/admin/overview, /bookings/stats, /wallet/summary, etc.).
+
+Ensure real-time numbers reflect true pending, completed, and cancelled records.
+
+Add a mini report export option (CSV or PDF) summarizing weekly KPIs.
+
+Include error state handling (empty data, loading, API failure).
+
+📘 Deliverables
+
+Upgraded Admin Dashboard interface with all new sections integrated.
+
+Dynamic real-time data binding with auto-refresh (no manual reload).
+
+Clickable navigation links to underlying pages.
+
+Consistent Rakeez branding and RTL support.
+
+Final UI/UX review report confirming layout and data accuracy.

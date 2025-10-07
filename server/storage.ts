@@ -167,8 +167,6 @@ export interface IStorage {
   
   // Customer Management
   getCustomerOverview(userId: string): Promise<any>;
-  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
-  getCustomerInvoices(userId: string): Promise<any[]>;
   getAllWallets(): Promise<any[]>;
   getAllQuotations(status?: string): Promise<any[]>;
   getAllPayments(startDate?: Date, endDate?: Date): Promise<any[]>;
@@ -1540,35 +1538,91 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
-    return newInvoice;
+  async getMonthlyUserGrowth(months = 6): Promise<any[]> {
+    const result = await db
+      .select({
+        month: sql<string>`TO_CHAR(${users.createdAt}, 'Mon YYYY')`,
+        count: sql<number>`COUNT(*)::int`,
+        monthDate: sql<string>`DATE_TRUNC('month', ${users.createdAt})`,
+      })
+      .from(users)
+      .where(sql`${users.createdAt} >= NOW() - INTERVAL '${sql.raw(months.toString())} months'`)
+      .groupBy(sql`DATE_TRUNC('month', ${users.createdAt})`, sql`TO_CHAR(${users.createdAt}, 'Mon YYYY')`)
+      .orderBy(sql`DATE_TRUNC('month', ${users.createdAt})`);
+
+    return result.map((r: any) => ({
+      month: r.month,
+      users: Number(r.count) || 0,
+    }));
   }
 
-  async getCustomerInvoices(userId: string): Promise<any[]> {
-    // Get all completed bookings with payment details
-    const customerInvoices = await db
+  async getRecentActivity(limit = 20): Promise<any[]> {
+    // Get recent audit logs for key activities
+    const recentAuditLogs = await db
       .select({
-        bookingId: bookings.id,
-        invoiceNumber: sql<string>`CONCAT('INV-', ${bookings.id})`,
-        totalAmount: bookings.totalAmount,
-        serviceName: services.name,
-        scheduledDate: bookings.scheduledDate,
-        completedAt: bookings.completedAt,
-        paymentStatus: payments.status,
-        paymentMethod: payments.paymentMethod,
-        createdAt: bookings.createdAt,
+        id: auditLogs.id,
+        action: auditLogs.action,
+        resourceType: auditLogs.resourceType,
+        resourceId: auditLogs.resourceId,
+        userId: auditLogs.userId,
+        oldValues: auditLogs.oldValues,
+        newValues: auditLogs.newValues,
+        createdAt: auditLogs.createdAt,
+        userName: users.name,
+      })
+      .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
+      .where(sql`${auditLogs.resourceType} IN ('booking', 'payment', 'wallet', 'refund')`)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
+
+    return recentAuditLogs;
+  }
+
+  async getWalletTotals(): Promise<any> {
+    const result = await db
+      .select({
+        totalBalance: sql<number>`COALESCE(SUM(${wallets.balance}::decimal), 0)`,
+        totalEarned: sql<number>`COALESCE(SUM(${wallets.totalEarned}::decimal), 0)`,
+        totalSpent: sql<number>`COALESCE(SUM(${wallets.totalSpent}::decimal), 0)`,
+      })
+      .from(wallets);
+
+    return {
+      totalBalance: Number(result[0]?.totalBalance) || 0,
+      totalEarned: Number(result[0]?.totalEarned) || 0,
+      totalSpent: Number(result[0]?.totalSpent) || 0,
+    };
+  }
+
+  async getUncollectedPayments(): Promise<number> {
+    const result = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${bookings.totalAmount}::decimal), 0)`,
       })
       .from(bookings)
-      .leftJoin(services, eq(bookings.serviceId, services.id))
-      .leftJoin(payments, eq(bookings.id, payments.bookingId))
-      .where(and(
-        eq(bookings.userId, userId),
-        sql`${bookings.status} IN ('completed', 'cancelled')`
-      ))
-      .orderBy(desc(bookings.createdAt));
+      .where(sql`${bookings.paymentStatus} IN ('pending', 'processing')`);
 
-    return customerInvoices;
+    return Number(result[0]?.total) || 0;
+  }
+
+  async getBookingsByPaymentMethod(): Promise<any[]> {
+    const result = await db
+      .select({
+        method: payments.paymentMethod,
+        count: sql<number>`COUNT(*)::int`,
+        total: sql<number>`COALESCE(SUM(${payments.amount}::decimal), 0)`,
+      })
+      .from(payments)
+      .where(sql`${payments.status} = 'paid'`)
+      .groupBy(payments.paymentMethod)
+      .orderBy(desc(sql<number>`COUNT(*)::int`));
+
+    return result.map((r: any) => ({
+      method: r.method,
+      count: Number(r.count) || 0,
+      total: Number(r.total) || 0,
+    }));
   }
 }
 
