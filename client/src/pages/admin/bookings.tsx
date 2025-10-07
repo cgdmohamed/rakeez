@@ -30,7 +30,10 @@ import {
   MapPin,
   Wallet,
   History,
-  ArrowRight
+  ArrowRight,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Booking {
@@ -103,6 +106,9 @@ interface AuditLog {
 export default function AdminBookings() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [assignDialog, setAssignDialog] = useState<{ open: boolean; bookingId: string | null; technicianId: string }>({
@@ -224,9 +230,35 @@ export default function AdminBookings() {
 
   const bookings = bookingsData?.data || [];
   const technicians = techniciansData?.data || [];
-  const filteredBookings = statusFilter === 'all' 
-    ? bookings 
-    : bookings.filter((b) => b.status === statusFilter);
+  
+  // Apply filters and search
+  const filteredBookings = bookings.filter((booking) => {
+    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
+    const matchesSearch = searchQuery === '' || 
+      booking.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.user?.phone?.includes(searchQuery) ||
+      booking.service?.name?.en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.technician?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  const handleFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
@@ -372,7 +404,7 @@ export default function AdminBookings() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Bookings Management</h1>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleFilterChange}>
           <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -390,7 +422,32 @@ export default function AdminBookings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
+            <div className="flex gap-2 items-center">
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by customer, service, ID..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-8"
+                  data-testid="input-search-bookings"
+                />
+              </div>
+              <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[130px]" data-testid="select-items-per-page">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="25">25 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -407,16 +464,16 @@ export default function AdminBookings() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredBookings.length === 0 ? (
+              {paginatedBookings.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-24 text-center">
                     <div className="text-muted-foreground">
-                      No bookings found. {statusFilter !== 'all' && 'Try changing the filter.'}
+                      No bookings found. {statusFilter !== 'all' || searchQuery ? 'Try changing the filters or search.' : ''}
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBookings.map((booking, index) => (
+                paginatedBookings.map((booking, index) => (
                   <TableRow key={booking.id} data-testid={`row-booking-${booking.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                     <TableCell className="font-mono text-xs">{booking.id.slice(0, 8)}</TableCell>
                     <TableCell>
@@ -467,6 +524,65 @@ export default function AdminBookings() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination Controls */}
+          {filteredBookings.length > 0 && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredBookings.length)} of {filteredBookings.length} results
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      return page === 1 || 
+                             page === totalPages || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, idx, arr) => {
+                      // Add ellipsis if there's a gap
+                      const prevPage = arr[idx - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      
+                      return (
+                        <div key={page} className="flex items-center">
+                          {showEllipsis && <span className="px-2 text-muted-foreground">...</span>}
+                          <Button
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            data-testid={`button-page-${page}`}
+                          >
+                            {page}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
