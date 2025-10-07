@@ -36,8 +36,8 @@ export const generateToken = (user: User): string => {
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRY,
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-app',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-client',
   });
 };
 
@@ -52,8 +52,8 @@ export const generateRefreshToken = (user: User, tokenVersion: number = 1): stri
 
   return jwt.sign(payload, JWT_REFRESH_SECRET, {
     expiresIn: AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRY,
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-app',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-client',
   });
 };
 
@@ -63,8 +63,8 @@ export const generateRefreshToken = (user: User, tokenVersion: number = 1): stri
 export const verifyToken = (token: string): JWTPayload => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-app',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-client',
     }) as JWTPayload;
 
     return decoded;
@@ -85,8 +85,8 @@ export const verifyToken = (token: string): JWTPayload => {
 export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   try {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-app',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-client',
     }) as RefreshTokenPayload;
 
     return decoded;
@@ -113,8 +113,8 @@ export const generatePasswordResetToken = (userId: string, email: string): strin
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: '1h', // 1 hour expiry for password reset
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-app',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-client',
   });
 };
 
@@ -124,8 +124,8 @@ export const generatePasswordResetToken = (userId: string, email: string): strin
 export const verifyPasswordResetToken = (token: string): { user_id: string; email: string } => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-app',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-client',
     }) as any;
 
     if (decoded.type !== 'password_reset') {
@@ -159,8 +159,8 @@ export const generateEmailVerificationToken = (userId: string, email: string): s
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: '24h', // 24 hours for email verification
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-app',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-client',
   });
 };
 
@@ -170,8 +170,8 @@ export const generateEmailVerificationToken = (userId: string, email: string): s
 export const verifyEmailVerificationToken = (token: string): { user_id: string; email: string } => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-app',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-client',
     }) as any;
 
     if (decoded.type !== 'email_verification') {
@@ -246,8 +246,8 @@ export const generateApiKey = (userId: string, scope: string[] = ['read']): stri
 
   return jwt.sign(payload, JWT_SECRET, {
     // API keys don't expire by default, but you can add expiresIn if needed
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-external',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-external',
   });
 };
 
@@ -257,8 +257,8 @@ export const generateApiKey = (userId: string, scope: string[] = ['read']): stri
 export const verifyApiKey = (apiKey: string): { user_id: string; scope: string[] } => {
   try {
     const decoded = jwt.verify(apiKey, JWT_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-external',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-external',
     }) as any;
 
     if (decoded.type !== 'api_key') {
@@ -292,8 +292,8 @@ export const generateTemporaryToken = (
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: expiresIn as string,
-    issuer: 'cleanserve-api',
-    audience: 'cleanserve-app',
+    issuer: 'rakeez-api',
+    audience: 'rakeez-client',
   } as jwt.SignOptions);
 };
 
@@ -307,8 +307,8 @@ export const verifyTemporaryToken = (
 ): { user_id: string } => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: 'cleanserve-api',
-      audience: 'cleanserve-app',
+      issuer: 'rakeez-api',
+      audience: 'rakeez-client',
     }) as any;
 
     if (decoded.type !== 'temporary') {

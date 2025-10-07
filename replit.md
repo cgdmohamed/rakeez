@@ -7,12 +7,13 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 2025)
+- **JWT Authentication Fix**: Updated JWT issuer/audience values to `rakeez-api`/`rakeez-client` across all token generation and verification functions for consistency
 - **Fixed Authentication**: Standardized localStorage token key to 'auth_token' across all admin pages (overview, bookings, promos)
 - **Enhanced Database Relations**: Added missing Drizzle ORM relations for payments, support tickets, messages, reviews, and invoices
 - **Backend Error Handling**: Implemented comprehensive bilingual error messages with detailed logging for all admin endpoints
 - **Customer Overview Enhancement**: Extended customer profile data to include complete booking details with technician info, wallet transactions, support tickets, reviews, and referrals
 - **Payments Endpoint**: Added comprehensive filtering by date range, status, payment method, and user ID
-- **Bug Fixes**: Added missing `getCustomerInvoices` storage method, fixed language extraction for error responses
+- **Bug Fixes**: Added missing `getCustomerInvoices` storage method, fixed language extraction for error responses, fixed admin support page Input component import
 
 ## System Architecture
 
