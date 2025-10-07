@@ -539,6 +539,34 @@ const messages: BilingualMessages = {
     en: 'System health retrieved successfully',
     ar: 'تم استرداد حالة النظام بنجاح'
   },
+  'admin.booking_status_updated': {
+    en: 'Booking status updated successfully',
+    ar: 'تم تحديث حالة الحجز بنجاح'
+  },
+  'admin.technician_assigned': {
+    en: 'Technician assigned successfully',
+    ar: 'تم تعيين الفني بنجاح'
+  },
+  'admin.booking_cancelled': {
+    en: 'Booking cancelled successfully',
+    ar: 'تم إلغاء الحجز بنجاح'
+  },
+  'admin.payment_refunded': {
+    en: 'Payment refunded successfully',
+    ar: 'تم استرداد المبلغ بنجاح'
+  },
+  'admin.user_created': {
+    en: 'User created successfully',
+    ar: 'تم إنشاء المستخدم بنجاح'
+  },
+  'admin.user_updated': {
+    en: 'User updated successfully',
+    ar: 'تم تحديث المستخدم بنجاح'
+  },
+  'admin.user_deleted': {
+    en: 'User deleted successfully',
+    ar: 'تم حذف المستخدم بنجاح'
+  },
 
   // Webhook messages
   'webhooks.history_retrieved': {
