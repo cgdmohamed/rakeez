@@ -6,13 +6,21 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Updates (October 2025)
+- **Fixed Authentication**: Standardized localStorage token key to 'auth_token' across all admin pages (overview, bookings, promos)
+- **Enhanced Database Relations**: Added missing Drizzle ORM relations for payments, support tickets, messages, reviews, and invoices
+- **Backend Error Handling**: Implemented comprehensive bilingual error messages with detailed logging for all admin endpoints
+- **Customer Overview Enhancement**: Extended customer profile data to include complete booking details with technician info, wallet transactions, support tickets, reviews, and referrals
+- **Payments Endpoint**: Added comprehensive filtering by date range, status, payment method, and user ID
+- **Bug Fixes**: Added missing `getCustomerInvoices` storage method, fixed language extraction for error responses
+
 ## System Architecture
 
 ### Frontend Architecture
-The frontend uses React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (on Radix UI), and Tailwind CSS. It features a component-based, bilingual UI with role-based dashboards for Admin and Technicians. Key design decisions include a professional brand identity, centralized query client with error handling, instant table updates, and an analytics dashboard with real-time charts. The Admin Dashboard provides comprehensive management capabilities, including a detailed Booking Management System with operational control, technician assignment, status timelines, and audit logging. The overall theme is a modern, professional light design.
+The frontend uses React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (on Radix UI), and Tailwind CSS. It features a component-based, bilingual UI with role-based dashboards for Admin and Technicians. Key design decisions include a professional brand identity, centralized query client with error handling, instant table updates, and an analytics dashboard with real-time charts. The Admin Dashboard provides comprehensive management capabilities, including a detailed Booking Management System with operational control, technician assignment, status timelines, and audit logging. The overall theme is a modern, professional light design. **Authentication uses 'auth_token' as the localStorage key for JWT tokens.**
 
 ### Backend Architecture
-The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control (customer, technician, admin, support, finance) and OTP verification via Twilio. Business logic is organized into dedicated controllers for various functionalities. A robust User and Roles Management System supports dynamic role creation with flexible permissions, backed by API endpoints for CRUD operations, validation, and audit logging.
+The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control (customer, technician, admin, support, finance) and OTP verification via Twilio. Business logic is organized into dedicated controllers for various functionalities. A robust User and Roles Management System supports dynamic role creation with flexible permissions, backed by API endpoints for CRUD operations, validation, and audit logging. **All error responses use structured bilingual messages with detailed stack traces in development mode.**
 
 ### Database Design
 The project utilizes PostgreSQL via Neon Database with Drizzle ORM. The schema is defined in `shared/schema.ts` and includes tables for users, services, bookings, payments, referrals, notifications, and more. Key design patterns include JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
