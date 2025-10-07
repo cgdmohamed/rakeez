@@ -2157,10 +2157,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(500).json({
         success: false,
-        message: {
-          en: 'Failed to retrieve analytics data. Please check server logs for details.',
-          ar: 'فشل في استرداد بيانات التحليلات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
-        }[language],
+        message: language === 'ar' 
+          ? 'فشل في استرداد بيانات التحليلات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
+          : 'Failed to retrieve analytics data. Please check server logs for details.',
         error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
       });
     }
@@ -3646,8 +3645,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/v2/admin/payments', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
     try {
       const language = req.headers['accept-language'] || 'en';
+      const { status, start_date, end_date, user_id, payment_method } = req.query;
+      
+      // Build filter conditions
+      const conditions = [];
+      if (status) {
+        conditions.push(eq(payments.status, status as string));
+      }
+      if (start_date) {
+        conditions.push(gte(payments.createdAt, new Date(start_date as string)));
+      }
+      if (end_date) {
+        conditions.push(lte(payments.createdAt, new Date(end_date as string)));
+      }
+      if (user_id) {
+        conditions.push(eq(payments.userId, user_id as string));
+      }
+      if (payment_method) {
+        conditions.push(eq(payments.paymentMethod, payment_method as string));
+      }
       
       const paymentsList = await db.query.payments.findMany({
+        where: conditions.length > 0 ? and(...conditions) : undefined,
         with: {
           user: {
             columns: {
@@ -3666,9 +3685,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderBy: [desc(payments.createdAt)],
       });
       
+      console.log(`✅ [Payments] Retrieved ${paymentsList.length} payments`, {
+        filters: { status, start_date, end_date, user_id, payment_method },
+        count: paymentsList.length,
+      });
+      
       res.json({
         success: true,
         data: paymentsList,
+        filters: { status, start_date, end_date, user_id, payment_method },
+        count: paymentsList.length,
       });
       
     } catch (error) {
@@ -3682,10 +3708,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(500).json({
         success: false,
-        message: {
-          en: 'Failed to retrieve payments data. Please check server logs for details.',
-          ar: 'فشل في استرداد بيانات المدفوعات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
-        }[language],
+        message: language === 'ar'
+          ? 'فشل في استرداد بيانات المدفوعات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
+          : 'Failed to retrieve payments data. Please check server logs for details.',
         error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
       });
     }
