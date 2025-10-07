@@ -29,6 +29,7 @@ Preferred communication style: Simple, everyday language.
 - Implementation of instant table updates using cache-busting with `staleTime: 0` and HTTP cache control headers to ensure immediate data refresh after mutations.
 - Analytics Dashboard: Real-time charts for revenue trends, booking trends, revenue by payment method, and orders by status, with KPI cards and comprehensive empty state handling.
 - Dashboard Theme: Modern, professional light theme redesign with a light gray primary background, white cards, a white sidebar with dark blue text, cyan active navigation, and accessibility-compliant color combinations.
+- **Booking Management System**: Comprehensive admin interface with full operational control, technician assignment, customer linking, booking lifecycle actions, status timeline visualization, and complete audit logging.
 
 ### Backend Architecture
 **Core Framework:**
@@ -140,6 +141,104 @@ Preferred communication style: Simple, everyday language.
 - Analytics query uses two-part queryKey `['/api/v2/admin/referrals/analytics', queryParams]` with custom queryFn for proper cache invalidation
 - Cache invalidation via `queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] })` ensures analytics refresh after campaign mutations
 - All admin pages follow consistent design pattern: `space-y-6` containers, `text-3xl font-bold text-primary` headers, `space-y-2` form fields
+
+### Booking Management System
+**Overview:**
+Complete admin booking management with full operational control, technician assignment, customer profiles, workflow actions, and audit trails.
+
+**Backend API Endpoints:**
+- `GET /api/v2/admin/bookings` - List all bookings with filtering by status
+- `PUT /api/v2/admin/bookings/:id/status` - Update booking status (admin)
+- `PUT /api/v2/admin/bookings/:id/assign-technician` - Assign/reassign technician with notifications
+- `PATCH /api/v2/admin/bookings/:id/cancel` - Cancel booking with reason and audit log
+- `POST /api/v2/admin/bookings/:id/refund` - Refund payment to customer wallet
+- `PUT /api/v2/bookings/:id/status` - Update booking status (technician/admin)
+- `GET /api/v2/technician/:userId/bookings` - Get technician's assigned bookings
+- `GET /api/v2/admin/system-health` - System health metrics
+- `GET /api/v2/admin/payments` - List all payments
+
+**Booking Workflow States:**
+1. **pending** → Initial booking state
+2. **confirmed** → Admin accepts booking
+3. **technician_assigned** → Technician assigned to job
+4. **en_route** → Technician on the way
+5. **in_progress** → Job in progress
+6. **quotation_pending** → Awaiting quotation approval (optional)
+7. **completed** → Job finished
+8. **cancelled** → Booking cancelled
+
+**Admin Booking Interface Features:**
+- **Comprehensive Table View:**
+  - Customer name and phone
+  - Service details
+  - Assigned technician info
+  - Scheduled date/time
+  - Total amount
+  - Current status with badges
+  - Quick action buttons based on state
+
+- **Booking Details Modal (Tabbed Interface):**
+  - **Overview Tab:** Status timeline, scheduled info, address, notes
+  - **Customer Tab:** Full customer profile with wallet balance, total bookings, contact info
+  - **Technician Tab:** Assigned technician details, reassignment option
+  - **History Tab:** Complete audit log of all actions
+
+- **Status Timeline Visualization:**
+  - Visual progress indicator showing current position in workflow
+  - Color-coded stages (active/completed/pending)
+  - Clear indication of cancelled bookings
+
+- **Action Buttons (Context-Aware):**
+  - **Accept/Confirm:** Available for pending bookings
+  - **Assign Technician:** Available for confirmed bookings without technician
+  - **Start Job:** Available for confirmed/assigned bookings
+  - **Complete:** Available for in-progress bookings
+  - **Cancel:** Available for non-terminal states
+
+- **Filtering & Search:**
+  - Filter by status: All, Pending, Confirmed, Assigned, In Progress, Completed, Cancelled
+  - Real-time table updates
+
+**Technician Assignment System:**
+- Dropdown selector with all available technicians
+- Displays technician name and phone
+- Creates notification for assigned technician
+- Updates booking status to 'technician_assigned'
+- Logs assignment action in audit trail
+- Supports reassignment with proper tracking
+
+**Customer Profile Integration:**
+- Displays full customer information within booking details
+- Shows wallet balance
+- Shows total and completed booking counts
+- Contact information readily accessible
+- Linked to customer management system
+
+**Audit Logging:**
+- All admin actions logged to `audit_logs` table
+- Tracks: action type, user, old/new values, timestamp
+- Viewable in booking details History tab
+- Includes: status updates, technician assignments, cancellations, refunds
+
+**Notifications:**
+- WebSocket broadcasting for real-time updates
+- SMS notifications for critical status changes
+- Technician notifications on assignment
+- Customer notifications on status changes
+
+**Implementation Files:**
+- `client/src/pages/admin/bookings.tsx` - Admin booking management UI
+- `server/routes.ts` - Booking API endpoints (lines 3326-3711, 4909-5016)
+- `server/storage.ts` - Booking data operations
+- `server/utils/bilingual.ts` - Bilingual messages for booking actions
+
+**Technical Implementation:**
+- TanStack Query for data fetching with proper cache invalidation
+- Mutations invalidate both bookings and audit logs queries
+- Tabbed interface using Shadcn Tabs component
+- Status timeline custom component with progress visualization
+- Context-aware action buttons based on booking state
+- Proper error handling and loading states
 
 ### File Upload System
 **Object Storage Configuration:**
