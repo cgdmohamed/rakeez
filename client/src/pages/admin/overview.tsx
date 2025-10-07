@@ -103,7 +103,11 @@ export default function AdminOverview() {
 
   const handleExportReport = async () => {
     try {
-      const response = await apiRequest('/api/v2/admin/analytics/export?format=csv&type=analytics');
+      const response = await fetch('/api/v2/admin/analytics/export?format=csv&type=analytics', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -138,9 +142,23 @@ export default function AdminOverview() {
     );
   }
 
-  const orderStats = stats?.data?.orderStats || {};
-  const revenueStats = stats?.data?.revenueStats || {};
-  const technicianStats = stats?.data?.technicianStats || {};
+  const orderStats = stats?.data?.orderStats || {
+    totalOrders: 0,
+    totalRevenue: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    pendingOrders: 0,
+    inProgressOrders: 0,
+  };
+  const revenueStats = stats?.data?.revenueStats || {
+    totalRevenue: 0,
+    revenueByPaymentMethod: { wallet: 0, moyasar: 0, tabby: 0 },
+  };
+  const technicianStats = stats?.data?.technicianStats || {
+    completedOrders: 0,
+    totalRevenue: 0,
+    avgRating: 0,
+  };
   const topServices = stats?.data?.topServices || [];
   const monthlyRevenue = stats?.data?.monthlyRevenue || [];
   const monthlyBookings = stats?.data?.monthlyBookings || [];
