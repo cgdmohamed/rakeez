@@ -29,8 +29,8 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { bookings, payments, users } from "@shared/schema";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 
 const app = express();
 

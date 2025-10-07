@@ -1429,19 +1429,24 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Customer not found');
     }
 
-    // Get all bookings with stats
+    // Get all bookings with stats, including technician info
     const allBookings = await db
       .select({
         id: bookings.id,
         status: bookings.status,
         scheduledDate: bookings.scheduledDate,
+        scheduledTime: bookings.scheduledTime,
         totalAmount: bookings.totalAmount,
         paymentStatus: bookings.paymentStatus,
         serviceName: services.name,
+        technicianId: bookings.technicianId,
+        technicianName: users.name,
+        technicianPhone: users.phone,
         createdAt: bookings.createdAt,
       })
       .from(bookings)
       .leftJoin(services, eq(bookings.serviceId, services.id))
+      .leftJoin(users, eq(bookings.technicianId, users.id))
       .where(eq(bookings.userId, userId))
       .orderBy(desc(bookings.createdAt));
 
@@ -1512,6 +1517,7 @@ export class DatabaseStorage implements IStorage {
     // Get wallet info
     const wallet = await this.getWallet(userId);
     const walletTransactions = await this.getWalletTransactions(userId, 100);
+    const recentWalletTransactions = walletTransactions.slice(0, 10);
     
     const walletBalance = Number(wallet?.balance || 0);
     const walletEarned = walletTransactions
@@ -1520,6 +1526,40 @@ export class DatabaseStorage implements IStorage {
     const walletSpent = walletTransactions
       .filter((t: any) => t.type === 'debit')
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+
+    // Get referrals (both as inviter and invitee)
+    const referralsAsInviter = await db
+      .select({
+        id: referrals.id,
+        inviteeName: users.name,
+        inviteeEmail: users.email,
+        status: referrals.status,
+        reward: referrals.inviterReward,
+        createdAt: referrals.createdAt,
+      })
+      .from(referrals)
+      .leftJoin(users, eq(referrals.inviteeId, users.id))
+      .where(eq(referrals.inviterId, userId))
+      .orderBy(desc(referrals.createdAt));
+
+    const referralsAsInvitee = await db
+      .select({
+        id: referrals.id,
+        inviterName: users.name,
+        inviterEmail: users.email,
+        status: referrals.status,
+        discount: referrals.inviteeDiscount,
+        createdAt: referrals.createdAt,
+      })
+      .from(referrals)
+      .leftJoin(users, eq(referrals.inviterId, users.id))
+      .where(eq(referrals.inviteeId, userId))
+      .orderBy(desc(referrals.createdAt));
+
+    const totalReferralsGiven = referralsAsInviter.length;
+    const totalRewardsEarned = referralsAsInviter
+      .filter(r => r.status === 'rewarded')
+      .reduce((sum, r) => sum + Number(r.reward || 0), 0);
 
     return {
       totalBookings,
@@ -1531,10 +1571,15 @@ export class DatabaseStorage implements IStorage {
       walletBalance,
       walletEarned,
       walletSpent,
+      totalReferralsGiven,
+      totalRewardsEarned,
       recentBookings,
       recentPayments,
       recentSupportTickets,
       recentReviews,
+      recentWalletTransactions,
+      referralsAsInviter: referralsAsInviter.slice(0, 10),
+      referralsAsInvitee: referralsAsInvitee.slice(0, 10),
     };
   }
 
