@@ -3509,6 +3509,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update Booking Status (Admin)
+  app.put('/api/v2/admin/bookings/:id/status', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      status: z.enum(['pending', 'confirmed', 'technician_assigned', 'en_route', 'in_progress', 'quotation_pending', 'completed', 'cancelled']),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      await storage.updateBookingStatus(id, status, req.user.id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'booking_status_updated',
+        resourceType: 'booking',
+        resourceId: id,
+        oldValues: { status: booking.status },
+        newValues: { status },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.booking_status_updated', language),
+        data: { status },
+      });
+      
+    } catch (error) {
+      console.error('Update booking status error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Assign Technician to Booking
+  app.put('/api/v2/admin/bookings/:id/assign-technician', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      technician_id: z.string().uuid(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { technician_id } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      const technician = await storage.getUser(technician_id);
+      if (!technician || technician.role !== 'technician') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid technician ID',
+        });
+      }
+      
+      await storage.assignTechnician(id, technician_id);
+      
+      // Create notification for technician
+      await storage.createNotification({
+        userId: technician_id,
+        type: 'booking_assigned',
+        title: { en: 'New Job Assigned', ar: 'تم تعيين وظيفة جديدة' },
+        body: { 
+          en: `You have been assigned to booking #${id.slice(0, 8)}`, 
+          ar: `تم تعيينك للحجز #${id.slice(0, 8)}` 
+        },
+        data: { bookingId: id },
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'technician_assigned',
+        resourceType: 'booking',
+        resourceId: id,
+        oldValues: { technicianId: booking.technicianId },
+        newValues: { technicianId: technician_id },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.technician_assigned', language),
+        data: { technician_id },
+      });
+      
+    } catch (error) {
+      console.error('Assign technician error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Get List of All Payments (Admin)
+  app.get('/api/v2/admin/payments', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      const paymentsList = await db.query.payments.findMany({
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          booking: {
+            columns: {
+              id: true,
+              scheduledDate: true,
+            }
+          },
+        },
+        orderBy: [desc(payments.createdAt)],
+      });
+      
+      res.json({
+        success: true,
+        data: paymentsList,
+      });
+      
+    } catch (error) {
+      console.error('Get payments error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Get System Health Metrics (Admin)
+  app.get('/api/v2/admin/system-health', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get various system metrics
+      const [totalUsers] = await db.select({ count: sql<number>`count(*)` }).from(users);
+      const [activeBookings] = await db.select({ count: sql<number>`count(*)` })
+        .from(bookings)
+        .where(sql`status NOT IN ('completed', 'cancelled')`);
+      const [todayBookings] = await db.select({ count: sql<number>`count(*)` })
+        .from(bookings)
+        .where(sql`DATE(created_at) = CURRENT_DATE`);
+      const [pendingPayments] = await db.select({ count: sql<number>`count(*)` })
+        .from(payments)
+        .where(eq(payments.status, 'pending'));
+      
+      const health = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        metrics: {
+          total_users: Number(totalUsers.count) || 0,
+          active_bookings: Number(activeBookings.count) || 0,
+          today_bookings: Number(todayBookings.count) || 0,
+          pending_payments: Number(pendingPayments.count) || 0,
+        },
+        database: 'connected',
+        uptime: process.uptime(),
+      };
+      
+      res.json({
+        success: true,
+        data: health,
+      });
+      
+    } catch (error) {
+      console.error('System health error:', error);
+      res.status(500).json({
+        success: false,
+        data: {
+          status: 'unhealthy',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  });
+
   // ==================== ADMIN - CUSTOMER MANAGEMENT ====================
 
   // Get Customer 360° Overview
@@ -4701,6 +4899,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Technician Bookings (alternative endpoint for frontend compatibility)
+  app.get('/api/v2/technician/:userId/bookings', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const { status } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Verify user is accessing their own bookings or is admin
+      if (req.user.id !== userId && req.user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('general.unauthorized', language),
+        });
+      }
+      
+      const bookingsList = await db.query.bookings.findMany({
+        where: status 
+          ? and(eq(bookings.technicianId, userId), eq(bookings.status, status))
+          : eq(bookings.technicianId, userId),
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            }
+          },
+          service: {
+            columns: {
+              id: true,
+              name: true,
+            }
+          },
+          address: true,
+        },
+        orderBy: [desc(bookings.createdAt)],
+      });
+      
+      res.json({
+        success: true,
+        data: bookingsList,
+      });
+      
+    } catch (error) {
+      console.error('Get technician bookings error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Update Booking Status (for technicians - alternative endpoint)
+  app.put('/api/v2/bookings/:id/status', authenticateToken, validateRequest({
+    body: z.object({
+      status: z.enum(['confirmed', 'en_route', 'in_progress', 'quotation_pending', 'completed']),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', language),
+        });
+      }
+      
+      // Verify technician is assigned to this booking or user is admin
+      if (req.user.role === 'technician' && booking.technicianId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('booking.not_assigned', language),
+        });
+      }
+      
+      await storage.updateBookingStatus(id, status, req.user.id);
+      
+      // Broadcast status update via WebSocket
+      if (websocketService) {
+        await websocketService.broadcastBookingStatus(id, booking.userId, status);
+      }
+      
+      // Send notification to customer
+      if (notificationService) {
+        await notificationService.sendOrderStatusNotification(booking.userId, id, status, language);
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('orders.status_updated', language),
+        data: { status },
+      });
+      
+    } catch (error) {
+      console.error('Update booking status error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', language),
       });
     }
   });
