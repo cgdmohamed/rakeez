@@ -1478,7 +1478,7 @@ const endpoints: Record<string, ApiEndpoint[]> = {
 
 export default function ApiDocs() {
   const [language, setLanguage] = useState<'en' | 'ar'>('en');
-  const [selectedCategory, setSelectedCategory] = useState<string>('auth');
+  const [selectedCategory, setSelectedCategory] = useState<string>('security');
   const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint | null>(null);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testHeaders, setTestHeaders] = useState('{\n  "Authorization": "Bearer YOUR_TOKEN_HERE"\n}');
@@ -1491,6 +1491,7 @@ export default function ApiDocs() {
   const isArabic = language === 'ar';
 
   const categoryNames: Record<string, { en: string; ar: string }> = {
+    security: { en: 'Security & Rate Limits', ar: 'الأمان وحدود المعدل' },
     auth: { en: 'Authentication', ar: 'المصادقة' },
     profile: { en: 'Profile & Addresses', ar: 'الملف الشخصي والعناوين' },
     services: { en: 'Services & Parts', ar: 'الخدمات وقطع الغيار' },
@@ -1649,6 +1650,26 @@ export default function ApiDocs() {
         </div>
       </div>
 
+      {/* Security Information Banner */}
+      <div className="border-b border-border bg-muted/30">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-start gap-3">
+            <Info className="text-primary mt-1" size={20} />
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground mb-1">
+                {isArabic ? 'معلومات الأمان' : 'Security Information'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {isArabic 
+                  ? 'جميع نقاط النهاية محمية بـ JWT والحد من معدل الطلبات. تحقق من قسم "الأمان" للحصول على تفاصيل.'
+                  : 'All endpoints are protected with JWT authentication and rate limiting. Check the "Security" section for details.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1688,12 +1709,254 @@ export default function ApiDocs() {
                 <h2 className="text-2xl font-bold">
                   {isArabic ? categoryNames[selectedCategory].ar : categoryNames[selectedCategory].en}
                 </h2>
-                <Badge variant="secondary">
-                  {endpoints[selectedCategory].length} {isArabic ? 'نقطة نهاية' : 'endpoints'}
-                </Badge>
+                {selectedCategory !== 'security' && (
+                  <Badge variant="secondary">
+                    {endpoints[selectedCategory]?.length || 0} {isArabic ? 'نقطة نهاية' : 'endpoints'}
+                  </Badge>
+                )}
               </div>
 
-              {endpoints[selectedCategory].map((endpoint, index) => (
+              {selectedCategory === 'security' ? (
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{isArabic ? 'المصادقة والتفويض' : 'Authentication & Authorization'}</CardTitle>
+                      <CardDescription>
+                        {isArabic ? 'كيفية المصادقة مع Rakeez API' : 'How to authenticate with Rakeez API'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">{isArabic ? 'مخطط المصادقة' : 'Authentication Scheme'}</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {isArabic 
+                            ? 'يستخدم Rakeez API مصادقة JWT (JSON Web Token). قم بتضمين الرمز في رأس Authorization لجميع الطلبات المصادق عليها.'
+                            : 'Rakeez API uses JWT (JSON Web Token) authentication. Include the token in the Authorization header for all authenticated requests.'
+                          }
+                        </p>
+                        <div className="bg-muted p-3 rounded-lg font-mono text-sm">
+                          Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">{isArabic ? 'مدة الرمز' : 'Token Duration'}</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          <li>• {isArabic ? 'رمز الوصول: 24 ساعة' : 'Access Token: 24 hours'}</li>
+                          <li>• {isArabic ? 'رمز التحديث: 30 يوماً' : 'Refresh Token: 30 days'}</li>
+                          <li>• {isArabic ? 'رمز OTP: 15 دقيقة' : 'OTP Code: 15 minutes'}</li>
+                          <li>• {isArabic ? 'رمز إعادة تعيين كلمة المرور: 1 ساعة' : 'Password Reset Token: 1 hour'}</li>
+                        </ul>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">{isArabic ? 'التحكم في الوصول على أساس الأدوار (RBAC)' : 'Role-Based Access Control (RBAC)'}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                          <div className="bg-muted/50 p-3 rounded">
+                            <div className="font-medium text-sm mb-1">Customer</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'الوصول إلى الحجوزات والمحفظة والملف الشخصي' : 'Access to bookings, wallet, profile'}</div>
+                          </div>
+                          <div className="bg-muted/50 p-3 rounded">
+                            <div className="font-medium text-sm mb-1">Technician</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'إدارة الحجوزات المخصصة وعروض الأسعار' : 'Manage assigned bookings, quotations'}</div>
+                          </div>
+                          <div className="bg-muted/50 p-3 rounded">
+                            <div className="font-medium text-sm mb-1">Admin</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'وصول كامل إلى جميع نقاط النهاية' : 'Full access to all endpoints'}</div>
+                          </div>
+                          <div className="bg-muted/50 p-3 rounded">
+                            <div className="font-medium text-sm mb-1">Support</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'إدارة التذاكر والرسائل' : 'Manage tickets and messages'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{isArabic ? 'حدود معدل الطلبات' : 'Rate Limiting'}</CardTitle>
+                      <CardDescription>
+                        {isArabic ? 'حماية API من الإساءة والطلبات المفرطة' : 'API protection against abuse and excessive requests'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2">{isArabic ? 'نقطة النهاية' : 'Endpoint'}</th>
+                              <th className="text-left py-2">{isArabic ? 'الحد' : 'Limit'}</th>
+                              <th className="text-left py-2">{isArabic ? 'النافذة' : 'Window'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-muted-foreground">
+                            <tr className="border-b">
+                              <td className="py-2 font-mono text-xs">POST /api/v2/auth/login</td>
+                              <td className="py-2">5 requests</td>
+                              <td className="py-2">15 minutes</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 font-mono text-xs">POST /api/v2/auth/verify-otp</td>
+                              <td className="py-2">3 requests</td>
+                              <td className="py-2">15 minutes</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 font-mono text-xs">POST /api/v2/auth/resend-otp</td>
+                              <td className="py-2">3 requests</td>
+                              <td className="py-2">15 minutes</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 font-mono text-xs">General API</td>
+                              <td className="py-2">100 requests</td>
+                              <td className="py-2">15 minutes</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3 rounded-lg">
+                        <div className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                          {isArabic ? '⚠️ تجاوز الحد' : '⚠️ Rate Limit Exceeded'}
+                        </div>
+                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                          {isArabic 
+                            ? 'عند تجاوز الحد، ستتلقى رمز حالة HTTP 429 مع رسالة "Too many requests". انتظر حتى انتهاء النافذة قبل إعادة المحاولة.'
+                            : 'When rate limit is exceeded, you will receive HTTP 429 status code with "Too many requests" message. Wait until window expires before retrying.'
+                          }
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{isArabic ? 'رؤوس الأمان' : 'Security Headers'}</CardTitle>
+                      <CardDescription>
+                        {isArabic ? 'الرؤوس المطلوبة والموصى بها للطلبات الآمنة' : 'Required and recommended headers for secure requests'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">{isArabic ? 'الرؤوس المطلوبة' : 'Required Headers'}</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2 text-sm">
+                            <Badge variant="outline" className="font-mono">Authorization</Badge>
+                            <span className="text-muted-foreground">{isArabic ? 'رمز JWT للمصادقة' : 'JWT token for authentication'}</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm">
+                            <Badge variant="outline" className="font-mono">Content-Type</Badge>
+                            <span className="text-muted-foreground">{isArabic ? 'application/json للطلبات JSON' : 'application/json for JSON requests'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">{isArabic ? 'الرؤوس الاختيارية' : 'Optional Headers'}</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2 text-sm">
+                            <Badge variant="outline" className="font-mono">Accept-Language</Badge>
+                            <span className="text-muted-foreground">{isArabic ? 'en أو ar للغة الرد' : 'en or ar for response language'}</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm">
+                            <Badge variant="outline" className="font-mono">Idempotency-Key</Badge>
+                            <span className="text-muted-foreground">{isArabic ? 'منع الطلبات المكررة' : 'Prevent duplicate requests (recommended for bookings)'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{isArabic ? 'رموز الأخطاء' : 'Error Codes'}</CardTitle>
+                      <CardDescription>
+                        {isArabic ? 'فهم رموز حالة HTTP ورسائل الخطأ' : 'Understanding HTTP status codes and error messages'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <Badge className="bg-red-500">400</Badge>
+                          <div>
+                            <div className="font-medium text-sm">Bad Request</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'طلب غير صالح - تحقق من بنية JSON ومعاملات الطلب' : 'Invalid request - check JSON structure and parameters'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge className="bg-red-500">401</Badge>
+                          <div>
+                            <div className="font-medium text-sm">Unauthorized</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'مصادقة مفقودة أو غير صالحة' : 'Missing or invalid authentication'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge className="bg-red-500">403</Badge>
+                          <div>
+                            <div className="font-medium text-sm">Forbidden</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'لا يملك دورك صلاحيات كافية' : 'Your role lacks sufficient permissions'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge className="bg-amber-500">429</Badge>
+                          <div>
+                            <div className="font-medium text-sm">Too Many Requests</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'تجاوز حد معدل الطلبات' : 'Rate limit exceeded'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge className="bg-red-500">500</Badge>
+                          <div>
+                            <div className="font-medium text-sm">Internal Server Error</div>
+                            <div className="text-xs text-muted-foreground">{isArabic ? 'خطأ في الخادم - اتصل بالدعم إذا استمر' : 'Server error - contact support if persists'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{isArabic ? 'أفضل ممارسات الأمان' : 'Security Best Practices'}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-sm">
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'استخدم HTTPS دائماً للاتصالات' : 'Always use HTTPS for communications'}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'لا تقم بتضمين رموز الوصول في عناوين URL أو السجلات' : 'Never include access tokens in URLs or logs'}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'قم بتجديد الرمز قبل انتهاء صلاحيته باستخدام رمز التحديث' : 'Refresh token before expiration using refresh token'}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'قم بتنفيذ آلية إعادة المحاولة مع التراجع الأسي' : 'Implement retry logic with exponential backoff'}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'تحقق من صحة وتنظيف المدخلات على جانب العميل والخادم' : 'Validate and sanitize inputs on both client and server'}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>{isArabic ? 'قم بتخزين البيانات الحساسة بشكل آمن (لا تستخدم localStorage للرموز)' : 'Store sensitive data securely (avoid localStorage for tokens)'}</span>
+                        </li>
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                endpoints[selectedCategory]?.map((endpoint, index) => (
                 <Card key={index} className="overflow-hidden" data-testid={`endpoint-card-${index}`}>
                   <CardHeader className="bg-muted/30">
                     <div className="flex items-start justify-between gap-4">
@@ -1880,7 +2143,8 @@ export default function ApiDocs() {
                     </Tabs>
                   </CardContent>
                 </Card>
-              ))}
+              ))
+              )}
             </div>
           </main>
         </div>
