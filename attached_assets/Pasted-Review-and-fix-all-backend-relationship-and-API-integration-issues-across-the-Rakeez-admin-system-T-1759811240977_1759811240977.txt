@@ -1,0 +1,37 @@
+Review and fix all backend relationship and API integration issues across the Rakeez admin system. The goal is to ensure all API endpoints work correctly without returning 500 errors, and that all entities (Customers, Bookings, Technicians, Support Tickets, Payments) are fully linked and retrievable without missing joins or broken relationships.
+
+Investigate all admin endpoints that return 500 errors — especially /api/v2/admin/analytics and /api/v2/admin/payments — and identify the cause (missing joins, invalid aggregation, undefined variables, or incorrect ORM mappings). Add detailed backend logs for these endpoints to capture the exact error messages, queries, and stack traces. Ensure all error responses use structured bilingual messages instead of generic 500 responses.
+
+Verify that the frontend sends the correct Bearer token from localStorage key auth_token, and ensure expired or invalid tokens trigger proper 401 Unauthorized responses with meaningful messages. Confirm that all admin routes use token verification and role-based authorization middleware correctly.
+
+Audit all database relationships to confirm correct linkage between:
+
+Customer ↔ Booking (one-to-many, via user_id)
+
+Booking ↔ Technician (one-to-one, via technician_id)
+
+Booking ↔ Service (many-to-one, via service_id)
+
+Customer ↔ Wallet / Payments (one-to-many)
+
+Customer ↔ Support Tickets (one-to-many)
+
+Technician ↔ Support Tickets (optional link)
+
+Fix any missing or incorrect JOIN or populate logic so that related data loads fully in both backend responses and the admin dashboard.
+
+Ensure the Customer Profile page displays complete, accurate linked data — including bookings (with status, technician, and totals), wallet transactions, support tickets, and referrals. Log and verify each related API call.
+
+Rebuild the /admin/analytics endpoint to handle aggregation safely and return real totals (bookings, payments, refunds, wallet balance). Verify that /admin/payments lists all transactions, including refunds and wallet credits, with proper filtering by date and status.
+
+Finally, confirm that:
+
+All admin API endpoints return valid, non-empty responses.
+
+All relational data between customers, bookings, technicians, and support is correctly linked.
+
+Logging and error handling are in place for any failed requests.
+
+Analytics and payments data are accurate and aggregated properly.
+
+The customer profile view fully reflects all related information.

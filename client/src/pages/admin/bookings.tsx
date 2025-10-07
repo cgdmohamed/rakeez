@@ -130,7 +130,7 @@ export default function AdminBookings() {
     queryKey: ['/api/v2/admin/users', { role: 'technician' }],
     queryFn: async () => {
       const response = await fetch('/api/v2/admin/users?role=technician', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
       });
       return response.json();
     },
@@ -140,7 +140,7 @@ export default function AdminBookings() {
     queryKey: ['/api/v2/admin/customers', selectedBooking?.user?.id, 'overview'],
     queryFn: async () => {
       const response = await fetch(`/api/v2/admin/customers/${selectedBooking?.user?.id}/overview`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
       });
       return response.json();
     },
@@ -151,7 +151,7 @@ export default function AdminBookings() {
     queryKey: ['/api/v2/admin/audit-logs', selectedBooking?.id],
     queryFn: async () => {
       const response = await fetch(`/api/v2/admin/audit-logs?resourceId=${selectedBooking?.id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
       });
       return response.json();
     },

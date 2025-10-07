@@ -93,7 +93,7 @@ export default function AdminPromos() {
         : '/api/v2/admin/referrals/analytics';
       const res = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       if (!res.ok) throw new Error('Failed to fetch analytics');

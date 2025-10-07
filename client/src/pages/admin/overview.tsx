@@ -105,7 +105,7 @@ export default function AdminOverview() {
     try {
       const response = await fetch('/api/v2/admin/analytics/export?format=csv&type=analytics', {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       const blob = await response.blob();
