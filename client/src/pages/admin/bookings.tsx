@@ -158,8 +158,8 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
       toast({
         title: 'Success',
         description: 'Booking status updated successfully',
@@ -182,8 +182,8 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
       setAssignDialog({ open: false, bookingId: null, technicianId: '' });
       toast({
         title: 'Success',
@@ -205,8 +205,8 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
       setCancelDialog({ open: false, bookingId: null, reason: '' });
       toast({
         title: 'Success',

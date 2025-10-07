@@ -65,7 +65,7 @@ export default function AdminCustomers() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
       toast({
         title: 'Success',
         description: 'Customer created successfully',
@@ -97,7 +97,7 @@ export default function AdminCustomers() {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
       toast({
         title: 'Success',
         description: 'Customer updated successfully',

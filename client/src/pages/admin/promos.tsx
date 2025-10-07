@@ -125,8 +125,8 @@ export default function AdminPromos() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
       toast({
         title: 'Success',
         description: 'Campaign created successfully',
@@ -157,8 +157,8 @@ export default function AdminPromos() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
       toast({
         title: 'Success',
         description: 'Campaign updated successfully',
@@ -180,7 +180,7 @@ export default function AdminPromos() {
       return apiRequest('PUT', `/api/v2/admin/referrals/campaigns/${id}`, { is_active: isActive });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
       toast({
         title: 'Success',
         description: 'Campaign status updated successfully',

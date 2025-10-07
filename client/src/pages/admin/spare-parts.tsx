@@ -119,7 +119,7 @@ export default function AdminSpareParts() {
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/spare-parts', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
       toast({ title: 'Success', description: 'Spare part created successfully' });
       setCreateDialogOpen(false);
       form.reset();
@@ -133,7 +133,7 @@ export default function AdminSpareParts() {
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest('PUT', `/api/v2/admin/spare-parts/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
       toast({ title: 'Success', description: 'Spare part updated successfully' });
       setEditDialogOpen(false);
       setSelectedSparePart(null);
@@ -146,7 +146,7 @@ export default function AdminSpareParts() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest('DELETE', `/api/v2/admin/spare-parts/${id}`, {}),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/spare-parts'] });
       toast({ title: 'Success', description: 'Spare part deleted successfully' });
       setDeleteDialogOpen(false);
       setSelectedSparePart(null);

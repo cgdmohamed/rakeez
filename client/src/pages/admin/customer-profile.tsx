@@ -129,8 +129,8 @@ export default function CustomerProfile() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/customers/${id}/overview`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/wallets'] });
+      queryClient.refetchQueries({ queryKey: [`/api/v2/admin/customers/${id}/overview`] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/wallets'] });
       setTopupDialog({ open: false, amount: '', reason: '' });
       toast({
         title: 'Wallet credited',

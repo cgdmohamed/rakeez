@@ -112,7 +112,7 @@ export default function AdminServices() {
   const createCategoryMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/categories', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Category created successfully' });
       setCategoryDialogOpen(false);
       categoryForm.reset();
@@ -125,7 +125,7 @@ export default function AdminServices() {
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, data }: any) => apiRequest('PUT', `/api/v2/admin/categories/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Category updated successfully' });
       setCategoryDialogOpen(false);
       setEditCategory(null);
@@ -139,7 +139,7 @@ export default function AdminServices() {
   const createServiceMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/services', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Service created successfully' });
       setServiceDialogOpen(false);
       serviceForm.reset();
@@ -152,7 +152,7 @@ export default function AdminServices() {
   const updateServiceMutation = useMutation({
     mutationFn: ({ id, data }: any) => apiRequest('PUT', `/api/v2/admin/services/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Service updated successfully' });
       setServiceDialogOpen(false);
       setEditService(null);
@@ -166,7 +166,7 @@ export default function AdminServices() {
   const createPackageMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/packages', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Package created successfully' });
       setPackageDialogOpen(false);
       packageForm.reset();
@@ -179,7 +179,7 @@ export default function AdminServices() {
   const updatePackageMutation = useMutation({
     mutationFn: ({ id, data }: any) => apiRequest('PUT', `/api/v2/admin/packages/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Package updated successfully' });
       setPackageDialogOpen(false);
       setEditPackage(null);
@@ -200,7 +200,7 @@ export default function AdminServices() {
       return apiRequest('DELETE', endpoints[type]);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/services'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/services'] });
       toast({ title: 'Success', description: 'Item deleted successfully' });
       setDeleteDialogOpen(false);
       setDeleteItem(null);

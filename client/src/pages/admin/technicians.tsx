@@ -40,7 +40,7 @@ export default function AdminTechnicians() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
       toast({
         title: 'Success',
         description: 'Technician created successfully',
@@ -72,7 +72,7 @@ export default function AdminTechnicians() {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, updateData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
       toast({
         title: 'Success',
         description: 'Technician updated successfully',

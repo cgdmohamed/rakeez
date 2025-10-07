@@ -43,7 +43,7 @@ export default function AdminBrands() {
       return apiRequest('POST', '/api/v2/admin/brands', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/brands'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/brands'] });
       toast({
         title: 'Success',
         description: 'Brand created successfully',
@@ -65,7 +65,7 @@ export default function AdminBrands() {
       return apiRequest('PUT', `/api/v2/admin/brands/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/brands'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/brands'] });
       toast({
         title: 'Success',
         description: 'Brand updated successfully',
@@ -87,7 +87,7 @@ export default function AdminBrands() {
       return apiRequest('DELETE', `/api/v2/admin/brands/${id}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/brands'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/brands'] });
       toast({
         title: 'Success',
         description: 'Brand deleted successfully',

@@ -35,7 +35,7 @@ export default function AdminSupport() {
       apiRequest('PUT', `/api/v2/admin/support/tickets/${id}`, { status }),
     onSuccess: () => {
       toast({ title: 'Success', description: 'Ticket status updated successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
     },
     onError: () => {
       toast({ title: 'Error', description: 'Failed to update ticket status', variant: 'destructive' });
@@ -47,7 +47,7 @@ export default function AdminSupport() {
       apiRequest('PUT', `/api/v2/admin/support/tickets/${id}`, { priority }),
     onSuccess: () => {
       toast({ title: 'Success', description: 'Ticket priority updated successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/support/tickets'] });
     },
     onError: () => {
       toast({ title: 'Error', description: 'Failed to update ticket priority', variant: 'destructive' });
@@ -60,7 +60,7 @@ export default function AdminSupport() {
     onSuccess: () => {
       toast({ title: 'Success', description: 'Reply sent successfully' });
       setReplyMessage('');
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'] });
     },
     onError: () => {
       toast({ title: 'Error', description: 'Failed to send reply', variant: 'destructive' });

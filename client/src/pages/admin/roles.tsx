@@ -65,7 +65,7 @@ export default function AdminRoles() {
       return apiRequest('POST', '/api/v2/admin/roles', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/roles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/roles'] });
       toast({
         title: 'Success',
         description: 'Role created successfully',
@@ -87,7 +87,7 @@ export default function AdminRoles() {
       return apiRequest('PUT', `/api/v2/admin/roles/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/roles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/roles'] });
       toast({
         title: 'Success',
         description: 'Role updated successfully',
@@ -109,7 +109,7 @@ export default function AdminRoles() {
       return apiRequest('DELETE', `/api/v2/admin/roles/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/roles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/roles'] });
       toast({
         title: 'Success',
         description: 'Role deleted successfully',

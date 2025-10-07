@@ -73,7 +73,7 @@ export default function AdminQuotations() {
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/v2/admin/quotations', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/quotations'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/quotations'] });
       toast({ title: 'Success', description: 'Quotation created successfully' });
       setCreateDialogOpen(false);
       setSparePartItems([]);
@@ -88,7 +88,7 @@ export default function AdminQuotations() {
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiRequest('PUT', `/api/v2/admin/quotations/${id}`, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/quotations'] });
+      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/quotations'] });
       toast({ title: 'Success', description: 'Quotation status updated successfully' });
     },
     onError: () => {

@@ -21,7 +21,7 @@ export default function TechnicianBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/v2/technician/${userId}/bookings`] });
+      queryClient.refetchQueries({ queryKey: [`/api/v2/technician/${userId}/bookings`] });
       toast({
         title: 'Status updated',
         description: 'Booking status has been updated successfully',
