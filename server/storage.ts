@@ -1669,6 +1669,16 @@ export class DatabaseStorage implements IStorage {
       total: Number(r.total) || 0,
     }));
   }
+
+  async getCustomerInvoices(bookingId: string): Promise<any[]> {
+    const result = await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.bookingId, bookingId))
+      .orderBy(desc(invoices.createdAt));
+
+    return result;
+  }
 }
 
 export const storage = new DatabaseStorage();

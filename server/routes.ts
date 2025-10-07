@@ -3847,9 +3847,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('Get customer overview error:', error);
+      const language = req.headers['accept-language'] || 'en';
       res.status(500).json({
         success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
+        message: bilingual.getMessage('general.server_error', language),
       });
     }
   });
@@ -3896,9 +3897,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('Wallet top-up error:', error);
+      const language = req.headers['accept-language'] || 'en';
       res.status(500).json({
         success: false,
-        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', 'en'),
+        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', language),
       });
     }
   });
@@ -3922,9 +3924,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('Get invoices error:', error);
+      const language = req.headers['accept-language'] || 'en';
       res.status(500).json({
         success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
+        message: bilingual.getMessage('general.server_error', language),
       });
     }
   });
