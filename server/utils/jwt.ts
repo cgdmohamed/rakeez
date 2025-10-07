@@ -69,6 +69,14 @@ export const verifyToken = (token: string): JWTPayload => {
 
     return decoded;
   } catch (error) {
+    // Log detailed error for debugging
+    console.error('❌ JWT Verification Error:', {
+      errorType: error instanceof jwt.TokenExpiredError ? 'TokenExpiredError' : 
+                  error instanceof jwt.JsonWebTokenError ? 'JsonWebTokenError' : 'UnknownError',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      tokenPreview: token.substring(0, 50) + '...',
+    });
+    
     if (error instanceof jwt.TokenExpiredError) {
       throw new Error('Token has expired');
     } else if (error instanceof jwt.JsonWebTokenError) {

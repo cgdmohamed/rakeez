@@ -1646,7 +1646,7 @@ export class DatabaseStorage implements IStorage {
         total: sql<number>`COALESCE(SUM(${bookings.totalAmount}::decimal), 0)`,
       })
       .from(bookings)
-      .where(sql`${bookings.paymentStatus} IN ('pending', 'processing')`);
+      .where(sql`${bookings.paymentStatus} IN ('pending', 'authorized')`);
 
     return Number(result[0]?.total) || 0;
   }
