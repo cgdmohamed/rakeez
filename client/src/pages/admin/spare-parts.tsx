@@ -305,6 +305,7 @@ export default function AdminSpareParts() {
               ))}
             </div>
           ) : (
+            <div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -392,6 +393,7 @@ export default function AdminSpareParts() {
                 </div>
               </div>
             )}
+            </div>
           )}
         </CardContent>
       </Card>

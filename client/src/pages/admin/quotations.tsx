@@ -241,6 +241,7 @@ export default function AdminQuotations() {
               ))}
             </div>
           ) : (
+            <div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -343,6 +344,7 @@ export default function AdminQuotations() {
                 </div>
               </div>
             )}
+            </div>
           )}
         </CardContent>
       </Card>

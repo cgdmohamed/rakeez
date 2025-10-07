@@ -186,6 +186,7 @@ export default function AdminSupport() {
               ))}
             </div>
           ) : (
+            <div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -306,6 +307,7 @@ export default function AdminSupport() {
                 </div>
               </div>
             )}
+            </div>
           )}
         </CardContent>
       </Card>

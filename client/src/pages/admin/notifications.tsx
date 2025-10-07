@@ -139,6 +139,7 @@ export default function AdminNotifications() {
               ))}
             </div>
           ) : (
+            <div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -221,6 +222,7 @@ export default function AdminNotifications() {
                 </div>
               </div>
             )}
+            </div>
           )}
         </CardContent>
       </Card>
