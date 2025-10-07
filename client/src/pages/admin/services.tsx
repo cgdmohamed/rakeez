@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,7 +17,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SarSymbol } from '@/components/sar-symbol';
 
 const categorySchema = z.object({
@@ -54,6 +54,9 @@ const packageSchema = z.object({
 export default function AdminServices() {
   const { toast } = useToast();
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [packageDialogOpen, setPackageDialogOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<any>(null);
@@ -68,6 +71,45 @@ export default function AdminServices() {
   });
 
   const servicesData = data?.data || [];
+
+  // Flatten all services for search and pagination
+  const allServices = servicesData.flatMap((categoryData: any) => 
+    categoryData.services.map((service: any) => ({
+      ...service,
+      categoryName: categoryData.category.name?.en || categoryData.category.name,
+      categoryId: categoryData.category.id,
+    }))
+  );
+
+  // Apply search filter
+  const filteredServices = allServices.filter((service) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      service.name?.en?.toLowerCase().includes(query) ||
+      service.name?.ar?.toLowerCase().includes(query) ||
+      service.categoryName?.toLowerCase().includes(query) ||
+      service.id?.toLowerCase().includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedServices = filteredServices.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const categoryForm = useForm({
     resolver: zodResolver(categorySchema),
@@ -348,10 +390,33 @@ export default function AdminServices() {
             Manage service catalog, categories, and pricing packages
           </p>
         </div>
-        <Button onClick={() => { setEditCategory(null); categoryForm.reset(); setCategoryDialogOpen(true); }} data-testid="button-add-category">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Category
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search services..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-8 w-[250px]"
+              data-testid="input-search"
+            />
+          </div>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+            <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 / page</SelectItem>
+              <SelectItem value="25">25 / page</SelectItem>
+              <SelectItem value="50">50 / page</SelectItem>
+              <SelectItem value="100">100 / page</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => { setEditCategory(null); categoryForm.reset(); setCategoryDialogOpen(true); }} data-testid="button-add-category">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Category
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -366,6 +431,98 @@ export default function AdminServices() {
             <CardTitle>No Categories Found</CardTitle>
             <CardDescription>Create your first service category to get started.</CardDescription>
           </CardHeader>
+        </Card>
+      ) : searchQuery ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Results ({filteredServices.length})</CardTitle>
+            <CardDescription>Services matching &quot;{searchQuery}&quot;</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Service Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Base Price</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedServices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      <div className="text-muted-foreground">
+                        No services found matching &quot;{searchQuery}&quot;
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedServices.map((service: any) => (
+                    <TableRow key={service.id} data-testid={`row-service-${service.id}`}>
+                      <TableCell className="font-medium">
+                        {service.name?.en || service.name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{service.categoryName}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold">
+                          <SarSymbol className="mr-1" size={12} />{(Number(service.basePrice) || 0).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{service.durationMinutes} min</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => openEditService(service)} data-testid={`button-edit-service-${service.id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => openDeleteDialog('service', service.id, service.name?.en)} data-testid={`button-delete-service-${service.id}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredServices.length)} of {filteredServices.length} services
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
       ) : (
         <Tabs defaultValue={servicesData[0]?.category?.id || '0'} className="space-y-4">

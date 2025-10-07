@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -66,7 +66,7 @@ export default function AdminCustomers() {
   });
 
   // Pagination
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
@@ -75,6 +75,13 @@ export default function AdminCustomers() {
     setSearchQuery(value);
     setCurrentPage(1);
   };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {

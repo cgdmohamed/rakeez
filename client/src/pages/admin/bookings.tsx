@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -244,7 +244,7 @@ export default function AdminBookings() {
   });
 
   // Pagination
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
@@ -259,6 +259,13 @@ export default function AdminBookings() {
     setSearchQuery(value);
     setCurrentPage(1);
   };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {

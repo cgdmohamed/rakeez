@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,13 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { Bell } from 'lucide-react';
+import { Bell, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 export default function AdminNotifications() {
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [formData, setFormData] = useState({
     role: '',
     type: 'system' as const,
@@ -51,6 +54,36 @@ export default function AdminNotifications() {
 
   const notifications = data?.data || [];
 
+  // Apply search filter
+  const filteredNotifications = notifications.filter((notification: any) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      notification.id?.toLowerCase().includes(query) ||
+      notification.userName?.toLowerCase().includes(query) ||
+      notification.title?.en?.toLowerCase().includes(query) ||
+      notification.body?.en?.toLowerCase().includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -67,11 +100,36 @@ export default function AdminNotifications() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle data-testid="text-section-title">Recent Notifications</CardTitle>
-          <CardDescription data-testid="text-section-description">
-            {notifications.length} notifications sent
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle data-testid="text-section-title">Recent Notifications</CardTitle>
+            <CardDescription data-testid="text-section-description">
+              {notifications.length} notifications sent
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search notifications..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-8 w-[250px]"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="25">25 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -92,7 +150,7 @@ export default function AdminNotifications() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {notifications.length === 0 ? (
+                {paginatedNotifications.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
                       <div className="text-muted-foreground">
@@ -101,7 +159,7 @@ export default function AdminNotifications() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  notifications.map((notification: any) => (
+                  paginatedNotifications.map((notification: any) => (
                     <TableRow key={notification.id} data-testid={`row-notification-${notification.id}`}>
                       <TableCell>
                         <div className="font-medium" data-testid={`text-notification-name-${notification.id}`}>
@@ -129,6 +187,40 @@ export default function AdminNotifications() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredNotifications.length)} of {filteredNotifications.length} notifications
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SarSymbol } from '@/components/sar-symbol';
 import {
   AlertDialog,
@@ -43,6 +43,9 @@ const sparePartSchema = z.object({
 export default function AdminSpareParts() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSparePart, setSelectedSparePart] = useState<any>(null);
@@ -158,6 +161,36 @@ export default function AdminSpareParts() {
 
   const spareParts = sparePartsData?.data || [];
 
+  // Apply search filter
+  const filteredSpareParts = spareParts.filter((part: any) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      part.name?.en?.toLowerCase().includes(query) ||
+      part.name?.ar?.toLowerCase().includes(query) ||
+      part.sku?.toLowerCase().includes(query) ||
+      part.id?.toLowerCase().includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredSpareParts.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSpareParts = filteredSpareParts.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const handleCreate = (values: any) => {
     const payload = {
       name: {
@@ -235,9 +268,34 @@ export default function AdminSpareParts() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>All Spare Parts ({spareParts.length})</CardTitle>
-          <CardDescription>View and manage your spare parts catalog</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle>All Spare Parts ({spareParts.length})</CardTitle>
+            <CardDescription>View and manage your spare parts catalog</CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search spare parts..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-8 w-[250px]"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="25">25 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -259,7 +317,7 @@ export default function AdminSpareParts() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {spareParts.length === 0 ? (
+                {paginatedSpareParts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       <div className="text-muted-foreground">
@@ -268,7 +326,7 @@ export default function AdminSpareParts() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  spareParts.map((part: any) => (
+                  paginatedSpareParts.map((part: any) => (
                     <TableRow key={part.id} data-testid={`row-spare-part-${part.id}`}>
                       <TableCell className="font-medium">{part.name?.en || 'N/A'}</TableCell>
                       <TableCell>{part.category || '-'}</TableCell>
@@ -300,6 +358,40 @@ export default function AdminSpareParts() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredSpareParts.length)} of {filteredSpareParts.length} spare parts
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>

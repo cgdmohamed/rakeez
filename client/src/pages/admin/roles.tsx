@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Shield, CheckCircle, XCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +37,9 @@ interface RolesResponse {
 export default function AdminRoles() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -53,12 +56,37 @@ export default function AdminRoles() {
 
   const roles = rolesData?.data || [];
 
-  // Filter roles based on status
+  // Filter roles based on status and search
   const filteredRoles = roles.filter(role => {
-    if (statusFilter === 'active') return role.isActive;
-    if (statusFilter === 'inactive') return !role.isActive;
+    if (statusFilter === 'active' && !role.isActive) return false;
+    if (statusFilter === 'inactive' && role.isActive) return false;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        role.name?.toLowerCase().includes(query) ||
+        role.id.toLowerCase().includes(query)
+      );
+    }
     return true;
   });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRoles.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRoles = filteredRoles.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -314,6 +342,16 @@ export default function AdminRoles() {
       </div>
 
       <div className="mb-4 flex gap-4">
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search roles..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-8 w-[250px]"
+            data-testid="input-search"
+          />
+        </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
             <SelectValue placeholder="Filter by status" />
@@ -322,6 +360,17 @@ export default function AdminRoles() {
             <SelectItem value="all" data-testid="filter-all">All Roles</SelectItem>
             <SelectItem value="active" data-testid="filter-active">Active</SelectItem>
             <SelectItem value="inactive" data-testid="filter-inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+          <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10 / page</SelectItem>
+            <SelectItem value="25">25 / page</SelectItem>
+            <SelectItem value="50">50 / page</SelectItem>
+            <SelectItem value="100">100 / page</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -350,7 +399,14 @@ export default function AdminRoles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRoles.map((role) => (
+                  {paginatedRoles.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No roles found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedRoles.map((role) => (
                     <TableRow key={role.id} data-testid={`row-role-${role.id}`}>
                       <TableCell className="font-medium" data-testid={`text-role-name-${role.id}`}>
                         {role.name}
@@ -414,9 +470,44 @@ export default function AdminRoles() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredRoles.length)} of {filteredRoles.length} roles
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      data-testid="button-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      data-testid="button-next-page"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

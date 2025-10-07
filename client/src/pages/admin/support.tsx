@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,11 +13,14 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AdminSupport() {
   const { toast } = useToast();
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [replyMessage, setReplyMessage] = useState('');
 
@@ -70,6 +73,36 @@ export default function AdminSupport() {
   const tickets = data?.data || [];
   const messages = messagesData?.data || [];
 
+  // Apply search filter
+  const filteredTickets = tickets.filter((ticket: any) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      ticket.id?.toLowerCase().includes(query) ||
+      ticket.userName?.toLowerCase().includes(query) ||
+      ticket.subject?.toLowerCase().includes(query) ||
+      ticket.ticketNumber?.toLowerCase().includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const handleViewTicket = (ticket: any) => {
     setSelectedTicket(ticket);
     setViewDialogOpen(true);
@@ -114,11 +147,36 @@ export default function AdminSupport() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle data-testid="text-section-title">All Tickets</CardTitle>
-          <CardDescription data-testid="text-section-description">
-            {tickets.length} support tickets
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle data-testid="text-section-title">All Tickets</CardTitle>
+            <CardDescription data-testid="text-section-description">
+              {tickets.length} support tickets
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tickets..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-8 w-[250px]"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="25">25 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -140,7 +198,7 @@ export default function AdminSupport() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets.length === 0 ? (
+                {paginatedTickets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       <div className="text-muted-foreground">
@@ -149,7 +207,7 @@ export default function AdminSupport() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tickets.map((ticket: any, index: number) => (
+                  paginatedTickets.map((ticket: any, index: number) => (
                     <TableRow key={ticket.id} data-testid={`row-ticket-${ticket.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
                       <TableCell>
                         <div className="font-medium" data-testid={`text-ticket-name-${ticket.id}`}>
@@ -214,6 +272,40 @@ export default function AdminSupport() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredTickets.length)} of {filteredTickets.length} tickets
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>

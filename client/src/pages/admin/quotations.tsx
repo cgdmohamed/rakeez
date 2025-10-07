@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { Plus, Eye, X } from 'lucide-react';
+import { Plus, Eye, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SarSymbol } from '@/components/sar-symbol';
 
 const quotationSchema = z.object({
@@ -37,6 +37,9 @@ interface SparePartItem {
 export default function AdminQuotations() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [sparePartItems, setSparePartItems] = useState<SparePartItem[]>([]);
@@ -100,6 +103,35 @@ export default function AdminQuotations() {
   const bookings = bookingsData?.data || [];
   const technicians = (techsData?.data || []).filter((u: any) => u.role === 'technician');
   const spareParts = sparePartsData?.data || [];
+
+  // Apply search filter
+  const filteredQuotations = quotations.filter((quotation: any) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      quotation.id?.toLowerCase().includes(query) ||
+      quotation.booking_id?.toLowerCase().includes(query) ||
+      quotation.technician_name?.toLowerCase().includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedQuotations = filteredQuotations.slice(startIndex, endIndex);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  // Reset currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleSubmit = (values: any) => {
     const payload = {
@@ -172,9 +204,34 @@ export default function AdminQuotations() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>All Quotations ({quotations.length})</CardTitle>
-          <CardDescription>View and manage quotations for bookings</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle>All Quotations ({quotations.length})</CardTitle>
+            <CardDescription>View and manage quotations for bookings</CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search quotations..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-8 w-[250px]"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-[100px]" data-testid="select-items-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="25">25 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -199,7 +256,7 @@ export default function AdminQuotations() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {quotations.length === 0 ? (
+                {paginatedQuotations.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="h-24 text-center">
                       <div className="text-muted-foreground">
@@ -208,7 +265,7 @@ export default function AdminQuotations() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  quotations.map((quotation: any) => (
+                  paginatedQuotations.map((quotation: any) => (
                     <TableRow key={quotation.id} data-testid={`row-quotation-${quotation.id}`}>
                       <TableCell className="font-mono text-xs">{quotation.id.slice(0, 8)}</TableCell>
                       <TableCell className="font-mono text-xs">{quotation.booking_id?.slice(0, 8)}</TableCell>
@@ -252,6 +309,40 @@ export default function AdminQuotations() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>
