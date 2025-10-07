@@ -1,7 +1,7 @@
 # Rakeez - Bilingual Cleaning Services API
 
 ## Overview
-Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/English) cleaning services mobile application. It enables customers to book cleaning and maintenance services, manage appointments, process payments via multiple gateways (Moyasar, Tabby), track orders, and interact with technicians. The system supports a full booking workflow including quotations, wallet management, referral rewards, and multi-role access for customers, technicians, and admins.
+Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/English) cleaning services mobile application. It facilitates booking and managing cleaning and maintenance services, processing payments, tracking orders, and managing interactions between customers, technicians, and administrators. The system includes features such as quotation management, wallet systems, referral rewards, and multi-role access, aiming to provide a comprehensive solution for service management.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,63 +9,22 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-**Technology Stack:**
-- React with TypeScript
-- Vite
-- Wouter
-- TanStack Query
-- Shadcn/ui (on Radix UI)
-- Tailwind CSS
-
-**Design Decisions:**
-- Component-based architecture with path aliases.
-- Centralized query client with error handling.
-- Bilingual UI support.
-- Role-based dashboard interfaces (Admin, Technician).
-- Professional brand identity system with CSS utility classes for consistent UI/UX.
-- Admin Dashboard: Comprehensive management portal with professional styling, enhanced tables, brand badges for status, and clear typography hierarchy.
-- Technician Dashboard: Job-focused interface for assigned jobs, status updates, and uploads.
-- Authentication: Unified login with role-based routing and JWT token management.
-- Implementation of instant table updates using cache-busting with `staleTime: 0` and HTTP cache control headers to ensure immediate data refresh after mutations.
-- Analytics Dashboard: Real-time charts for revenue trends, booking trends, revenue by payment method, and orders by status, with KPI cards and comprehensive empty state handling.
-- Dashboard Theme: Modern, professional light theme redesign with a light gray primary background, white cards, a white sidebar with dark blue text, cyan active navigation, and accessibility-compliant color combinations.
-- **Booking Management System**: Comprehensive admin interface with full operational control, technician assignment, customer linking, booking lifecycle actions, status timeline visualization, and complete audit logging.
+The frontend uses React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (on Radix UI), and Tailwind CSS. It features a component-based, bilingual UI with role-based dashboards for Admin and Technicians. Key design decisions include a professional brand identity, centralized query client with error handling, instant table updates, and an analytics dashboard with real-time charts. The Admin Dashboard provides comprehensive management capabilities, including a detailed Booking Management System with operational control, technician assignment, status timelines, and audit logging. The overall theme is a modern, professional light design.
 
 ### Backend Architecture
-**Core Framework:**
-- Express.js with TypeScript
-- Modular controller-service architecture.
-- Middleware for authentication, validation, and rate limiting.
-
-**Authentication & Authorization:**
-- JWT-based (access and refresh tokens).
-- Role-based access control (customer, technician, admin, support, finance).
-- OTP verification via Twilio.
-- Session management with Redis or in-memory fallback.
-
-**Business Logic Organization:**
-- Dedicated controllers for Auth, Bookings, Orders, Payments, Profile, Services, Support, Notifications, and Webhooks.
-
-**User and Roles Management System:**
-- Comprehensive user management with role-based permissions (`admin`, `technician`, `customer`, `support`, `finance`).
-- Custom roles system allowing dynamic role creation with flexible permissions (using JSONB array for `permissions` and `isSystemRole` flag).
-- Backend API endpoints for CRUD operations on users and roles, including validation, audit logging, and protection for system roles.
-- Permissions defined in `shared/permissions.ts` as a canonical source for backend validation.
+The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control (customer, technician, admin, support, finance) and OTP verification via Twilio. Business logic is organized into dedicated controllers for various functionalities. A robust User and Roles Management System supports dynamic role creation with flexible permissions, backed by API endpoints for CRUD operations, validation, and audit logging.
 
 ### Database Design
-**Technology:**
-- PostgreSQL via Neon Database.
-- Drizzle ORM.
-- Schema in `shared/schema.ts`.
+The project utilizes PostgreSQL via Neon Database with Drizzle ORM. The schema is defined in `shared/schema.ts` and includes tables for users, services, bookings, payments, referrals, notifications, and more. Key design patterns include JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
-**Core Tables:**
-- `users`, `addresses`, `service_categories`, `services`, `service_packages`, `spare_parts`, `bookings`, `quotations`, `quotation_spare_parts`, `payments`, `wallets`, `wallet_transactions`, `referrals`, `notifications`, `support_tickets`, `support_messages`, `reviews`, `promotions`, `audit_logs`, `webhook_events`, `order_status_logs`, `roles`.
+### Booking Management System
+The system offers complete administrative control over bookings, including status updates, technician assignment with notifications, cancellation, and refunds. It supports a workflow with states such as `pending`, `confirmed`, `technician_assigned`, `in_progress`, and `completed`. The admin interface provides a comprehensive table view of bookings, a detailed modal with customer and technician profiles, a status timeline visualization, context-aware action buttons, and robust filtering/search capabilities. All actions are logged to an `audit_logs` table, and real-time updates are handled via WebSocket broadcasting and SMS notifications.
 
-**Key Design Patterns:**
-- JSONB for bilingual content.
-- Enum types for constrained values.
-- Soft delete pattern.
-- Timestamp tracking.
+### Referral and Promo System
+This system allows for the creation and management of referral campaigns by administrators. It tracks referrals, applies discounts during booking, and distributes rewards upon successful payment. The database schema includes `referral_campaigns` and `referrals` tables, with `bookings` extended to support referral codes. API endpoints handle validation, redemption, statistics, and admin management of campaigns and analytics. The Admin Dashboard includes a dedicated promos page with campaign CRUD, analytics charts, and integration into customer profiles.
+
+### File Upload System
+The system integrates with Replit Object Storage (Google Cloud Storage) for file uploads, such as brand logos and avatars. The frontend requests presigned URLs from a backend endpoint, then uploads files directly to GCS. Security is enforced through ACL policies, presigned URL expiration, and requiring authentication for URL generation.
 
 ## External Dependencies
 
@@ -81,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 **Infrastructure Services:**
 - **Redis (Optional)**: Session management, rate limiting, OTP storage, webhook deduplication.
 - **Neon Database (PostgreSQL)**: Primary data store.
-- **Replit Object Storage**: File uploads (brand logos, spare part images, avatars) via Google Cloud Storage with presigned URLs.
+- **Replit Object Storage**: File uploads (via Google Cloud Storage).
 
 **Utilities:**
 - **PDFKit**: Invoice/report generation.
@@ -89,179 +48,3 @@ Preferred communication style: Simple, everyday language.
 - **jsonwebtoken**: JWT handling.
 - **Zod**: Schema validation.
 - **Axios**: HTTP client.
-
-### Referral and Promo System
-**Database Schema:**
-- `referral_campaigns`: Campaign configuration with reward settings, discount types, usage limits, validity dates
-- `referrals`: Tracking table linking inviters, invitees, bookings, and reward status
-- `bookings`: Extended with `referralCode` and `referralDiscount` fields for tracking
-
-**Referral Flow:**
-1. **Campaign Creation** (Admin): Configure inviter rewards, invitee discounts (percentage/fixed), max usage per user, date range
-2. **Code Validation** (Booking): Validates referral code, checks active campaign, verifies usage limits
-3. **Discount Application**: Applies discount to booking total, clamps at 0 to prevent negatives
-4. **Referral Tracking**: Creates referral record linked to booking via `bookingId`
-5. **Reward Distribution** (Webhook): On payment success, atomically credits inviter wallet and marks referral as rewarded
-
-**API Endpoints:**
-- `POST /api/v2/referrals/validate`: Validate referral code and get discount details
-- `POST /api/v2/referrals/redeem`: Redeem referral code for an order (creates referral record)
-- `GET /api/v2/referrals/stats`: Get referral statistics for authenticated user
-- `GET /api/v2/referrals/admin/list`: List all referrals (admin)
-- `POST /api/v2/referrals/campaigns`: Create referral campaign (admin)
-- `GET /api/v2/referrals/campaigns`: List all campaigns (admin)
-- `GET /api/v2/referrals/analytics`: Get referral analytics with date filtering (admin, supports from_date/to_date query params)
-- `GET /api/v2/admin/users/:userId/referrals`: Get user-specific referral data (auto-generates referral code if missing)
-
-**Validation & Safety:**
-- Zod schema validation for referral_code (1-20 chars, transforms empty → undefined)
-- Subtotal clamping prevents negative totals when discounts exceed base price
-- Transaction-wrapped wallet operations ensure atomicity
-- Direct bookingId lookup for reliable referral identification
-- Error propagation (no silent failures)
-
-**Admin Dashboard:**
-- Promos page (`/admin/promos`) with campaign CRUD operations
-- Analytics charts: monthly referrals, rewards distribution, referral leaderboard
-- Date filtering for analytics (from_date/to_date query parameters)
-- Enhanced KPIs: Total Referrals, Total Rewards, Total Discounts with loading states
-- Real-time campaign status management with instant cache invalidation
-- Customer Profile integration: Referrals tab showing referral code (with copy), stats, referral history, and campaigns used
-- UI/UX consistency: Unified layout spacing (space-y-6), header styling (text-3xl font-bold text-primary), dialog forms (space-y-2), and tab navigation across all admin pages
-
-**Implementation:**
-- `server/controllers/referralController.ts`: Referral business logic and admin endpoints
-- `server/controllers/bookingsController.ts`: Booking integration with referral validation
-- `server/utils/webhook.ts`: Payment webhook with referral reward processing
-- `client/src/pages/admin/promos.tsx`: Admin dashboard for campaign management and analytics
-- `client/src/pages/admin/customer-profile.tsx`: Customer profile with integrated referrals tab
-- `server/middleware/validation.ts`: Schema validation including referral_code
-
-**Technical Notes:**
-- Analytics query uses two-part queryKey `['/api/v2/admin/referrals/analytics', queryParams]` with custom queryFn for proper cache invalidation
-- Cache invalidation via `queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] })` ensures analytics refresh after campaign mutations
-- All admin pages follow consistent design pattern: `space-y-6` containers, `text-3xl font-bold text-primary` headers, `space-y-2` form fields
-
-### Booking Management System
-**Overview:**
-Complete admin booking management with full operational control, technician assignment, customer profiles, workflow actions, and audit trails.
-
-**Backend API Endpoints:**
-- `GET /api/v2/admin/bookings` - List all bookings with filtering by status
-- `PUT /api/v2/admin/bookings/:id/status` - Update booking status (admin)
-- `PUT /api/v2/admin/bookings/:id/assign-technician` - Assign/reassign technician with notifications
-- `PATCH /api/v2/admin/bookings/:id/cancel` - Cancel booking with reason and audit log
-- `POST /api/v2/admin/bookings/:id/refund` - Refund payment to customer wallet
-- `PUT /api/v2/bookings/:id/status` - Update booking status (technician/admin)
-- `GET /api/v2/technician/:userId/bookings` - Get technician's assigned bookings
-- `GET /api/v2/admin/system-health` - System health metrics
-- `GET /api/v2/admin/payments` - List all payments
-
-**Booking Workflow States:**
-1. **pending** → Initial booking state
-2. **confirmed** → Admin accepts booking
-3. **technician_assigned** → Technician assigned to job
-4. **en_route** → Technician on the way
-5. **in_progress** → Job in progress
-6. **quotation_pending** → Awaiting quotation approval (optional)
-7. **completed** → Job finished
-8. **cancelled** → Booking cancelled
-
-**Admin Booking Interface Features:**
-- **Comprehensive Table View:**
-  - Customer name and phone
-  - Service details
-  - Assigned technician info
-  - Scheduled date/time
-  - Total amount
-  - Current status with badges
-  - Quick action buttons based on state
-
-- **Booking Details Modal (Tabbed Interface):**
-  - **Overview Tab:** Status timeline, scheduled info, address, notes
-  - **Customer Tab:** Full customer profile with wallet balance, total bookings, contact info
-  - **Technician Tab:** Assigned technician details, reassignment option
-  - **History Tab:** Complete audit log of all actions
-
-- **Status Timeline Visualization:**
-  - Visual progress indicator showing current position in workflow
-  - Color-coded stages (active/completed/pending)
-  - Clear indication of cancelled bookings
-
-- **Action Buttons (Context-Aware):**
-  - **Accept/Confirm:** Available for pending bookings
-  - **Assign Technician:** Available for confirmed bookings without technician
-  - **Start Job:** Available for confirmed/assigned bookings
-  - **Complete:** Available for in-progress bookings
-  - **Cancel:** Available for non-terminal states
-
-- **Filtering & Search:**
-  - Filter by status: All, Pending, Confirmed, Assigned, In Progress, Completed, Cancelled
-  - Real-time table updates
-
-**Technician Assignment System:**
-- Dropdown selector with all available technicians
-- Displays technician name and phone
-- Creates notification for assigned technician
-- Updates booking status to 'technician_assigned'
-- Logs assignment action in audit trail
-- Supports reassignment with proper tracking
-
-**Customer Profile Integration:**
-- Displays full customer information within booking details
-- Shows wallet balance
-- Shows total and completed booking counts
-- Contact information readily accessible
-- Linked to customer management system
-
-**Audit Logging:**
-- All admin actions logged to `audit_logs` table
-- Tracks: action type, user, old/new values, timestamp
-- Viewable in booking details History tab
-- Includes: status updates, technician assignments, cancellations, refunds
-
-**Notifications:**
-- WebSocket broadcasting for real-time updates
-- SMS notifications for critical status changes
-- Technician notifications on assignment
-- Customer notifications on status changes
-
-**Implementation Files:**
-- `client/src/pages/admin/bookings.tsx` - Admin booking management UI
-- `server/routes.ts` - Booking API endpoints (lines 3326-3711, 4909-5016)
-- `server/storage.ts` - Booking data operations
-- `server/utils/bilingual.ts` - Bilingual messages for booking actions
-
-**Technical Implementation:**
-- TanStack Query for data fetching with proper cache invalidation
-- Mutations invalidate both bookings and audit logs queries
-- Tabbed interface using Shadcn Tabs component
-- Status timeline custom component with progress visualization
-- Context-aware action buttons based on booking state
-- Proper error handling and loading states
-
-### File Upload System
-**Object Storage Configuration:**
-- Bucket: `replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4`
-- Private directory: `/replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4/.private`
-- Public search paths: `/replit-objstore-7898b9cd-2b13-4fe2-a2b3-58a514419be4/public`
-
-**Upload Flow:**
-1. Frontend calls `POST /api/v2/objects/upload` (authenticated) to get presigned URL
-2. Backend generates signed URL via Replit sidecar at `http://127.0.0.1:1106/object-storage/signed-object-url`
-3. Frontend uploads file directly to Google Cloud Storage using presigned URL (PUT request)
-4. Frontend extracts base URL (removes query params) and stores in database
-5. Files stored with ACL policies for access control
-
-**Implementation Details:**
-- `server/objectStorage.ts`: Core service for object storage operations
-- `server/objectAcl.ts`: ACL policy management for private objects
-- Upload endpoint returns: `{ uploadURL: string }` with 15-minute TTL
-- Uploaded files: `.private/uploads/{uuid}`
-- Important: `apiRequest()` returns Response object - must call `.json()` to parse
-
-**Security:**
-- ACL policies enforce owner-based access control
-- Visibility: `public` (accessible to all) or `private` (owner + ACL rules only)
-- Presigned URLs expire after 15 minutes
-- Authentication required for upload URL generation
