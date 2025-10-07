@@ -2147,10 +2147,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Get analytics error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      console.error('❌ [Analytics Error] Full details:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        query: req.query,
+        timestamp: new Date().toISOString(),
+      });
+      
       res.status(500).json({
         success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
+        message: {
+          en: 'Failed to retrieve analytics data. Please check server logs for details.',
+          ar: 'فشل في استرداد بيانات التحليلات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
+        }[language],
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
       });
     }
   });
@@ -3661,11 +3672,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Get payments error:', error);
       const language = req.headers['accept-language'] || 'en';
+      console.error('❌ [Payments Error] Full details:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        query: req.query,
+        timestamp: new Date().toISOString(),
+      });
+      
       res.status(500).json({
         success: false,
-        message: bilingual.getMessage('general.server_error', language),
+        message: {
+          en: 'Failed to retrieve payments data. Please check server logs for details.',
+          ar: 'فشل في استرداد بيانات المدفوعات. يرجى التحقق من سجلات الخادم للحصول على التفاصيل.'
+        }[language],
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
       });
     }
   });
