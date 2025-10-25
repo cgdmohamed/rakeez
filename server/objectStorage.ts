@@ -11,23 +11,43 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+function createStorageClient(): Storage {
+  const gcsProjectId = process.env.GCS_PROJECT_ID;
+  const gcsClientEmail = process.env.GCS_CLIENT_EMAIL;
+  const gcsPrivateKey = process.env.GCS_PRIVATE_KEY;
+
+  if (gcsProjectId && gcsClientEmail && gcsPrivateKey) {
+    console.log('Using GCS service account credentials for object storage (production mode)');
+    return new Storage({
+      projectId: gcsProjectId,
+      credentials: {
+        client_email: gcsClientEmail,
+        private_key: gcsPrivateKey.replace(/\\n/g, '\n'),
       },
+    });
+  }
+
+  console.log('Using Replit sidecar endpoint for object storage (development mode)');
+  return new Storage({
+    credentials: {
+      audience: "replit",
+      subject_token_type: "access_token",
+      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+      type: "external_account",
+      credential_source: {
+        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+        format: {
+          type: "json",
+          subject_token_field_name: "access_token",
+        },
+      },
+      universe_domain: "googleapis.com",
     },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+    projectId: "",
+  });
+}
+
+export const objectStorageClient = createStorageClient();
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -251,29 +271,61 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
+  const gcsProjectId = process.env.GCS_PROJECT_ID;
+  const gcsClientEmail = process.env.GCS_CLIENT_EMAIL;
+  const gcsPrivateKey = process.env.GCS_PRIVATE_KEY;
+
+  if (gcsProjectId && gcsClientEmail && gcsPrivateKey) {
+    try {
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      
+      const [signedUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: method === 'GET' ? 'read' : method === 'PUT' ? 'write' : method === 'DELETE' ? 'delete' : 'read',
+        expires: Date.now() + ttlSec * 1000,
+      });
+      
+      return signedUrl;
+    } catch (error) {
+      console.error('Failed to sign URL with GCS credentials:', error);
+      throw new Error(`Failed to sign object URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   const request = {
     bucket_name: bucketName,
     object_name: objectName,
     method,
     expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
   };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
+  
+  try {
+    const response = await fetch(
+      `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(
+        `Failed to sign object URL, errorcode: ${response.status}, ` +
+          `make sure you're running on Replit or provide GCS credentials`
+      );
     }
-  );
-  if (!response.ok) {
+
+    const { signed_url: signedURL } = await response.json();
+    return signedURL;
+  } catch (error) {
+    console.error('Failed to sign URL with sidecar:', error);
     throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
+      `Failed to sign object URL: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      `Ensure you're running on Replit or set GCS_PROJECT_ID, GCS_CLIENT_EMAIL, and GCS_PRIVATE_KEY environment variables.`
     );
   }
-
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
 }

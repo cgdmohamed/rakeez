@@ -7,6 +7,8 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 2025)
+- **Object Storage Deployment Fix** (Oct 25): Fixed 502 errors on published domain by implementing dual-mode authentication (development: sidecar endpoint, production: GCS service account credentials). Requires deployment secrets for published apps. See `OBJECT_STORAGE_DEPLOYMENT_GUIDE.md` for setup.
+- **Upload Error Handling**: Enhanced file upload with 30-second timeouts, detailed error messages, and graceful degradation for network issues
 - **JWT Authentication Fix**: Updated JWT issuer/audience values to `rakeez-api`/`rakeez-client` across all token generation and verification functions for consistency
 - **Fixed Authentication**: Standardized localStorage token key to 'auth_token' across all admin pages (overview, bookings, promos)
 - **Enhanced Database Relations**: Added missing Drizzle ORM relations for payments, support tickets, messages, reviews, and invoices
@@ -34,6 +36,15 @@ This system allows for the creation and management of referral campaigns by admi
 
 ### File Upload System
 The system integrates with Replit Object Storage (Google Cloud Storage) for file uploads, such as brand logos and avatars. The frontend requests presigned URLs from a backend endpoint, then uploads files directly to GCS. Security is enforced through ACL policies, presigned URL expiration, and requiring authentication for URL generation.
+
+**Deployment Configuration:**
+- **Development**: Uses Replit sidecar endpoint (`http://127.0.0.1:1106`) for GCS authentication
+- **Production**: Requires GCS service account credentials as deployment secrets:
+  - `GCS_PROJECT_ID`: Google Cloud project ID
+  - `GCS_CLIENT_EMAIL`: Service account email
+  - `GCS_PRIVATE_KEY`: Service account private key
+- The system automatically detects which authentication mode to use based on environment variables
+- See `OBJECT_STORAGE_DEPLOYMENT_GUIDE.md` for detailed setup instructions
 
 ## External Dependencies
 
