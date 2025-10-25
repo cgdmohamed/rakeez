@@ -46,7 +46,10 @@ class MoyasarService {
   private baseUrl: string;
 
   constructor() {
-    this.secretKey = process.env.MOYASAR_SECRET_KEY || 'sk_test_moyasar_secret_key';
+    if (!process.env.MOYASAR_SECRET_KEY) {
+      throw new Error('MOYASAR_SECRET_KEY environment variable is required');
+    }
+    this.secretKey = process.env.MOYASAR_SECRET_KEY;
     this.baseUrl = process.env.MOYASAR_API_URL || 'https://api.moyasar.com';
   }
 
@@ -186,7 +189,12 @@ class MoyasarService {
    */
   verifyWebhookSignature(payload: string, signature: string): boolean {
     try {
-      const webhookSecret = process.env.MOYASAR_WEBHOOK_SECRET || 'moyasar_webhook_secret';
+      const webhookSecret = process.env.MOYASAR_WEBHOOK_SECRET;
+      if (!webhookSecret) {
+        console.error('MOYASAR_WEBHOOK_SECRET not configured');
+        return false;
+      }
+      
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
         .update(payload)
@@ -250,8 +258,13 @@ class MoyasarService {
     callback_url: string;
     metadata?: Record<string, any>;
   } {
+    const publishableKey = process.env.MOYASAR_PUBLISHABLE_KEY || process.env.MOYASAR_PUBLIC_KEY;
+    if (!publishableKey) {
+      throw new Error('MOYASAR_PUBLISHABLE_KEY or MOYASAR_PUBLIC_KEY environment variable is required');
+    }
+    
     return {
-      publishable_key: process.env.MOYASAR_PUBLISHABLE_KEY || 'pk_test_moyasar_public_key',
+      publishable_key: publishableKey,
       amount: paymentData.amount,
       currency: 'SAR',
       description: paymentData.description,
