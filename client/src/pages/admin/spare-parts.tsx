@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SarSymbol } from '@/components/sar-symbol';
+import { ImageWithFallback } from '@/components/ImageWithFallback';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -335,6 +336,7 @@ export default function AdminSpareParts() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Image</TableHead>
                   <TableHead>Name (EN)</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Brand</TableHead>
@@ -355,6 +357,14 @@ export default function AdminSpareParts() {
                 ) : (
                   paginatedSpareParts.map((part: any) => (
                     <TableRow key={part.id} data-testid={`row-spare-part-${part.id}`}>
+                      <TableCell>
+                        <ImageWithFallback
+                          src={part.image}
+                          alt={part.name?.en || 'Spare part'}
+                          className="h-10 w-10 object-cover rounded"
+                          fallbackType="icon"
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{part.name?.en || 'N/A'}</TableCell>
                       <TableCell>{part.category || '-'}</TableCell>
                       <TableCell>{part.brand || '-'}</TableCell>

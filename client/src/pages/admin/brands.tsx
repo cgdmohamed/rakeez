@@ -13,6 +13,7 @@ import { Plus, Edit, Trash2, Upload, Image as ImageIcon, Search, ChevronLeft, Ch
 import { format } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { ImageWithFallback } from '@/components/ImageWithFallback';
 
 interface Brand {
   id: string;
@@ -386,11 +387,12 @@ export default function AdminBrands() {
                   <TableRow key={brand.id} data-testid={`row-brand-${brand.id}`}>
                     <TableCell className="font-medium">{brand.name}</TableCell>
                     <TableCell>
-                      {brand.logo ? (
-                        <img src={brand.logo} alt={brand.name} className="h-8 w-8 object-contain" />
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No logo</span>
-                      )}
+                      <ImageWithFallback
+                        src={brand.logo}
+                        alt={brand.name}
+                        className="h-8 w-8 object-contain rounded"
+                        fallbackType="icon"
+                      />
                     </TableCell>
                     <TableCell>
                       {brand.isActive ? (
