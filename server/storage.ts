@@ -517,11 +517,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createHomeSliderImage(image: InsertHomeSliderImage): Promise<HomeSliderImage> {
-    const [newImage] = await db
-      .insert(homeSliderImages)
-      .values(image)
-      .returning();
-    return newImage;
+    return await db.transaction(async (tx) => {
+      const isActiveImage = image.isActive !== false;
+      
+      if (isActiveImage) {
+        const existingImages = await tx
+          .select()
+          .from(homeSliderImages)
+          .where(eq(homeSliderImages.isActive, true))
+          .for('update');
+        
+        if (existingImages.length >= 3) {
+          throw new Error('Maximum 3 active slider images allowed');
+        }
+      }
+      
+      const [newImage] = await tx
+        .insert(homeSliderImages)
+        .values(image)
+        .returning();
+      return newImage;
+    });
   }
 
   async updateHomeSliderImage(id: string, image: Partial<InsertHomeSliderImage>): Promise<HomeSliderImage> {

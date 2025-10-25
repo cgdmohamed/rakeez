@@ -220,6 +220,10 @@ export default function AdminMobileContent() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
+        body: JSON.stringify({
+          fileSize: file.size,
+          fileType: file.type,
+        }),
         signal: controller.signal,
       });
       

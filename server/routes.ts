@@ -1909,7 +1909,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get upload URL for object
-  app.post('/api/v2/objects/upload', authenticateToken, async (req: any, res: any) => {
+  app.post('/api/v2/objects/upload', authenticateToken, validateRequest({
+    body: z.object({
+      fileSize: z.number().positive('File size must be positive').max(5 * 1024 * 1024, 'File size must be less than 5MB'),
+      fileType: z.string().regex(/^image\/(jpeg|jpg|png|gif|webp)$/, 'Only image files are allowed'),
+    }),
+  }), async (req: any, res: any) => {
     const { ObjectStorageService } = await import('./objectStorage');
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
@@ -3088,6 +3093,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Create slider image error:', error);
+      if (error instanceof Error && error.message === 'Maximum 3 active slider images allowed') {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
       res.status(500).json({
         success: false,
         message: 'Server error',
