@@ -29,7 +29,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, servicePackages } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 
 const app = express();
@@ -1866,6 +1866,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('notifications.mark_read_failed', 'en'),
+      });
+    }
+  });
+  
+  // ==================== SUBSCRIPTION ENDPOINTS ====================
+  
+  // Get All Subscriptions (Admin)
+  app.get('/api/v2/admin/subscriptions', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const { status, userId } = req.query;
+      
+      let subscriptions = await storage.getAllSubscriptions();
+      
+      // Filter by status if provided
+      if (status) {
+        subscriptions = subscriptions.filter(sub => sub.status === status);
+      }
+      
+      // Filter by userId if provided
+      if (userId) {
+        subscriptions = subscriptions.filter(sub => sub.userId === userId);
+      }
+      
+      // Enrich with user and package details
+      const enrichedSubscriptions = await Promise.all(
+        subscriptions.map(async (subscription) => {
+          const user = await storage.getUser(subscription.userId);
+          const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscription.packageId));
+          
+          return {
+            ...subscription,
+            user: user ? {
+              id: user.id,
+              name: user.name,
+              phone: user.phone,
+              email: user.email,
+            } : null,
+            package: pkg ? {
+              id: pkg.id,
+              name: pkg.name,
+              tier: pkg.tier,
+              price: pkg.price,
+            } : null,
+          };
+        })
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.retrieved_successfully', language),
+        data: enrichedSubscriptions,
+      });
+      
+    } catch (error) {
+      console.error('Get all subscriptions error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Get User Subscriptions
+  app.get('/api/v2/users/:userId/subscriptions', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if user is requesting their own subscriptions or is admin
+      if (req.user.id !== userId && req.user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('auth.unauthorized', language),
+        });
+      }
+      
+      const subscriptions = await storage.getUserSubscriptions(userId);
+      
+      // Enrich with package details
+      const enrichedSubscriptions = await Promise.all(
+        subscriptions.map(async (subscription) => {
+          const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscription.packageId));
+          
+          return {
+            ...subscription,
+            package: pkg ? {
+              id: pkg.id,
+              name: pkg.name,
+              tier: pkg.tier,
+              price: pkg.price,
+            } : null,
+          };
+        })
+      );
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.retrieved_successfully', language),
+        data: enrichedSubscriptions,
+      });
+      
+    } catch (error) {
+      console.error('Get user subscriptions error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Create Subscription
+  app.post('/api/v2/subscriptions', authenticateToken, validateRequest({
+    body: insertSubscriptionSchema,
+  }), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const subscriptionData = req.body;
+      
+      // Verify the package exists
+      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscriptionData.packageId));
+      if (!pkg) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      // Create the subscription
+      const subscription = await storage.createSubscription(subscriptionData);
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.created_successfully', language),
+        data: subscription,
+      });
+      
+    } catch (error) {
+      console.error('Create subscription error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Update Subscription (Admin)
+  app.put('/api/v2/admin/subscriptions/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: insertSubscriptionSchema.partial(),
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      const updateData = req.body;
+      
+      // Verify subscription exists
+      const existingSubscription = await storage.getSubscription(id);
+      if (!existingSubscription) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('subscriptions.not_found', language),
+        });
+      }
+      
+      // Update the subscription
+      const updatedSubscription = await storage.updateSubscription(id, updateData);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.updated_successfully', language),
+        data: updatedSubscription,
+      });
+      
+    } catch (error) {
+      console.error('Update subscription error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       });
     }
   });

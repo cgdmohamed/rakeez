@@ -20,6 +20,7 @@ import {
   Shield,
   Gift,
   Smartphone,
+  Repeat,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -45,6 +46,7 @@ import AdminBrands from './admin/brands';
 import AdminSpareParts from './admin/spare-parts';
 import AdminPromos from './admin/promos';
 import AdminMobileContent from './admin/mobile-content';
+import AdminSubscriptions from './admin/subscriptions';
 
 const navigation = [
   { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -60,6 +62,7 @@ const navigation = [
   { name: 'Services', href: '/admin/services', icon: Settings },
   { name: 'Brands', href: '/admin/brands', icon: Package },
   { name: 'Spare Parts', href: '/admin/spare-parts', icon: Package },
+  { name: 'Subscriptions', href: '/admin/subscriptions', icon: Repeat },
   { name: 'Promos', href: '/admin/promos', icon: Gift },
   { name: 'Mobile Content', href: '/admin/mobile-content', icon: Smartphone },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
@@ -285,6 +288,7 @@ export default function AdminDashboard() {
             <Route path="/admin/services" component={AdminServices} />
             <Route path="/admin/brands" component={AdminBrands} />
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
+            <Route path="/admin/subscriptions" component={AdminSubscriptions} />
             <Route path="/admin/promos" component={AdminPromos} />
             <Route path="/admin/mobile-content" component={AdminMobileContent} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
