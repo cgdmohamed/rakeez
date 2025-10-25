@@ -44,6 +44,7 @@ import AdminServices from './admin/services';
 import AdminBrands from './admin/brands';
 import AdminSpareParts from './admin/spare-parts';
 import AdminPromos from './admin/promos';
+import AdminMobileContent from './admin/mobile-content';
 
 const navigation = [
   { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -285,6 +286,7 @@ export default function AdminDashboard() {
             <Route path="/admin/brands" component={AdminBrands} />
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
             <Route path="/admin/promos" component={AdminPromos} />
+            <Route path="/admin/mobile-content" component={AdminMobileContent} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
             <Route path="/admin" component={AdminOverview} />
             <Route>
