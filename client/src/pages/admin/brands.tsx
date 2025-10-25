@@ -150,7 +150,26 @@ export default function AdminBrands() {
 
     try {
       setUploading(true);
-      const response = await apiRequest('POST', '/api/v2/objects/upload', {});
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch('/api/v2/objects/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to get upload URL: ${response.status} ${errorText.substring(0, 100)}`);
+      }
+      
       const { uploadURL } = await response.json();
       
       const uploadResponse = await fetch(uploadURL, {
@@ -162,7 +181,7 @@ export default function AdminBrands() {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Upload failed');
+        throw new Error(`Upload to storage failed: ${uploadResponse.status}`);
       }
 
       const imageUrl = uploadURL.split('?')[0];
@@ -170,7 +189,14 @@ export default function AdminBrands() {
       toast({ title: 'Success', description: 'Logo uploaded successfully' });
     } catch (error) {
       console.error('Upload error:', error);
-      toast({ title: 'Error', description: 'Failed to upload logo', variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload logo';
+      toast({ 
+        title: 'Upload Error', 
+        description: errorMessage.includes('502') || errorMessage.includes('aborted')
+          ? 'Server timeout. Please try again or use a smaller image.'
+          : errorMessage,
+        variant: 'destructive' 
+      });
     } finally {
       setUploading(false);
     }
