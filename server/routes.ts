@@ -694,6 +694,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Admin: Create address for user
+  app.post('/api/v2/admin/users/:userId/addresses', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      addressName: z.string().min(1, 'Address name is required'),
+      addressType: z.enum(['home', 'office', 'other']).default('home'),
+      streetName: z.string().min(1, 'Street name is required'),
+      houseNo: z.string().min(1, 'House number is required'),
+      district: z.string().min(1, 'District is required'),
+      directions: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      isDefault: z.boolean().default(false),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const addressData = { ...req.body, userId };
+      const address = await storage.createAddress(addressData);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('addresses.created_successfully', language),
+        data: address,
+      });
+      
+    } catch (error) {
+      console.error('Admin create address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Admin: Update address
+  app.put('/api/v2/admin/addresses/:addressId', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      addressName: z.string().min(1).optional(),
+      addressType: z.enum(['home', 'office', 'other']).optional(),
+      streetName: z.string().min(1).optional(),
+      houseNo: z.string().min(1).optional(),
+      district: z.string().min(1).optional(),
+      directions: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      isDefault: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { addressId } = req.params;
+      const updates = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const address = await storage.updateAddress(addressId, updates);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.updated_successfully', language),
+        data: address,
+      });
+      
+    } catch (error) {
+      console.error('Admin update address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('addresses.update_failed', 'en'),
+      });
+    }
+  });
+
+  // Admin: Delete address
+  app.delete('/api/v2/admin/addresses/:addressId', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { addressId } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      await storage.deleteAddress(addressId);
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.deleted_successfully', language),
+      });
+      
+    } catch (error) {
+      console.error('Admin delete address error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('addresses.delete_failed', 'en'),
+      });
+    }
+  });
   
   // ==================== SERVICES & PACKAGES ENDPOINTS ====================
   

@@ -214,7 +214,7 @@ export default function CustomerProfile() {
         latitude: data.latitude ? parseFloat(data.latitude) : undefined,
         longitude: data.longitude ? parseFloat(data.longitude) : undefined,
       };
-      return apiRequest('POST', `/api/v2/addresses`, payload);
+      return apiRequest('POST', `/api/v2/admin/users/${id}/addresses`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
@@ -241,7 +241,7 @@ export default function CustomerProfile() {
         latitude: data.latitude ? parseFloat(data.latitude) : undefined,
         longitude: data.longitude ? parseFloat(data.longitude) : undefined,
       };
-      return apiRequest('PUT', `/api/v2/addresses/${addressId}`, payload);
+      return apiRequest('PUT', `/api/v2/admin/addresses/${addressId}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
@@ -263,7 +263,7 @@ export default function CustomerProfile() {
 
   const deleteAddressMutation = useMutation({
     mutationFn: async (addressId: string) => {
-      return apiRequest('DELETE', `/api/v2/addresses/${addressId}`);
+      return apiRequest('DELETE', `/api/v2/admin/addresses/${addressId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
