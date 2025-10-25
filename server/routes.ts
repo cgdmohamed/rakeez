@@ -671,6 +671,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get campaigns
   app.get('/api/v2/admin/referrals/campaigns', authenticateToken, authorizeRoles(['admin']), referralController.getCampaigns);
   
+  // ==================== ADMIN USER ADDRESSES ENDPOINT ====================
+  
+  // Admin: Get user addresses
+  app.get('/api/v2/admin/users/:userId/addresses', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const addresses = await storage.getUserAddresses(userId);
+      const language = req.headers['accept-language'] || 'en';
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('addresses.retrieved_successfully', language),
+        data: addresses,
+      });
+      
+    } catch (error) {
+      console.error('Admin get user addresses error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // ==================== SERVICES & PACKAGES ENDPOINTS ====================
   
   // Get Service Categories

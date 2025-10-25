@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -80,6 +80,22 @@ export default function CustomerProfile() {
     }>;
   }
 
+  interface Address {
+    id: string;
+    userId: string;
+    addressName: string;
+    addressType: 'home' | 'office' | 'other';
+    streetName: string;
+    houseNo: string;
+    district: string;
+    directions: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    isDefault: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+
   interface CustomerOverviewResponse {
     success: boolean;
     message: string;
@@ -118,6 +134,11 @@ export default function CustomerProfile() {
 
   const { data: referralData } = useQuery<{ success: boolean; data: ReferralData }>({
     queryKey: [`/api/v2/admin/users/${id}/referrals`],
+    enabled: !!id,
+  });
+
+  const { data: addressesData } = useQuery<{ success: boolean; data: Address[] }>({
+    queryKey: [`/api/v2/admin/users/${id}/addresses`],
     enabled: !!id,
   });
 
@@ -319,6 +340,7 @@ export default function CustomerProfile() {
           <TabsTrigger value="tickets" data-testid="tab-tickets">Support Tickets</TabsTrigger>
           <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews</TabsTrigger>
           <TabsTrigger value="referrals" data-testid="tab-referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="addresses" data-testid="tab-addresses">Addresses</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -667,6 +689,91 @@ export default function CustomerProfile() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="addresses" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-primary flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Saved Addresses
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {addressesData?.data && addressesData.data.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {addressesData.data.map((address: Address) => {
+                    const addressTypeIcon = address.addressType === 'home' ? Home : address.addressType === 'office' ? Building2 : Package;
+                    const AddressIcon = addressTypeIcon;
+                    
+                    return (
+                      <Card key={address.id} className="shadow-sm border" data-testid={`card-address-${address.id}`}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <AddressIcon className="h-5 w-5 text-primary" />
+                              <h3 className="font-semibold text-lg" data-testid={`text-address-name-${address.id}`}>
+                                {address.addressName}
+                              </h3>
+                            </div>
+                            <div className="flex gap-2">
+                              <Badge variant="outline" className="capitalize" data-testid={`badge-address-type-${address.id}`}>
+                                {address.addressType}
+                              </Badge>
+                              {address.isDefault && (
+                                <Badge className="badge-completed" data-testid={`badge-default-${address.id}`}>
+                                  Default
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            <div className="flex gap-2">
+                              <span className="font-medium text-foreground">House #:</span>
+                              <span data-testid={`text-house-no-${address.id}`}>{address.houseNo}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="font-medium text-foreground">Street:</span>
+                              <span data-testid={`text-street-${address.id}`}>{address.streetName}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="font-medium text-foreground">District:</span>
+                              <span data-testid={`text-district-${address.id}`}>{address.district}</span>
+                            </div>
+                            {address.directions && (
+                              <div className="flex gap-2">
+                                <span className="font-medium text-foreground">Directions:</span>
+                                <span className="italic" data-testid={`text-directions-${address.id}`}>{address.directions}</span>
+                              </div>
+                            )}
+                            {address.latitude && address.longitude && (
+                              <div className="flex gap-2 pt-2 border-t">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-xs font-mono" data-testid={`text-coordinates-${address.id}`}>
+                                  {address.latitude.toFixed(6)}, {address.longitude.toFixed(6)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="text-xs pt-2 border-t">
+                              <span className="text-muted-foreground">
+                                Added {format(new Date(address.createdAt), 'MMM dd, yyyy')}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <MapPin className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No saved addresses found</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
