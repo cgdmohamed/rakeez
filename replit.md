@@ -7,6 +7,12 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 2025)
+- **Saved Addresses Feature** (Oct 25): Implemented comprehensive user address management system:
+  - Enhanced addresses schema with detailed fields: addressName, addressType (home/office/other), streetName, houseNo, district, directions, GPS coordinates
+  - Updated API endpoints with new validation schemas supporting all required fields
+  - Admin customer profile integration with dedicated "Addresses" tab displaying all saved addresses in a grid layout
+  - Address cards show type icons, default badge, and complete location details with formatted creation dates
+  - Backend endpoint for admins to view user addresses: GET /api/v2/admin/users/:userId/addresses
 - **Mobile Content Management** (Oct 25): Implemented complete mobile app homepage content management system:
   - Home Slider: Up to 3 active images with drag-and-drop reordering, unlimited inactive drafts
   - Home Banner: Bilingual titles (EN/AR), optional link URL, single active banner
