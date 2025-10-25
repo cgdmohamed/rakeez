@@ -7,13 +7,14 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 2025)
-- **Quotation Form Auto-Population** (Oct 25): Enhanced quotation form with automatic spare part price population:
-  - When a spare part is selected, its price is automatically populated from the catalog
-  - Price input shows green border when auto-filled with helper text "✓ Price auto-filled (editable)"
-  - Prices remain editable, allowing manual adjustments when needed
+- **Quotation Form with Searchable Spare Parts** (Oct 25): Enhanced quotation form with comprehensive spare parts management:
+  - **Search Functionality**: Real-time filtering of spare parts by name (English/Arabic) and category with clear button (X icon)
+  - **Read-Only Pricing**: Unit prices auto-populated from catalog and locked (disabled/gray background) to prevent manual changes
+  - **Auto-Calculation**: Total amount (quantity × unit price) displayed in real-time as separate column
+  - **Visual Feedback**: Blue checkmark for prices from catalog, amber warning for zero-priced parts
+  - **Empty State Handling**: Graceful message when search yields no results
+  - **UX Enhancements**: Clear search affordance, helpful hints for zero prices, properly labeled fields
   - Spare part dropdown shows prices inline: "{part name} - SAR {price}"
-  - Handles zero-priced parts correctly (null check instead of falsy check)
-  - Field labels added for better UX: "Spare Part", "Quantity", "Unit Price (SAR)"
 - **API Audit Report - All Issues Resolved** (Oct 25): Completed comprehensive audit and resolved all 10 identified issues:
   - ✅ **Critical Endpoints Verified** (5): All previously reported "missing" endpoints confirmed as implemented
     - PUT /api/v2/admin/bookings/:id/status (line 3957) - Admin booking status updates
