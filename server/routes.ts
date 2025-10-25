@@ -1017,12 +1017,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: totalAmount.toString(),
       });
       
+      // Automatic technician assignment based on service category specialization
+      let assignedTechnician = null;
+      try {
+        const allTechnicians = await storage.getAllUsers('technician', 'active');
+        const categoryId = service.categoryId;
+        
+        // Find technicians specialized in this service category
+        const qualifiedTechnicians = allTechnicians.filter((tech: any) => {
+          if (!tech.specializations) return true; // If no specializations set, consider available for all
+          const specializations = Array.isArray(tech.specializations) 
+            ? tech.specializations 
+            : [];
+          return specializations.length === 0 || specializations.includes(categoryId);
+        });
+        
+        if (qualifiedTechnicians.length > 0) {
+          // Assign to the first available qualified technician
+          assignedTechnician = qualifiedTechnicians[0];
+          await storage.assignTechnician(booking.id, assignedTechnician.id);
+          
+          // Create notification for assigned technician
+          await storage.createNotification({
+            userId: assignedTechnician.id,
+            type: 'technician_assigned',
+            title: { en: 'New Job Assigned', ar: 'تم تعيين وظيفة جديدة' },
+            body: { 
+              en: `You have been assigned to booking #${booking.id.slice(0, 8)}`, 
+              ar: `تم تعيينك للحجز #${booking.id.slice(0, 8)}` 
+            },
+            data: { bookingId: booking.id },
+          });
+        }
+      } catch (techError) {
+        console.error('Technician auto-assignment error:', techError);
+        // Continue even if auto-assignment fails - booking remains in pending status
+      }
+      
       await auditLog({
         userId: req.user.id,
         action: 'booking_created',
         resourceType: 'booking',
         resourceId: booking.id,
-        newValues: booking,
+        newValues: {
+          ...booking,
+          auto_assigned_technician: assignedTechnician?.id || null,
+        },
       });
       
       res.status(201).json({
@@ -1038,6 +1078,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency: 'SAR',
           scheduled_date: booking.scheduledDate,
           scheduled_time: booking.scheduledTime,
+          technician_id: assignedTechnician?.id || null,
+          technician_name: assignedTechnician?.name || null,
+          auto_assigned: !!assignedTechnician,
         }
       });
       
@@ -1204,12 +1247,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: newTotal.toString(),
       });
       
+      // Automatically generate invoice after quotation approval
+      const invoiceNumber = `INV-${Date.now()}-${booking.id.slice(0, 8)}`;
+      const invoice = await storage.createInvoice({
+        bookingId: booking.id,
+        userId: req.user.id,
+        invoiceNumber,
+        totalAmount: newTotal.toString(),
+      });
+      
       await auditLog({
         userId: req.user.id,
         action: 'quotation_approved',
         resourceType: 'quotation',
         resourceId: id,
-        newValues: { status: 'approved' },
+        newValues: { status: 'approved', invoice_generated: invoice.id },
       });
       
       res.json({
@@ -1219,6 +1271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotation_id: id,
           additional_cost: additionalCost,
           new_total: newTotal,
+          invoice_id: invoice.id,
+          invoice_number: invoiceNumber,
         }
       });
       

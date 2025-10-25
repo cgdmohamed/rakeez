@@ -3,7 +3,7 @@ import {
   brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
-  orderStatusLogs, invoices, homeSliderImages, homeBanner,
+  orderStatusLogs, invoices, subscriptions, homeSliderImages, homeBanner,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
@@ -14,6 +14,7 @@ import {
   type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage,
   type Faq, type InsertFaq, type Review, type InsertReview, type Promotion, type InsertPromotion,
   type AuditLog, type InsertAuditLog, type WebhookEvent, type OrderStatusLog,
+  type Subscription, type InsertSubscription,
   type HomeSliderImage, type InsertHomeSliderImage, type HomeBanner, type InsertHomeBanner
 } from "@shared/schema";
 import { db } from "./db";
@@ -199,6 +200,13 @@ export interface IStorage {
   createInvoice(invoice: any): Promise<any>;
   getInvoice(invoiceNumber: string): Promise<any>;
   getCustomerInvoices(bookingId: string): Promise<any[]>;
+  
+  // Subscriptions
+  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  getSubscription(id: string): Promise<Subscription | undefined>;
+  getUserSubscriptions(userId: string): Promise<Subscription[]>;
+  getAllSubscriptions(): Promise<Subscription[]>;
+  updateSubscription(id: string, subscription: Partial<InsertSubscription>): Promise<Subscription>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1835,6 +1843,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(invoices.invoiceNumber, invoiceNumber));
 
     return invoice;
+  }
+
+  // Subscriptions
+  async createSubscription(subscriptionData: InsertSubscription): Promise<Subscription> {
+    const [subscription] = await db
+      .insert(subscriptions)
+      .values(subscriptionData)
+      .returning();
+    return subscription;
+  }
+
+  async getSubscription(id: string): Promise<Subscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.id, id));
+    return subscription || undefined;
+  }
+
+  async getUserSubscriptions(userId: string): Promise<Subscription[]> {
+    return await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  async getAllSubscriptions(): Promise<Subscription[]> {
+    return await db
+      .select()
+      .from(subscriptions)
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  async updateSubscription(id: string, subscriptionData: Partial<InsertSubscription>): Promise<Subscription> {
+    const [updatedSubscription] = await db
+      .update(subscriptions)
+      .set({ ...subscriptionData, updatedAt: new Date() })
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return updatedSubscription;
   }
 }
 
