@@ -10,18 +10,43 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
+
+const addressFormSchema = z.object({
+  addressName: z.string().min(1, 'Address name is required'),
+  addressType: z.enum(['home', 'office', 'other']),
+  streetName: z.string().min(1, 'Street name is required'),
+  houseNo: z.string().min(1, 'House number is required'),
+  district: z.string().min(1, 'District is required'),
+  directions: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
+  isDefault: z.boolean(),
+});
+
+type AddressFormData = z.infer<typeof addressFormSchema>;
 
 export default function CustomerProfile() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [topupDialog, setTopupDialog] = useState({ open: false, amount: '', reason: '' });
+  const [addressDialog, setAddressDialog] = useState<{ 
+    open: boolean; 
+    mode: 'create' | 'edit'; 
+    address: Address | null 
+  }>({ open: false, mode: 'create', address: null });
 
   interface Booking {
     id: string;
@@ -142,6 +167,21 @@ export default function CustomerProfile() {
     enabled: !!id,
   });
 
+  const addressForm = useForm<AddressFormData>({
+    resolver: zodResolver(addressFormSchema),
+    defaultValues: {
+      addressName: '',
+      addressType: 'home',
+      streetName: '',
+      houseNo: '',
+      district: '',
+      directions: '',
+      latitude: '',
+      longitude: '',
+      isDefault: false,
+    },
+  });
+
   const topupWalletMutation = useMutation({
     mutationFn: async ({ amount, reason }: { amount: number; reason: string }) => {
       return apiRequest('POST', `/api/v2/admin/customers/${id}/wallet/topup`, {
@@ -167,6 +207,80 @@ export default function CustomerProfile() {
     },
   });
 
+  const createAddressMutation = useMutation({
+    mutationFn: async (data: AddressFormData) => {
+      const payload = {
+        ...data,
+        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
+      };
+      return apiRequest('POST', `/api/v2/addresses`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
+      setAddressDialog({ open: false, mode: 'create', address: null });
+      addressForm.reset();
+      toast({
+        title: 'Address created',
+        description: 'Address has been added successfully',
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create address',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateAddressMutation = useMutation({
+    mutationFn: async ({ addressId, data }: { addressId: string; data: AddressFormData }) => {
+      const payload = {
+        ...data,
+        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
+      };
+      return apiRequest('PUT', `/api/v2/addresses/${addressId}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
+      setAddressDialog({ open: false, mode: 'create', address: null });
+      addressForm.reset();
+      toast({
+        title: 'Address updated',
+        description: 'Address has been updated successfully',
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update address',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteAddressMutation = useMutation({
+    mutationFn: async (addressId: string) => {
+      return apiRequest('DELETE', `/api/v2/addresses/${addressId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/users/${id}/addresses`] });
+      toast({
+        title: 'Address deleted',
+        description: 'Address has been deleted successfully',
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete address',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleTopupSubmit = () => {
     const amount = parseFloat(topupDialog.amount);
     if (amount > 0 && topupDialog.reason.trim()) {
@@ -174,6 +288,39 @@ export default function CustomerProfile() {
         amount,
         reason: topupDialog.reason,
       });
+    }
+  };
+
+  const handleOpenAddressDialog = (mode: 'create' | 'edit', address: Address | null = null) => {
+    if (mode === 'edit' && address) {
+      addressForm.reset({
+        addressName: address.addressName,
+        addressType: address.addressType,
+        streetName: address.streetName,
+        houseNo: address.houseNo,
+        district: address.district,
+        directions: address.directions || '',
+        latitude: address.latitude?.toString() || '',
+        longitude: address.longitude?.toString() || '',
+        isDefault: address.isDefault,
+      });
+    } else {
+      addressForm.reset();
+    }
+    setAddressDialog({ open: true, mode, address });
+  };
+
+  const handleAddressSubmit = (data: AddressFormData) => {
+    if (addressDialog.mode === 'create') {
+      createAddressMutation.mutate(data);
+    } else if (addressDialog.mode === 'edit' && addressDialog.address) {
+      updateAddressMutation.mutate({ addressId: addressDialog.address.id, data });
+    }
+  };
+
+  const handleDeleteAddress = (addressId: string) => {
+    if (confirm('Are you sure you want to delete this address?')) {
+      deleteAddressMutation.mutate(addressId);
     }
   };
 
@@ -694,10 +841,20 @@ export default function CustomerProfile() {
         <TabsContent value="addresses" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle className="text-primary flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Saved Addresses
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-primary flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Saved Addresses
+                </CardTitle>
+                <Button
+                  onClick={() => handleOpenAddressDialog('create')}
+                  size="sm"
+                  data-testid="button-add-address"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Address
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {addressesData?.data && addressesData.data.length > 0 ? (
@@ -760,6 +917,29 @@ export default function CustomerProfile() {
                                 Added {format(new Date(address.createdAt), 'MMM dd, yyyy')}
                               </span>
                             </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4 pt-4 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenAddressDialog('edit', address)}
+                              className="flex-1"
+                              data-testid={`button-edit-address-${address.id}`}
+                            >
+                              <Pencil className="h-3 w-3 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteAddress(address.id)}
+                              className="flex-1 text-destructive hover:text-destructive"
+                              data-testid={`button-delete-address-${address.id}`}
+                            >
+                              <Trash2 className="h-3 w-3 mr-2" />
+                              Delete
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -833,6 +1013,206 @@ export default function CustomerProfile() {
               {topupWalletMutation.isPending ? 'Processing...' : 'Confirm Top-up'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Address Dialog */}
+      <Dialog open={addressDialog.open} onOpenChange={(open) => setAddressDialog({ ...addressDialog, open })}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-address">
+          <DialogHeader>
+            <DialogTitle>
+              {addressDialog.mode === 'create' ? 'Add New Address' : 'Edit Address'}
+            </DialogTitle>
+            <DialogDescription>
+              {addressDialog.mode === 'create' 
+                ? 'Add a new address for this customer.' 
+                : 'Update the address details.'}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...addressForm}>
+            <form onSubmit={addressForm.handleSubmit(handleAddressSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addressForm.control}
+                  name="addressName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Home, Office" {...field} data-testid="input-address-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addressForm.control}
+                  name="addressType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-address-type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="home">Home</SelectItem>
+                          <SelectItem value="office">Office</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addressForm.control}
+                  name="houseNo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>House/Building Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 123" {...field} data-testid="input-house-no" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addressForm.control}
+                  name="streetName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., King Fahd Road" {...field} data-testid="input-street-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={addressForm.control}
+                name="district"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>District/Area</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Al Malqa" {...field} data-testid="input-district" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={addressForm.control}
+                name="directions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Directions (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Additional directions to help find the location..." 
+                        {...field} 
+                        rows={2}
+                        data-testid="input-directions"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addressForm.control}
+                  name="latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="text" 
+                          placeholder="e.g., 24.7136" 
+                          {...field} 
+                          data-testid="input-latitude"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addressForm.control}
+                  name="longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="text" 
+                          placeholder="e.g., 46.6753" 
+                          {...field} 
+                          data-testid="input-longitude"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={addressForm.control}
+                name="isDefault"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Default Address</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Set this as the default address for the customer
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-is-default"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAddressDialog({ open: false, mode: 'create', address: null })}
+                  data-testid="button-address-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+                  data-testid="button-address-submit"
+                >
+                  {createAddressMutation.isPending || updateAddressMutation.isPending 
+                    ? 'Saving...' 
+                    : addressDialog.mode === 'create' ? 'Add Address' : 'Update Address'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
