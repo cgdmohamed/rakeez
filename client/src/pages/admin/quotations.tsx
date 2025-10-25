@@ -104,6 +104,17 @@ export default function AdminQuotations() {
   const technicians = (techsData?.data || []).filter((u: any) => u.role === 'technician');
   const spareParts = sparePartsData?.data || [];
 
+  // Auto-populate price when spare part is selected
+  useEffect(() => {
+    if (newSparePartId && spareParts.length > 0) {
+      const selectedPart = spareParts.find((sp: any) => sp.id === newSparePartId);
+      if (selectedPart && selectedPart.price != null) {
+        const price = parseFloat(selectedPart.price) || 0;
+        setNewUnitPrice(price);
+      }
+    }
+  }, [newSparePartId, spareParts]);
+
   // Apply search filter
   const filteredQuotations = quotations.filter((quotation: any) => {
     if (!searchQuery) return true;
@@ -435,8 +446,9 @@ export default function AdminQuotations() {
 
               <div className="space-y-3">
                 <h4 className="font-semibold">Spare Parts</h4>
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-5">
+                <div className="grid grid-cols-12 gap-2 items-start">
+                  <div className="col-span-5 space-y-1">
+                    <label className="text-xs text-muted-foreground">Spare Part</label>
                     <Select value={newSparePartId} onValueChange={setNewSparePartId}>
                       <SelectTrigger data-testid="select-spare-part">
                         <SelectValue placeholder="Select spare part" />
@@ -444,13 +456,14 @@ export default function AdminQuotations() {
                       <SelectContent>
                         {spareParts.map((part: any) => (
                           <SelectItem key={part.id} value={part.id}>
-                            {part.name?.en || 'Unknown Part'}
+                            {part.name?.en || 'Unknown Part'} - <SarSymbol size={10} />{parseFloat(part.price || 0).toFixed(2)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Quantity</label>
                     <Input
                       type="number"
                       min="1"
@@ -460,18 +473,24 @@ export default function AdminQuotations() {
                       data-testid="input-quantity"
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-3 space-y-1">
+                    <label className="text-xs text-muted-foreground">Unit Price (SAR)</label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
                       value={newUnitPrice}
                       onChange={(e) => setNewUnitPrice(parseFloat(e.target.value) || 0)}
-                      placeholder="Unit Price"
+                      placeholder="Auto-filled"
                       data-testid="input-unit-price"
+                      className={newUnitPrice > 0 ? "border-green-500" : ""}
                     />
+                    {newSparePartId && newUnitPrice > 0 && (
+                      <p className="text-xs text-green-600">✓ Price auto-filled (editable)</p>
+                    )}
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-transparent">Action</label>
                     <Button type="button" onClick={addSparePartItem} className="w-full" data-testid="button-add-item">
                       Add
                     </Button>
