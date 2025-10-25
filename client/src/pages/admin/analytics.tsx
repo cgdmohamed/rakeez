@@ -18,7 +18,7 @@ export default function AdminAnalytics() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/v2/admin/export/${reportType}?format=${exportFormat}`, {
+      const response = await fetch(`/api/v2/admin/analytics/export?type=${reportType}&format=${exportFormat}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         },

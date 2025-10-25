@@ -5,26 +5,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText } from 'lucide-react';
 
 export default function TechnicianUploads() {
   const { toast } = useToast();
   const [bookingId, setBookingId] = useState('');
+  const [quotationId, setQuotationId] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploadType, setUploadType] = useState<'invoice' | 'spare_part'>('invoice');
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!file || !bookingId) throw new Error('Missing file or booking ID');
+      const id = uploadType === 'invoice' ? bookingId : quotationId;
+      if (!file || !id) throw new Error(`Missing file or ${uploadType === 'invoice' ? 'booking' : 'quotation'} ID`);
 
       const formData = new FormData();
       formData.append('file', file);
 
       const endpoint = uploadType === 'invoice' 
         ? `/api/v2/bookings/${bookingId}/invoice`
-        : `/api/v2/quotations/${bookingId}/spare-parts`;
+        : `/api/v2/quotations/${quotationId}/spare-parts`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -48,6 +49,7 @@ export default function TechnicianUploads() {
       });
       setFile(null);
       setBookingId('');
+      setQuotationId('');
     },
     onError: (error: any) => {
       toast({
@@ -78,17 +80,6 @@ export default function TechnicianUploads() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="booking-id">Booking ID</Label>
-              <Input
-                id="booking-id"
-                data-testid="input-booking-id"
-                placeholder="Enter booking ID"
-                value={bookingId}
-                onChange={(e) => setBookingId(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="upload-type">Upload Type</Label>
               <Select value={uploadType} onValueChange={(v) => setUploadType(v as 'invoice' | 'spare_part')}>
                 <SelectTrigger data-testid="select-upload-type">
@@ -100,6 +91,30 @@ export default function TechnicianUploads() {
                 </SelectContent>
               </Select>
             </div>
+
+            {uploadType === 'invoice' ? (
+              <div className="space-y-2">
+                <Label htmlFor="booking-id">Booking ID</Label>
+                <Input
+                  id="booking-id"
+                  data-testid="input-booking-id"
+                  placeholder="Enter booking ID"
+                  value={bookingId}
+                  onChange={(e) => setBookingId(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="quotation-id">Quotation ID</Label>
+                <Input
+                  id="quotation-id"
+                  data-testid="input-quotation-id"
+                  placeholder="Enter quotation ID"
+                  value={quotationId}
+                  onChange={(e) => setQuotationId(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
@@ -120,7 +135,7 @@ export default function TechnicianUploads() {
             <Button
               className="w-full"
               onClick={() => uploadMutation.mutate()}
-              disabled={!file || !bookingId || uploadMutation.isPending}
+              disabled={!file || (uploadType === 'invoice' ? !bookingId : !quotationId) || uploadMutation.isPending}
               data-testid="button-upload"
             >
               <Upload className="mr-2 h-4 w-4" />
@@ -137,8 +152,9 @@ export default function TechnicianUploads() {
             <p>• Invoices must be in PDF format</p>
             <p>• Spare part images can be PNG, JPG, or JPEG</p>
             <p>• Maximum file size: 10MB</p>
-            <p>• Ensure the booking ID is correct</p>
-            <p>• Files are automatically linked to the booking</p>
+            <p>• For invoices: Enter the booking ID</p>
+            <p>• For spare parts: Enter the quotation ID</p>
+            <p>• Files are automatically linked to the record</p>
           </CardContent>
         </Card>
       </div>

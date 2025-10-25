@@ -181,23 +181,37 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       }
     },
     {
-      method: 'POST',
-      path: '/api/v2/payments/moyasar/create',
-      title: 'Moyasar Payment',
-      description: 'Create Moyasar payment charge',
+      method: 'GET',
+      path: '/api/v2/payments/moyasar/verify',
+      title: 'Verify Moyasar Payment',
+      description: 'Verify Moyasar payment status',
       auth: true,
+      requestBody: {
+        type: 'query',
+        properties: {
+          payment_id: { type: 'string', description: 'Moyasar payment ID' }
+        }
+      },
       responses: {
-        '201': { description: 'Moyasar payment created' }
+        '200': { description: 'Payment verification result' },
+        '400': { description: 'Invalid payment ID' }
       }
     },
     {
       method: 'POST',
-      path: '/api/v2/payments/tabby/checkout',
-      title: 'Tabby Checkout',
-      description: 'Create Tabby BNPL checkout session',
+      path: '/api/v2/payments/tabby/capture',
+      title: 'Capture Tabby Payment',
+      description: 'Capture Tabby BNPL payment after approval',
       auth: true,
+      requestBody: {
+        type: 'object',
+        properties: {
+          payment_id: { type: 'string', description: 'Tabby payment ID' }
+        }
+      },
       responses: {
-        '201': { description: 'Tabby checkout created' }
+        '200': { description: 'Tabby payment captured successfully' },
+        '400': { description: 'Capture failed' }
       }
     }
   ],
