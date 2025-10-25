@@ -7,7 +7,9 @@ Rakeez is a Node.js + Express RESTful API backend for a bilingual (Arabic/Englis
 Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 2025)
+- **Image Fallback Component** (Oct 25): Created reusable `ImageWithFallback` component with error handling, loading states, retry functionality (click to retry), and multiple fallback types. Integrated into brands and spare parts admin pages with visual retry indicators (RefreshCw icon, hover states, accessibility labels).
 - **Object Storage Deployment Fix** (Oct 25): Fixed 502 errors on published domain by implementing dual-mode authentication (development: sidecar endpoint, production: GCS service account credentials). Requires deployment secrets for published apps. See `OBJECT_STORAGE_DEPLOYMENT_GUIDE.md` for setup.
+- **Storage Options Documentation** (Oct 25): Added comprehensive `STORAGE_OPTIONS_GUIDE.md` with detailed comparison of GCS (production-ready) vs Base64 encoding (simple alternative) for file storage
 - **Upload Error Handling**: Enhanced file upload with 30-second timeouts, detailed error messages, and graceful degradation for network issues
 - **JWT Authentication Fix**: Updated JWT issuer/audience values to `rakeez-api`/`rakeez-client` across all token generation and verification functions for consistency
 - **Fixed Authentication**: Standardized localStorage token key to 'auth_token' across all admin pages (overview, bookings, promos)
