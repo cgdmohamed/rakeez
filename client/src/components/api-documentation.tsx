@@ -437,6 +437,161 @@ const endpoints: Record<string, ApiEndpoint[]> = {
         '404': { description: 'User not found' }
       }
     }
+  ],
+  addresses: [
+    {
+      method: 'GET',
+      path: '/api/v2/admin/users/:userId/addresses',
+      title: 'Get User Addresses (Admin)',
+      description: 'Get all saved addresses for a specific user (Admin only)',
+      auth: true,
+      parameters: [
+        { name: 'userId', type: 'string', required: true, description: 'User ID' }
+      ],
+      responses: {
+        '200': {
+          description: 'Addresses retrieved successfully',
+          schema: {
+            success: true,
+            data: [
+              {
+                id: 'addr_123',
+                userId: 'user_456',
+                addressName: 'Home',
+                addressType: 'home',
+                streetName: 'King Fahd Road',
+                houseNo: 'Building 123',
+                district: 'Al Olaya',
+                directions: 'Near the metro station',
+                latitude: 24.7136,
+                longitude: 46.6753,
+                isDefault: true,
+                createdAt: '2024-10-25T10:00:00Z',
+                updatedAt: '2024-10-25T10:00:00Z'
+              }
+            ]
+          }
+        },
+        '403': { description: 'Admin access required' },
+        '500': { description: 'Server error' }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/users/:userId/addresses',
+      title: 'Create Address for User (Admin)',
+      description: 'Create a new address for a specific user (Admin only)',
+      auth: true,
+      parameters: [
+        { name: 'userId', type: 'string', required: true, description: 'User ID' }
+      ],
+      requestBody: {
+        type: 'object',
+        properties: {
+          addressName: { type: 'string', minLength: 1, description: 'User-friendly address name (e.g., Home, Office)' },
+          addressType: { type: 'string', enum: ['home', 'office', 'other'], default: 'home' },
+          streetName: { type: 'string', minLength: 1, description: 'Street name' },
+          houseNo: { type: 'string', minLength: 1, description: 'House/building number' },
+          district: { type: 'string', minLength: 1, description: 'District/neighborhood' },
+          directions: { type: 'string', optional: true, description: 'Additional directions' },
+          latitude: { type: 'number', optional: true, description: 'GPS latitude coordinate' },
+          longitude: { type: 'number', optional: true, description: 'GPS longitude coordinate' },
+          isDefault: { type: 'boolean', default: false, description: 'Set as default address' }
+        }
+      },
+      responses: {
+        '201': {
+          description: 'Address created successfully',
+          schema: {
+            success: true,
+            message: 'Address created successfully',
+            data: {
+              id: 'addr_789',
+              userId: 'user_456',
+              addressName: 'Office',
+              addressType: 'office',
+              streetName: 'King Fahd Road',
+              houseNo: 'Building 123',
+              district: 'Al Olaya',
+              directions: 'Near the metro station, third floor',
+              latitude: 24.7136,
+              longitude: 46.6753,
+              isDefault: true,
+              createdAt: '2024-10-25T12:00:00Z',
+              updatedAt: '2024-10-25T12:00:00Z'
+            }
+          }
+        },
+        '400': { description: 'Validation error - missing required fields' },
+        '403': { description: 'Admin access required' },
+        '500': { description: 'Server error' }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/addresses/:addressId',
+      title: 'Update Address (Admin)',
+      description: 'Update an existing address (Admin only)',
+      auth: true,
+      parameters: [
+        { name: 'addressId', type: 'string', required: true, description: 'Address ID' }
+      ],
+      requestBody: {
+        type: 'object',
+        properties: {
+          addressName: { type: 'string', optional: true },
+          addressType: { type: 'string', enum: ['home', 'office', 'other'], optional: true },
+          streetName: { type: 'string', optional: true },
+          houseNo: { type: 'string', optional: true },
+          district: { type: 'string', optional: true },
+          directions: { type: 'string', optional: true },
+          latitude: { type: 'number', optional: true },
+          longitude: { type: 'number', optional: true },
+          isDefault: { type: 'boolean', optional: true }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Address updated successfully',
+          schema: {
+            success: true,
+            message: 'Address updated successfully',
+            data: {
+              id: 'addr_789',
+              addressName: 'Updated Office Location',
+              district: 'Al Malaz',
+              isDefault: false
+            }
+          }
+        },
+        '400': { description: 'Validation error' },
+        '403': { description: 'Admin access required' },
+        '404': { description: 'Address not found' },
+        '500': { description: 'Server error' }
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v2/admin/addresses/:addressId',
+      title: 'Delete Address (Admin)',
+      description: 'Delete an address (Admin only)',
+      auth: true,
+      parameters: [
+        { name: 'addressId', type: 'string', required: true, description: 'Address ID to delete' }
+      ],
+      responses: {
+        '200': {
+          description: 'Address deleted successfully',
+          schema: {
+            success: true,
+            message: 'Address deleted successfully'
+          }
+        },
+        '403': { description: 'Admin access required' },
+        '404': { description: 'Address not found' },
+        '500': { description: 'Server error' }
+      }
+    }
   ]
 };
 
@@ -564,7 +719,8 @@ export default function ApiDocumentation() {
                             {category === 'auth' ? (isArabic ? 'المصادقة' : 'Authentication') :
                              category === 'bookings' ? (isArabic ? 'الحجوزات' : 'Bookings') :
                              category === 'payments' ? (isArabic ? 'الدفعات' : 'Payments') :
-                             category === 'referrals' ? (isArabic ? 'الإحالات والعروض' : 'Referrals & Promos') : category}
+                             category === 'referrals' ? (isArabic ? 'الإحالات والعروض' : 'Referrals & Promos') :
+                             category === 'addresses' ? (isArabic ? 'إدارة العناوين' : 'Address Management') : category}
                           </div>
                           {categoryEndpoints.map((endpoint, index) => (
                             <Button
