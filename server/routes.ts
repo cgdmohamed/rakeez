@@ -3043,6 +3043,302 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== MOBILE CONTENT MANAGEMENT ====================
+
+  // Get Home Slider Images (Admin)
+  app.get('/api/v2/admin/mobile-content/slider', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const images = await storage.getHomeSliderImages();
+      res.json({
+        success: true,
+        data: images,
+      });
+    } catch (error) {
+      console.error('Get slider images error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Create Home Slider Image (Admin)
+  app.post('/api/v2/admin/mobile-content/slider', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      imageUrl: z.string().url(),
+      sortOrder: z.number().min(1).max(3),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const imageData = req.body;
+      const newImage = await storage.createHomeSliderImage(imageData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'slider_image_created',
+        resourceType: 'slider_image',
+        resourceId: newImage.id,
+        newValues: imageData,
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newImage,
+      });
+    } catch (error) {
+      console.error('Create slider image error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Update Home Slider Image (Admin)
+  app.put('/api/v2/admin/mobile-content/slider/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      imageUrl: z.string().url().optional(),
+      sortOrder: z.number().min(1).max(3).optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const updatedImage = await storage.updateHomeSliderImage(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'slider_image_updated',
+        resourceType: 'slider_image',
+        resourceId: id,
+        newValues: updateData,
+      });
+      
+      res.json({
+        success: true,
+        data: updatedImage,
+      });
+    } catch (error) {
+      console.error('Update slider image error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Reorder Home Slider Images (Admin)
+  app.post('/api/v2/admin/mobile-content/slider/reorder', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      imageIds: z.array(z.string().uuid()).max(3),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const { imageIds } = req.body;
+      await storage.reorderHomeSliderImages(imageIds);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'slider_images_reordered',
+        resourceType: 'slider_image',
+        newValues: { imageIds },
+      });
+      
+      res.json({
+        success: true,
+        message: 'Slider images reordered successfully',
+      });
+    } catch (error) {
+      console.error('Reorder slider images error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Delete Home Slider Image (Admin)
+  app.delete('/api/v2/admin/mobile-content/slider/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteHomeSliderImage(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'slider_image_deleted',
+        resourceType: 'slider_image',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Slider image deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete slider image error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Get Home Banners (Admin)
+  app.get('/api/v2/admin/mobile-content/banner', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const banners = await storage.getHomeBanners();
+      res.json({
+        success: true,
+        data: banners,
+      });
+    } catch (error) {
+      console.error('Get banners error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Create Home Banner (Admin)
+  app.post('/api/v2/admin/mobile-content/banner', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      title: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      imageUrl: z.string().url(),
+      linkUrl: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const bannerData = req.body;
+      const newBanner = await storage.createHomeBanner(bannerData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'banner_created',
+        resourceType: 'banner',
+        resourceId: newBanner.id,
+        newValues: bannerData,
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newBanner,
+      });
+    } catch (error) {
+      console.error('Create banner error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Update Home Banner (Admin)
+  app.put('/api/v2/admin/mobile-content/banner/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      title: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      imageUrl: z.string().url().optional(),
+      linkUrl: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const updatedBanner = await storage.updateHomeBanner(id, updateData);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'banner_updated',
+        resourceType: 'banner',
+        resourceId: id,
+        newValues: updateData,
+      });
+      
+      res.json({
+        success: true,
+        data: updatedBanner,
+      });
+    } catch (error) {
+      console.error('Update banner error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Delete Home Banner (Admin)
+  app.delete('/api/v2/admin/mobile-content/banner/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteHomeBanner(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'banner_deleted',
+        resourceType: 'banner',
+        resourceId: id,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Banner deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete banner error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // ==================== PUBLIC API - Mobile Content ====================
+
+  // Get Active Slider Images (Public)
+  app.get('/api/v2/public/home/slider', async (req: any, res: any) => {
+    try {
+      const images = await storage.getHomeSliderImages();
+      res.json({
+        success: true,
+        data: images,
+      });
+    } catch (error) {
+      console.error('Get public slider images error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
+  // Get Active Banner (Public)
+  app.get('/api/v2/public/home/banner', async (req: any, res: any) => {
+    try {
+      const banner = await storage.getActiveBanner();
+      res.json({
+        success: true,
+        data: banner,
+      });
+    } catch (error) {
+      console.error('Get public banner error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
+    }
+  });
+
   // Create Quotation (Admin)
   app.post('/api/v2/admin/quotations', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: z.object({
