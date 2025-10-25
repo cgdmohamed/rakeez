@@ -12,7 +12,12 @@ Preferred communication style: Simple, everyday language.
   - Updated API endpoints with new validation schemas supporting all required fields
   - Admin customer profile integration with dedicated "Addresses" tab displaying all saved addresses in a grid layout
   - Address cards show type icons, default badge, and complete location details with formatted creation dates
-  - Backend endpoint for admins to view user addresses: GET /api/v2/admin/users/:userId/addresses
+  - **Manual Address Input for Admin**: Full CRUD operations for managing customer addresses from admin dashboard
+    - Add, edit, and delete addresses for any customer
+    - Comprehensive form with all address fields including optional GPS coordinates
+    - Form validation using Zod and react-hook-form
+    - Admin-specific API endpoints with proper authentication and authorization
+    - Real-time updates with query invalidation and toast notifications
 - **Mobile Content Management** (Oct 25): Implemented complete mobile app homepage content management system:
   - Home Slider: Up to 3 active images with drag-and-drop reordering, unlimited inactive drafts
   - Home Banner: Bilingual titles (EN/AR), optional link URL, single active banner
