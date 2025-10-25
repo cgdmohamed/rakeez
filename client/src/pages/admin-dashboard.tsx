@@ -13,13 +13,13 @@ import {
   LogOut,
   Menu,
   X,
-  Wallet,
   Bell,
   MessageSquare,
   Settings,
   Package,
   Shield,
   Gift,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -50,7 +50,6 @@ const navigation = [
   { name: 'Bookings', href: '/admin/bookings', icon: Calendar },
   { name: 'Quotations', href: '/admin/quotations', icon: FileText },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
-  { name: 'Wallets', href: '/admin/wallets', icon: Wallet },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Technicians', href: '/admin/technicians', icon: Wrench },
   { name: 'Users', href: '/admin/users', icon: UserCog },
@@ -61,6 +60,7 @@ const navigation = [
   { name: 'Brands', href: '/admin/brands', icon: Package },
   { name: 'Spare Parts', href: '/admin/spare-parts', icon: Package },
   { name: 'Promos', href: '/admin/promos', icon: Gift },
+  { name: 'Mobile Content', href: '/admin/mobile-content', icon: Smartphone },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
 ];
 

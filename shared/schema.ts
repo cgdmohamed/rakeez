@@ -146,6 +146,27 @@ export const spareParts = pgTable("spare_parts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Home Slider Images table (for mobile app homepage)
+export const homeSliderImages = pgTable("home_slider_images", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  imageUrl: text("image_url").notNull(),
+  sortOrder: integer("sort_order").notNull(), // 1, 2, or 3
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Home Banner table (for mobile app homepage)
+export const homeBanner = pgTable("home_banner", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: jsonb("title").notNull(), // { "en": "Summer Sale", "ar": "تخفيضات الصيف" }
+  imageUrl: text("image_url").notNull(),
+  linkUrl: text("link_url"), // Deep link or URL to navigate to
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Bookings/Orders table
 export const bookings = pgTable("bookings", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -658,6 +679,18 @@ export const insertSparePartSchema = createInsertSchema(spareParts).omit({
   createdAt: true,
 });
 
+export const insertHomeSliderImageSchema = createInsertSchema(homeSliderImages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHomeBannerSchema = createInsertSchema(homeBanner).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
   createdAt: true,
@@ -745,6 +778,10 @@ export type Brand = typeof brands.$inferSelect;
 export type InsertBrand = z.infer<typeof insertBrandSchema>;
 export type SparePart = typeof spareParts.$inferSelect;
 export type InsertSparePart = z.infer<typeof insertSparePartSchema>;
+export type HomeSliderImage = typeof homeSliderImages.$inferSelect;
+export type InsertHomeSliderImage = z.infer<typeof insertHomeSliderImageSchema>;
+export type HomeBanner = typeof homeBanner.$inferSelect;
+export type InsertHomeBanner = z.infer<typeof insertHomeBannerSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Quotation = typeof quotations.$inferSelect;
