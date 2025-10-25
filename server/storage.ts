@@ -3,7 +3,7 @@ import {
   brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
-  orderStatusLogs,
+  orderStatusLogs, invoices,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
@@ -177,6 +177,11 @@ export interface IStorage {
   getUsersByRole(role: string): Promise<any[]>;
   getAllUsers(): Promise<User[]>;
   getBookings(startDate?: Date, endDate?: Date): Promise<Booking[]>;
+  
+  // Invoices
+  createInvoice(invoice: any): Promise<any>;
+  getInvoice(invoiceNumber: string): Promise<any>;
+  getCustomerInvoices(bookingId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1678,6 +1683,31 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(invoices.createdAt));
 
     return result;
+  }
+
+  async createInvoice(invoiceData: any): Promise<any> {
+    const [invoice] = await db
+      .insert(invoices)
+      .values({
+        bookingId: invoiceData.bookingId,
+        userId: invoiceData.userId,
+        invoiceNumber: invoiceData.invoiceNumber,
+        totalAmount: invoiceData.totalAmount,
+        filePath: invoiceData.filePath,
+        fileUrl: invoiceData.fileUrl || invoiceData.filePath,
+      })
+      .returning();
+
+    return invoice;
+  }
+
+  async getInvoice(invoiceNumber: string): Promise<any> {
+    const [invoice] = await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.invoiceNumber, invoiceNumber));
+
+    return invoice;
   }
 }
 

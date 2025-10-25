@@ -3607,7 +3607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create notification for technician
       await storage.createNotification({
         userId: technician_id,
-        type: 'booking_assigned',
+        type: 'technician_assigned',
         title: { en: 'New Job Assigned', ar: 'تم تعيين وظيفة جديدة' },
         body: { 
           en: `You have been assigned to booking #${id.slice(0, 8)}`, 
@@ -3650,7 +3650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build filter conditions
       const conditions = [];
       if (status) {
-        conditions.push(eq(payments.status, status as string));
+        conditions.push(sql`${payments.status} = ${status}`);
       }
       if (start_date) {
         conditions.push(gte(payments.createdAt, new Date(start_date as string)));
@@ -3662,7 +3662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conditions.push(eq(payments.userId, user_id as string));
       }
       if (payment_method) {
-        conditions.push(eq(payments.paymentMethod, payment_method as string));
+        conditions.push(sql`${payments.paymentMethod} = ${payment_method}`);
       }
       
       const paymentsList = await db.query.payments.findMany({
@@ -3928,6 +3928,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Create Manual Invoice (Admin Only)
+  app.post('/api/v2/admin/invoices/manual', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      booking_id: z.string().uuid(),
+      language: z.enum(['en', 'ar']).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { booking_id, language: invoiceLanguage } = req.body;
+      const userLanguage = req.headers['accept-language'] || 'en';
+      
+      // Fetch booking details
+      const booking = await storage.getBooking(booking_id);
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('general.not_found', userLanguage),
+        });
+      }
+      
+      // Generate invoice using PDF service
+      const invoiceData = await pdfService.generateAndSaveInvoice(
+        booking_id,
+        invoiceLanguage || userLanguage
+      );
+      
+      // Log admin action
+      await auditLog({
+        userId: req.user.id,
+        action: 'manual_invoice_created',
+        resourceType: 'invoice',
+        resourceId: invoiceData.id,
+        newValues: {
+          bookingId: booking_id,
+          invoiceNumber: invoiceData.invoiceNumber,
+          adminId: req.user.id,
+        },
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.invoice_created', userLanguage),
+        data: {
+          ...invoiceData,
+          totalAmount: Number(invoiceData.totalAmount) || 0,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Manual invoice creation error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', language),
       });
     }
   });
