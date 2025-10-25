@@ -33,13 +33,14 @@ class PDFService {
     }
   }
 
-  async generateInvoice(booking: Booking, language: string = 'en'): Promise<{
+  async generateInvoice(booking: Booking, language: string = 'en', isRegenerate: boolean = false): Promise<{
     invoice_number: string;
     pdf_url: string;
     download_url: string;
   }> {
     const isArabic = language === 'ar';
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${booking.id.slice(-8).toUpperCase()}`;
+    const timestamp = isRegenerate ? `-${Date.now()}` : '';
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${booking.id.slice(-8).toUpperCase()}${timestamp}`;
     const filename = `${invoiceNumber}.pdf`;
     const filepath = path.join(this.uploadsDir, filename);
 
@@ -221,16 +222,65 @@ class PDFService {
 
     currentY += 25;
 
-    // Spare parts if any
-    const sparePartsCost = parseFloat(booking.sparePartsCost?.toString() || '0');
-    if (sparePartsCost > 0) {
-      this.addTableRow(doc, {
-        description: isArabic ? 'قطع الغيار' : 'Spare Parts',
-        quantity: 1,
-        price: sparePartsCost,
-        total: sparePartsCost
-      }, currentY, tableLeft, colWidths, isArabic);
-      currentY += 25;
+    // Add quotation details if available
+    if (booking.quotation) {
+      const quotation = booking.quotation;
+      
+      // Add quotation header
+      if (quotation.notes || quotation.notes_ar) {
+        doc.fontSize(10)
+           .fillColor('#6b7280')
+           .text(
+             isArabic ? (quotation.notes_ar || quotation.notes || '') : (quotation.notes || ''),
+             tableLeft,
+             currentY,
+             { width: tableWidth, align: isArabic ? 'right' : 'left' }
+           );
+        currentY += 20;
+      }
+      
+      // Add spare parts from quotation
+      if (quotation.spareParts && quotation.spareParts.length > 0) {
+        quotation.spareParts.forEach((part: any) => {
+          const partQuantity = part.quantity || 1;
+          const partPrice = parseFloat(part.price?.toString() || '0');
+          const partTotal = partQuantity * partPrice;
+          
+          this.addTableRow(doc, {
+            description: isArabic 
+              ? (part.sparePart?.name_ar || part.sparePart?.name || part.name || 'قطعة غيار')
+              : (part.sparePart?.name || part.name || 'Spare Part'),
+            quantity: partQuantity,
+            price: partPrice,
+            total: partTotal
+          }, currentY, tableLeft, colWidths, isArabic);
+          currentY += 25;
+        });
+      }
+      
+      // Add additional cost from quotation
+      const additionalCost = parseFloat(quotation.additional_cost?.toString() || '0');
+      if (additionalCost > 0) {
+        this.addTableRow(doc, {
+          description: isArabic ? 'تكاليف إضافية' : 'Additional Costs',
+          quantity: 1,
+          price: additionalCost,
+          total: additionalCost
+        }, currentY, tableLeft, colWidths, isArabic);
+        currentY += 25;
+      }
+    } else {
+      // Fallback: Show spare parts if no quotation but sparePartsCost exists
+      const sparePartsCost = parseFloat(booking.sparePartsCost?.toString() || '0');
+      if (sparePartsCost > 0) {
+        this.addTableRow(doc, {
+          description: isArabic ? 'قطع الغيار' : 'Spare Parts',
+          quantity: 1,
+          price: sparePartsCost,
+          total: sparePartsCost
+        }, currentY, tableLeft, colWidths, isArabic);
+        currentY += 25;
+      }
     }
 
     // Draw bottom line
@@ -413,7 +463,7 @@ class PDFService {
     });
   }
 
-  async generateAndSaveInvoice(bookingId: string, language: string = 'en'): Promise<any> {
+  async generateAndSaveInvoice(bookingId: string, language: string = 'en', isRegenerate: boolean = false): Promise<any> {
     try {
       // Fetch booking with related data
       const booking = await storage.getBooking(bookingId);
@@ -426,16 +476,29 @@ class PDFService {
       const addresses = await storage.getUserAddresses(booking.userId);
       const address = addresses.find((addr: any) => addr.id === booking.addressId);
 
-      // Add user, service, and address to booking object for PDF generation
+      // Fetch quotation details if available
+      let quotation = null;
+      try {
+        const quotations = await storage.getBookingQuotations(bookingId);
+        if (quotations && quotations.length > 0) {
+          // Get the most recent approved quotation
+          quotation = quotations.find((q: any) => q.status === 'approved') || quotations[0];
+        }
+      } catch (error) {
+        console.log('No quotation found for booking:', bookingId, error);
+      }
+
+      // Add user, service, address, and quotation to booking object for PDF generation
       const bookingWithDetails = {
         ...booking,
         user,
         service,
         address,
+        quotation,
       };
 
       // Generate PDF
-      const pdfResult = await this.generateInvoice(bookingWithDetails, language);
+      const pdfResult = await this.generateInvoice(bookingWithDetails, language, isRegenerate);
 
       // Calculate total amount
       const totalAmount = parseFloat(booking.totalAmount?.toString() || '0');
@@ -443,6 +506,7 @@ class PDFService {
       // Save invoice to database
       const invoice = await storage.createInvoice({
         bookingId,
+        userId: booking.userId, // Include userId from booking
         invoiceNumber: pdfResult.invoice_number,
         filePath: pdfResult.pdf_url,
         totalAmount: totalAmount.toString(),

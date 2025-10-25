@@ -3937,10 +3937,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body: z.object({
       booking_id: z.string().uuid(),
       language: z.enum(['en', 'ar']).optional(),
+      regenerate: z.boolean().optional(),
     })
   }), async (req: any, res: any) => {
     try {
-      const { booking_id, language: invoiceLanguage } = req.body;
+      const { booking_id, language: invoiceLanguage, regenerate } = req.body;
       const userLanguage = req.headers['accept-language'] || 'en';
       
       // Fetch booking details
@@ -3952,22 +3953,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check if invoice already exists
+      const existingInvoices = await storage.getCustomerInvoices(booking_id);
+      if (existingInvoices.length > 0 && !regenerate) {
+        return res.status(409).json({
+          success: false,
+          message: userLanguage === 'ar'
+            ? 'فاتورة موجودة بالفعل لهذا الحجز. استخدم regenerate=true لإعادة إنشاء الفاتورة.'
+            : 'Invoice already exists for this booking. Use regenerate=true to recreate the invoice.',
+          data: {
+            existing_invoice: existingInvoices[0],
+            hint: 'Set regenerate=true to create a new invoice copy',
+          },
+        });
+      }
+      
       // Generate invoice using PDF service
       const invoiceData = await pdfService.generateAndSaveInvoice(
         booking_id,
-        invoiceLanguage || userLanguage
+        invoiceLanguage || userLanguage,
+        !!regenerate
       );
       
       // Log admin action
       await auditLog({
         userId: req.user.id,
-        action: 'manual_invoice_created',
+        action: regenerate ? 'invoice_regenerated' : 'manual_invoice_created',
         resourceType: 'invoice',
         resourceId: invoiceData.id,
         newValues: {
           bookingId: booking_id,
           invoiceNumber: invoiceData.invoiceNumber,
           adminId: req.user.id,
+          language: invoiceLanguage || userLanguage,
         },
       });
       
@@ -3980,9 +3998,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Manual invoice creation error:', error);
       const language = req.headers['accept-language'] || 'en';
+      
+      // Handle duplicate invoice error with user-friendly message
+      if (error.code === '23505' && error.constraint === 'invoices_invoice_number_unique') {
+        return res.status(409).json({
+          success: false,
+          message: language === 'ar'
+            ? 'فاتورة موجودة بالفعل بهذا الرقم. يرجى استخدام regenerate=true لإعادة إنشاء الفاتورة.'
+            : 'Invoice with this number already exists. Please use regenerate=true to recreate the invoice.',
+        });
+      }
+      
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', language),
