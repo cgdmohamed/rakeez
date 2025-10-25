@@ -69,20 +69,24 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Address type enum
+export const addressTypeEnum = pgEnum("address_type", ["home", "office", "other"]);
+
 // Addresses table
 export const addresses = pgTable("addresses", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id").references(() => users.id).notNull(),
-  label: varchar("label", { length: 100 }).notNull(), // Home, Work, etc.
-  labelAr: varchar("label_ar", { length: 100 }),
-  address: text("address").notNull(),
-  addressAr: text("address_ar"),
-  city: varchar("city", { length: 100 }).notNull(),
-  cityAr: varchar("city_ar", { length: 100 }),
+  addressName: varchar("address_name", { length: 100 }).notNull(), // User-defined name for this address
+  addressType: addressTypeEnum("address_type").default('home').notNull(), // home, office, other
+  streetName: text("street_name").notNull(),
+  houseNo: varchar("house_no", { length: 50 }).notNull(),
+  district: varchar("district", { length: 100 }).notNull(), // District/Area
+  directions: text("directions"), // Optional directions/notes
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   isDefault: boolean("is_default").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Service categories table
@@ -652,6 +656,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertAddressSchema = createInsertSchema(addresses).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({

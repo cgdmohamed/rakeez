@@ -453,15 +453,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Address
   app.post('/api/v2/addresses', authenticateToken, validateRequest({
     body: z.object({
-      label: z.string().min(1),
-      label_ar: z.string().optional(),
-      address: z.string().min(10),
-      address_ar: z.string().optional(),
-      city: z.string().min(1),
-      city_ar: z.string().optional(),
+      addressName: z.string().min(1, 'Address name is required'),
+      addressType: z.enum(['home', 'office', 'other']).default('home'),
+      streetName: z.string().min(1, 'Street name is required'),
+      houseNo: z.string().min(1, 'House number is required'),
+      district: z.string().min(1, 'District is required'),
+      directions: z.string().optional(),
       latitude: z.number().optional(),
       longitude: z.number().optional(),
-      is_default: z.boolean().default(false),
+      isDefault: z.boolean().default(false),
     })
   }), async (req: any, res: any) => {
     try {
@@ -487,15 +487,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update Address
   app.put('/api/v2/addresses/:id', authenticateToken, validateRequest({
     body: z.object({
-      label: z.string().min(1).optional(),
-      label_ar: z.string().optional(),
-      address: z.string().min(10).optional(),
-      address_ar: z.string().optional(),
-      city: z.string().min(1).optional(),
-      city_ar: z.string().optional(),
+      addressName: z.string().min(1).optional(),
+      addressType: z.enum(['home', 'office', 'other']).optional(),
+      streetName: z.string().min(1).optional(),
+      houseNo: z.string().min(1).optional(),
+      district: z.string().min(1).optional(),
+      directions: z.string().optional(),
       latitude: z.number().optional(),
       longitude: z.number().optional(),
-      is_default: z.boolean().optional(),
+      isDefault: z.boolean().optional(),
     })
   }), async (req: any, res: any) => {
     try {
