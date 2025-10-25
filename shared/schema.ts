@@ -33,6 +33,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
 ]);
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
 export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'cancelled', 'expired']);
 
 // Roles table (for custom role management)
 export const roles = pgTable("roles", {
@@ -64,6 +65,7 @@ export const users = pgTable("users", {
   deviceToken: text("device_token"),
   avatar: text("avatar"),
   referralCode: varchar("referral_code", { length: 20 }).unique(), // User's unique referral code
+  specializations: jsonb("specializations"), // For technicians: array of service category IDs they can handle
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -256,6 +258,22 @@ export const invoices = pgTable("invoices", {
   fileUrl: text("file_url"), // Public URL to invoice
   issuedAt: timestamp("issued_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Subscriptions table
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  packageId: uuid("package_id").references(() => servicePackages.id).notNull(),
+  status: subscriptionStatusEnum("status").default('active').notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  autoRenew: boolean("auto_renew").default(false).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  benefits: jsonb("benefits"), // List of included services or benefits
+  usageCount: integer("usage_count").default(0).notNull(), // Track how many times subscription was used
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Wallet table
@@ -766,6 +784,12 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   createdAt: true,
 });
 
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
@@ -816,3 +840,5 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type OrderStatusLog = typeof orderStatusLogs.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
