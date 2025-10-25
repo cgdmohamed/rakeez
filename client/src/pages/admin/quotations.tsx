@@ -46,6 +46,7 @@ export default function AdminQuotations() {
   const [newSparePartId, setNewSparePartId] = useState('');
   const [newQuantity, setNewQuantity] = useState(1);
   const [newUnitPrice, setNewUnitPrice] = useState(0);
+  const [sparePartSearch, setSparePartSearch] = useState('');
 
   const { data: quotationsData, isLoading } = useQuery<any>({
     queryKey: ['/api/v2/admin/quotations'],
@@ -104,6 +105,16 @@ export default function AdminQuotations() {
   const technicians = (techsData?.data || []).filter((u: any) => u.role === 'technician');
   const spareParts = sparePartsData?.data || [];
 
+  // Filter spare parts based on search
+  const filteredSpareParts = spareParts.filter((part: any) => {
+    if (!sparePartSearch) return true;
+    const searchLower = sparePartSearch.toLowerCase();
+    const nameEn = part.name?.en?.toLowerCase() || '';
+    const nameAr = part.name?.ar?.toLowerCase() || '';
+    const category = part.category?.toLowerCase() || '';
+    return nameEn.includes(searchLower) || nameAr.includes(searchLower) || category.includes(searchLower);
+  });
+
   // Auto-populate price when spare part is selected
   useEffect(() => {
     if (newSparePartId && spareParts.length > 0) {
@@ -114,6 +125,9 @@ export default function AdminQuotations() {
       }
     }
   }, [newSparePartId, spareParts]);
+
+  // Calculate total amount for current spare part
+  const currentItemTotal = newUnitPrice * newQuantity;
 
   // Apply search filter
   const filteredQuotations = quotations.filter((quotation: any) => {
@@ -446,19 +460,50 @@ export default function AdminQuotations() {
 
               <div className="space-y-3">
                 <h4 className="font-semibold">Spare Parts</h4>
+                
+                {/* Search Input */}
+                <div className="mb-2 relative">
+                  <Input
+                    type="text"
+                    placeholder="Search spare parts by name or category..."
+                    value={sparePartSearch}
+                    onChange={(e) => setSparePartSearch(e.target.value)}
+                    data-testid="input-spare-part-search"
+                    className="w-full pr-10"
+                  />
+                  {sparePartSearch && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSparePartSearch('')}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                      data-testid="button-clear-search"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-12 gap-2 items-start">
-                  <div className="col-span-5 space-y-1">
+                  <div className="col-span-4 space-y-1">
                     <label className="text-xs text-muted-foreground">Spare Part</label>
                     <Select value={newSparePartId} onValueChange={setNewSparePartId}>
                       <SelectTrigger data-testid="select-spare-part">
                         <SelectValue placeholder="Select spare part" />
                       </SelectTrigger>
                       <SelectContent>
-                        {spareParts.map((part: any) => (
-                          <SelectItem key={part.id} value={part.id}>
-                            {part.name?.en || 'Unknown Part'} - <SarSymbol size={10} />{parseFloat(part.price || 0).toFixed(2)}
-                          </SelectItem>
-                        ))}
+                        {filteredSpareParts.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No spare parts found
+                          </div>
+                        ) : (
+                          filteredSpareParts.map((part: any) => (
+                            <SelectItem key={part.id} value={part.id}>
+                              {part.name?.en || 'Unknown Part'} - <SarSymbol size={10} />{parseFloat(part.price || 0).toFixed(2)}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -473,21 +518,37 @@ export default function AdminQuotations() {
                       data-testid="input-quantity"
                     />
                   </div>
-                  <div className="col-span-3 space-y-1">
+                  <div className="col-span-2 space-y-1">
                     <label className="text-xs text-muted-foreground">Unit Price (SAR)</label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
                       value={newUnitPrice}
-                      onChange={(e) => setNewUnitPrice(parseFloat(e.target.value) || 0)}
                       placeholder="Auto-filled"
                       data-testid="input-unit-price"
-                      className={newUnitPrice > 0 ? "border-green-500" : ""}
+                      className="bg-muted cursor-not-allowed"
+                      readOnly
+                      disabled
                     />
                     {newSparePartId && newUnitPrice > 0 && (
-                      <p className="text-xs text-green-600">✓ Price auto-filled (editable)</p>
+                      <p className="text-xs text-blue-600">✓ Price from catalog (read-only)</p>
                     )}
+                    {newSparePartId && newUnitPrice === 0 && (
+                      <p className="text-xs text-amber-600">⚠ No catalog price set</p>
+                    )}
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Total (SAR)</label>
+                    <Input
+                      type="text"
+                      value={currentItemTotal.toFixed(2)}
+                      placeholder="0.00"
+                      data-testid="input-total-amount"
+                      className="bg-muted font-semibold"
+                      readOnly
+                      disabled
+                    />
                   </div>
                   <div className="col-span-2 space-y-1">
                     <label className="text-xs text-transparent">Action</label>
