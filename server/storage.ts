@@ -3,7 +3,7 @@ import {
   brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
-  orderStatusLogs, invoices,
+  orderStatusLogs, invoices, homeSliderImages, homeBanner,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
@@ -13,7 +13,8 @@ import {
   type Referral, type InsertReferral, type Notification, type InsertNotification,
   type SupportTicket, type InsertSupportTicket, type SupportMessage, type InsertSupportMessage,
   type Faq, type InsertFaq, type Review, type InsertReview, type Promotion, type InsertPromotion,
-  type AuditLog, type InsertAuditLog, type WebhookEvent, type OrderStatusLog
+  type AuditLog, type InsertAuditLog, type WebhookEvent, type OrderStatusLog,
+  type HomeSliderImage, type InsertHomeSliderImage, type HomeBanner, type InsertHomeBanner
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, ilike, sql, count } from "drizzle-orm";
@@ -76,6 +77,22 @@ export interface IStorage {
   updateSparePart(id: string, part: Partial<InsertSparePart>): Promise<SparePart>;
   updateSparePartStock(id: string, quantity: number): Promise<void>;
   deleteSparePart(id: string): Promise<void>;
+  
+  // Mobile Content - Home Slider
+  getHomeSliderImages(): Promise<HomeSliderImage[]>;
+  getHomeSliderImage(id: string): Promise<HomeSliderImage | undefined>;
+  createHomeSliderImage(image: InsertHomeSliderImage): Promise<HomeSliderImage>;
+  updateHomeSliderImage(id: string, image: Partial<InsertHomeSliderImage>): Promise<HomeSliderImage>;
+  deleteHomeSliderImage(id: string): Promise<void>;
+  reorderHomeSliderImages(imageIds: string[]): Promise<void>;
+  
+  // Mobile Content - Home Banner
+  getActiveBanner(): Promise<HomeBanner | undefined>;
+  getHomeBanners(): Promise<HomeBanner[]>;
+  getHomeBanner(id: string): Promise<HomeBanner | undefined>;
+  createHomeBanner(banner: InsertHomeBanner): Promise<HomeBanner>;
+  updateHomeBanner(id: string, banner: Partial<InsertHomeBanner>): Promise<HomeBanner>;
+  deleteHomeBanner(id: string): Promise<void>;
   
   // Bookings
   createBooking(booking: InsertBooking): Promise<Booking>;
@@ -480,6 +497,100 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBrand(id: string): Promise<void> {
     await db.update(brands).set({ isActive: false }).where(eq(brands.id, id));
+  }
+
+  // Mobile Content - Home Slider
+  async getHomeSliderImages(): Promise<HomeSliderImage[]> {
+    return await db
+      .select()
+      .from(homeSliderImages)
+      .where(eq(homeSliderImages.isActive, true))
+      .orderBy(asc(homeSliderImages.sortOrder));
+  }
+
+  async getHomeSliderImage(id: string): Promise<HomeSliderImage | undefined> {
+    const [image] = await db
+      .select()
+      .from(homeSliderImages)
+      .where(eq(homeSliderImages.id, id));
+    return image || undefined;
+  }
+
+  async createHomeSliderImage(image: InsertHomeSliderImage): Promise<HomeSliderImage> {
+    const [newImage] = await db
+      .insert(homeSliderImages)
+      .values(image)
+      .returning();
+    return newImage;
+  }
+
+  async updateHomeSliderImage(id: string, image: Partial<InsertHomeSliderImage>): Promise<HomeSliderImage> {
+    const [updatedImage] = await db
+      .update(homeSliderImages)
+      .set({ ...image, updatedAt: new Date() })
+      .where(eq(homeSliderImages.id, id))
+      .returning();
+    return updatedImage;
+  }
+
+  async deleteHomeSliderImage(id: string): Promise<void> {
+    await db.delete(homeSliderImages).where(eq(homeSliderImages.id, id));
+  }
+
+  async reorderHomeSliderImages(imageIds: string[]): Promise<void> {
+    for (let i = 0; i < imageIds.length; i++) {
+      await db
+        .update(homeSliderImages)
+        .set({ sortOrder: i + 1, updatedAt: new Date() })
+        .where(eq(homeSliderImages.id, imageIds[i]));
+    }
+  }
+
+  // Mobile Content - Home Banner
+  async getActiveBanner(): Promise<HomeBanner | undefined> {
+    const [banner] = await db
+      .select()
+      .from(homeBanner)
+      .where(eq(homeBanner.isActive, true))
+      .orderBy(desc(homeBanner.createdAt))
+      .limit(1);
+    return banner || undefined;
+  }
+
+  async getHomeBanners(): Promise<HomeBanner[]> {
+    return await db
+      .select()
+      .from(homeBanner)
+      .orderBy(desc(homeBanner.createdAt));
+  }
+
+  async getHomeBanner(id: string): Promise<HomeBanner | undefined> {
+    const [banner] = await db
+      .select()
+      .from(homeBanner)
+      .where(eq(homeBanner.id, id));
+    return banner || undefined;
+  }
+
+  async createHomeBanner(banner: InsertHomeBanner): Promise<HomeBanner> {
+    const [newBanner] = await db
+      .insert(homeBanner)
+      .values(banner)
+      .returning();
+    return newBanner;
+  }
+
+  async updateHomeBanner(id: string, banner: Partial<InsertHomeBanner>): Promise<HomeBanner> {
+    const [updatedBanner] = await db
+      .update(homeBanner)
+      .set({ ...banner, updatedAt: new Date() })
+      .where(eq(homeBanner.id, id))
+      .returning();
+    return updatedBanner;
+  }
+
+  async deleteHomeBanner(id: string): Promise<void> {
+    await db.delete(homeBanner).where(eq(homeBanner.id, id));
   }
 
   // Spare Parts
