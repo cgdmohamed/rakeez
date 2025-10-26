@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Star, Plus, Edit, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, Plus, Edit, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'wouter';
 
 export default function AdminTechnicians() {
   const { toast } = useToast();
@@ -319,7 +320,13 @@ export default function AdminTechnicians() {
             <TableBody>
               {paginatedTechnicians.map((tech: any, index: number) => (
                 <TableRow key={tech.id} data-testid={`row-technician-${tech.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
-                  <TableCell className="font-medium">{tech.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/admin/technicians/${tech.id}`}>
+                      <a className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
+                        {tech.name}
+                      </a>
+                    </Link>
+                  </TableCell>
                   <TableCell>{tech.email || 'N/A'}</TableCell>
                   <TableCell>{tech.phone || 'N/A'}</TableCell>
                   <TableCell className="numeric-cell">
@@ -337,14 +344,27 @@ export default function AdminTechnicians() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(tech)}
-                      data-testid={`button-edit-${tech.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/admin/technicians/${tech.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`button-view-profile-${tech.id}`}
+                          title="View Profile"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(tech)}
+                        data-testid={`button-edit-${tech.id}`}
+                        title="Quick Edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
