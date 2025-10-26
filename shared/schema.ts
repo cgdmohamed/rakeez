@@ -36,6 +36,7 @@ export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed'])
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'cancelled', 'expired']);
 export const packageTierEnum = pgEnum('package_tier', ['basic', 'premium', 'vip', 'enterprise']);
 export const addressTypeEnum = pgEnum("address_type", ["home", "office", "other"]);
+export const availabilityStatusEnum = pgEnum("availability_status", ["available", "busy", "on_job", "off_duty"]);
 
 // Roles table (for custom role management)
 export const roles = pgTable("roles", {
@@ -68,6 +69,15 @@ export const users = pgTable("users", {
   avatar: text("avatar"),
   referralCode: varchar("referral_code", { length: 20 }).unique(), // User's unique referral code
   specializations: jsonb("specializations"), // For technicians: array of service category IDs they can handle
+  // Technician-specific fields for 360 profile
+  workingHours: jsonb("working_hours"), // {monday: {start: "09:00", end: "18:00"}, tuesday: {...}, ...}
+  daysOff: jsonb("days_off"), // Array of dates ["2024-12-25", "2024-01-01", ...]
+  serviceRadius: integer("service_radius").default(50), // Max distance in km
+  homeLatitude: decimal("home_latitude", { precision: 10, scale: 8 }), // Home base location
+  homeLongitude: decimal("home_longitude", { precision: 11, scale: 8 }),
+  maxDailyBookings: integer("max_daily_bookings").default(8), // Capacity limit per day
+  availabilityStatus: availabilityStatusEnum("availability_status").default('available'), // Real-time status
+  certifications: jsonb("certifications"), // [{name: "HVAC Certified", issuedDate: "2023-01-15", expiryDate: "2025-01-15"}, ...]
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -234,6 +244,24 @@ export const bookings = pgTable("bookings", {
   cancelledBy: uuid("cancelled_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Assignment Logs table - Tracks technician assignment decisions
+export const assignmentLogs = pgTable("assignment_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  technicianId: uuid("technician_id").references(() => users.id).notNull(),
+  assignmentMethod: varchar("assignment_method", { length: 20 }).notNull(), // 'auto' or 'manual'
+  distanceKm: decimal("distance_km", { precision: 10, scale: 2 }), // Distance from technician to customer
+  workloadScore: integer("workload_score"), // Score based on current workload (0-100)
+  availabilityScore: integer("availability_score"), // Score based on availability (0-100)
+  skillScore: integer("skill_score"), // Score based on skill match (0-100)
+  performanceScore: integer("performance_score"), // Score based on past performance (0-100)
+  totalScore: integer("total_score"), // Combined weighted score
+  rejectionReason: text("rejection_reason"), // If assignment failed, why?
+  adminNotes: text("admin_notes"), // Notes if manually assigned
+  assignedBy: uuid("assigned_by").references(() => users.id), // Admin who manually assigned (if manual)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Quotations table
