@@ -17,6 +17,7 @@ import { validateRequest, passwordSchema } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
+import { logError, logApiError } from "./utils/logger";
 import { PaymentTransactions } from "./utils/transactions";
 import { websocketService } from "./services/websocket";
 import { AssignmentService } from "./services/assignmentService";
@@ -218,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Registration error:', error);
+      logApiError('Registration error', error, req, { identifier: req.body.email || req.body.phone });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', req.body.language),
@@ -291,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Login error:', error);
+      logApiError('Login error', error, req, { identifier: req.body.identifier });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', req.body.language),
@@ -386,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('OTP verification error:', error);
+      logApiError('OTP verification error', error, req);
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', req.body.language),
@@ -428,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Resend OTP error:', error);
+      logApiError('Resend OTP error', error, req);
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', req.body.language),
@@ -2008,7 +2009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Create payment error:', error);
+      logApiError('Create payment error', error, req, { bookingId: req.body.booking_id, gateway: req.body.gateway });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('payment.creation_failed', 'en'),
@@ -2049,7 +2050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Verify Moyasar payment error:', error);
+      logApiError('Verify Moyasar payment error', error, req, { paymentId: req.query.payment_id });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('payment.verification_failed', 'en'),
@@ -2091,7 +2092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
     } catch (error) {
-      console.error('Capture Tabby payment error:', error);
+      logApiError('Capture Tabby payment error', error, req, { paymentId: req.body.payment_id });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('payment.capture_failed', 'en'),
@@ -2120,7 +2121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ received: true });
       
     } catch (error) {
-      console.error('Moyasar webhook error:', error);
+      logApiError('Moyasar webhook error', error, req, { signature: req.headers['x-moyasar-signature'] ? 'present' : 'missing' });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
@@ -2154,7 +2155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ received: true });
       
     } catch (error) {
-      console.error('Tabby webhook error:', error);
+      logApiError('Tabby webhook error', error, req, { signature: req.headers['x-tabby-signature'] ? 'present' : 'missing' });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });

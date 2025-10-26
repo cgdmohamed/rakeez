@@ -4,6 +4,7 @@ import { storage } from '../storage';
 import { redisService } from '../services/redis';
 import { bilingual } from '../utils/bilingual';
 import { verifyToken } from '../utils/jwt';
+import { logError, logApiError } from '../utils/logger';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -83,7 +84,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    logError('Authentication error', error, { endpoint: req.path });
     const language = req.headers['accept-language'] || 'en';
     
     return res.status(401).json({
@@ -211,7 +212,7 @@ export const rateLimitByIP = (maxRequests: number = 100, windowSeconds: number =
 
       next();
     } catch (error) {
-      console.error('Rate limiting error:', error);
+      logError('Rate limiting error', error, { context: 'rate_limit_middleware' });
       next(); // Continue on rate limiting error
     }
   };
@@ -250,7 +251,7 @@ export const rateLimitByUser = (maxRequests: number = 100, windowSeconds: number
 
       next();
     } catch (error) {
-      console.error('Rate limiting error:', error);
+      logError('Rate limiting error', error, { context: 'rate_limit_middleware' });
       next(); // Continue on rate limiting error
     }
   };
@@ -311,7 +312,7 @@ export const validateOwnership = (resourceType: 'booking' | 'address' | 'payment
 
       next();
     } catch (error) {
-      console.error('Ownership validation error:', error);
+      logError('Ownership validation error', error, { resourceType, resourceId: req.params.id });
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),
