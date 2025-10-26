@@ -1184,9 +1184,89 @@ const endpoints: Record<string, ApiEndpoint[]> = {
   technician: [
     {
       method: 'GET',
-      path: '/api/v2/technician/bookings',
-      title: 'Get Assigned Bookings',
-      titleAr: 'الحجوزات المخصصة',
+      path: '/api/v2/profile',
+      title: 'Get Profile',
+      titleAr: 'عرض الملف الشخصي',
+      description: 'Get authenticated technician profile information',
+      descriptionAr: 'الحصول على معلومات الملف الشخصي للفني',
+      auth: true,
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Profile retrieved successfully',
+          data: {
+            id: 'tech-uuid',
+            name: 'Ahmed Al-Rashid',
+            name_ar: 'أحمد الراشد',
+            email: 'ahmed@rakeez.sa',
+            phone: '+966501234567',
+            language: 'en',
+            role: 'technician',
+            created_at: '2025-01-15T10:30:00.000Z'
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/profile',
+      title: 'Update Profile',
+      titleAr: 'تحديث الملف الشخصي',
+      description: 'Update technician personal information',
+      descriptionAr: 'تحديث المعلومات الشخصية للفني',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          name: 'Ahmed Al-Rashid',
+          name_ar: 'أحمد الراشد',
+          language: 'en',
+          device_token: 'ExponentPushToken[...]'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Profile updated successfully',
+          data: {
+            id: 'tech-uuid',
+            name: 'Ahmed Al-Rashid',
+            name_ar: 'أحمد الراشد'
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/auth/change-password',
+      title: 'Change Password',
+      titleAr: 'تغيير كلمة المرور',
+      description: 'Change password with strong validation (8+ chars, uppercase, lowercase, number, special char)',
+      descriptionAr: 'تغيير كلمة المرور مع التحقق القوي (8+ أحرف، أحرف كبيرة، صغيرة، رقم، حرف خاص)',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          current_password: 'OldPass123!',
+          new_password: 'NewPass456@'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Password changed successfully'
+        },
+        error: {
+          success: false,
+          message: 'Invalid current password'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/technician/orders',
+      title: 'Get All Orders',
+      titleAr: 'الحصول على جميع الطلبات',
       description: 'Get all bookings assigned to technician',
       descriptionAr: 'الحصول على جميع الحجوزات المخصصة للفني',
       auth: true,
@@ -1196,8 +1276,58 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           name: 'status',
           type: 'string',
           required: false,
-          description: 'Filter by status',
+          description: 'Filter by status (pending, confirmed, technician_assigned, en_route, in_progress, completed, cancelled)',
           descriptionAr: 'التصفية حسب الحالة'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Technician orders retrieved successfully',
+          data: [
+            {
+              id: 'booking-uuid',
+              userId: 'user-uuid',
+              serviceId: 'service-uuid',
+              status: 'confirmed',
+              scheduledDate: '2025-10-30',
+              scheduledTime: '14:00',
+              totalAmount: '350.00',
+              user: {
+                id: 'user-uuid',
+                name: 'Mohammed Ali',
+                email: 'mohammed@example.com',
+                phone: '+966501111111'
+              },
+              service: {
+                id: 'service-uuid',
+                name: 'Deep Cleaning'
+              },
+              address: {
+                streetName: 'King Fahd Road',
+                houseNo: '123',
+                district: 'Al Olaya'
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/technician/:userId/bookings',
+      title: 'Get Technician Bookings',
+      titleAr: 'حجوزات الفني',
+      description: 'Alternative endpoint to get technician bookings',
+      descriptionAr: 'نقطة نهاية بديلة للحصول على حجوزات الفني',
+      auth: true,
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by booking status',
+          descriptionAr: 'التصفية حسب حالة الحجز'
         }
       ],
       responseExample: {
@@ -1205,15 +1335,177 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           success: true,
           data: [
             {
-              id: 'bkg_123',
-              service_name: { en: 'Deep Cleaning', ar: 'تنظيف عميق' },
-              customer_name: 'Ahmed Ali',
-              address: '123 King Fahd Road',
-              status: 'confirmed',
-              scheduled_date: '2024-01-20',
-              scheduled_time: '10:00'
+              id: 'booking-uuid',
+              status: 'completed',
+              scheduledDate: '2025-10-25',
+              totalAmount: '450.00',
+              user: {
+                name: 'Sara Ahmed',
+                phone: '+966502222222'
+              },
+              service: {
+                name: 'Home Cleaning'
+              }
             }
           ]
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/technician/orders/:id/accept',
+      title: 'Accept Order',
+      titleAr: 'قبول الطلب',
+      description: 'Accept a booking assigned to technician',
+      descriptionAr: 'قبول حجز تم تعيينه للفني',
+      auth: true,
+      roles: ['technician'],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Order accepted successfully'
+        },
+        error: {
+          success: false,
+          message: 'Booking not assigned to you'
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/technician/orders/:id/status',
+      title: 'Update Order Status',
+      titleAr: 'تحديث حالة الطلب',
+      description: 'Update booking status during service delivery (en_route, in_progress, completed)',
+      descriptionAr: 'تحديث حالة الحجز أثناء تقديم الخدمة',
+      auth: true,
+      roles: ['technician'],
+      requestBody: {
+        type: 'object',
+        example: {
+          status: 'en_route',
+          notes: 'On my way to the location'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Order status updated successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/technician/performance',
+      title: 'Get Performance Metrics',
+      titleAr: 'مقاييس الأداء',
+      description: 'Get comprehensive performance statistics and earnings data',
+      descriptionAr: 'الحصول على إحصاءات الأداء الشاملة وبيانات الأرباح',
+      auth: true,
+      roles: ['technician'],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Performance retrieved successfully',
+          data: {
+            overall: {
+              totalJobs: 85,
+              completedJobs: 78,
+              cancelledJobs: 7,
+              completionRate: 91.76,
+              cancellationRate: 8.24,
+              averageRating: 4.65,
+              averageResponseTime: 2.5,
+              totalRevenue: 34500.00
+            },
+            monthlyStats: [
+              {
+                month: 'Oct 2025',
+                completed: 12,
+                cancelled: 1,
+                total: 13,
+                revenue: 5000.00
+              }
+            ],
+            recentCompletedJobs: []
+          }
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/technician/quotations',
+      title: 'Get Quotations',
+      titleAr: 'عروض الأسعار',
+      description: 'Get all quotations created by technician',
+      descriptionAr: 'الحصول على جميع عروض الأسعار التي أنشأها الفني',
+      auth: true,
+      roles: ['technician'],
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (pending, approved, rejected)',
+          descriptionAr: 'التصفية حسب الحالة'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Quotations retrieved successfully',
+          data: [
+            {
+              id: 'quotation-uuid',
+              bookingId: 'booking-uuid',
+              status: 'pending',
+              estimatedCost: '550.00',
+              estimatedDuration: 180,
+              notes: 'Additional cleaning required',
+              createdAt: '2025-10-26T09:00:00.000Z',
+              booking: {
+                scheduledDate: '2025-10-30',
+                service: {
+                  name: 'Deep Cleaning'
+                },
+                user: {
+                  name: 'Mohammed Ali',
+                  phone: '+966501111111'
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/technician/availability',
+      title: 'Update Availability',
+      titleAr: 'تحديث التوفر',
+      description: 'Update availability settings including working hours, service radius, and status',
+      descriptionAr: 'تحديث إعدادات التوفر بما في ذلك ساعات العمل ونطاق الخدمة والحالة',
+      auth: true,
+      roles: ['technician'],
+      requestBody: {
+        type: 'object',
+        example: {
+          availabilityStatus: 'available',
+          workingHours: {
+            sunday: { start: '08:00', end: '17:00', enabled: true },
+            monday: { start: '08:00', end: '17:00', enabled: true }
+          },
+          daysOff: ['2025-10-30', '2025-11-05'],
+          serviceRadius: 25,
+          homeLatitude: 24.7136,
+          homeLongitude: 46.6753,
+          maxDailyBookings: 5
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Availability updated successfully'
         }
       }
     }
