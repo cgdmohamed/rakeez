@@ -2664,10 +2664,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   unit_price: packagePrice.toFixed(2),
                   category: 'Subscription'
                 }]
-              },
-              buyer_history: {
-                registered_since: user.createdAt.toISOString(),
-                loyalty_level: 0
               }
             },
             lang: language === 'ar' ? 'ar' : 'en',
