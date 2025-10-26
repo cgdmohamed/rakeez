@@ -30,7 +30,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
@@ -1089,6 +1089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body: z.object({
       service_id: z.string().uuid(),
       package_id: z.string().uuid().optional(),
+      subscription_id: z.string().uuid().optional(),
       address_id: z.string().uuid(),
       scheduled_date: z.string(),
       scheduled_time: z.string(),
@@ -1097,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })
   }), async (req: any, res: any) => {
     try {
-      const { service_id, package_id, address_id, scheduled_date, scheduled_time, notes, notes_ar } = req.body;
+      const { service_id, package_id, subscription_id, address_id, scheduled_date, scheduled_time, notes, notes_ar } = req.body;
       const language = req.headers['accept-language'] || 'en';
       
       // Validate scheduled date is not in the past
@@ -1112,7 +1113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get service and package details
+      // Get service details
       const service = await storage.getService(service_id);
       if (!service) {
         return res.status(404).json({
@@ -1121,25 +1122,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      let servicePackage;
-      if (package_id) {
-        const packages = await storage.getServiceTiers(service_id);
-        servicePackage = packages.find(p => p.id === package_id);
+      // Handle subscription-based booking
+      let isSubscriptionBooking = false;
+      let subscriptionUsageLink = null;
+      if (subscription_id) {
+        // Get user's subscription
+        const [subscription] = await db
+          .select()
+          .from(subscriptions)
+          .where(and(
+            eq(subscriptions.id, subscription_id),
+            eq(subscriptions.userId, req.user.id)
+          ));
+        
+        if (!subscription) {
+          return res.status(404).json({
+            success: false,
+            message: bilingual.getMessage('subscription.not_found', language),
+          });
+        }
+        
+        // Check subscription is active and not expired
+        if (subscription.status !== 'active') {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('subscription.not_active', language),
+          });
+        }
+        
+        // Check subscription is within valid date range
+        // Validate that the scheduled service date falls within subscription period
+        const startDate = new Date(subscription.startDate);
+        const endDate = new Date(subscription.endDate);
+        
+        if (scheduledDateTime < startDate) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('subscription.not_started', language),
+          });
+        }
+        
+        if (scheduledDateTime > endDate) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('subscription.service_after_expiry', language),
+          });
+        }
+        
+        // Check if service is included in subscription package
+        const serviceLink = await db
+          .select()
+          .from(subscriptionPackageServices)
+          .where(and(
+            eq(subscriptionPackageServices.packageId, subscription.packageId),
+            eq(subscriptionPackageServices.serviceId, service_id)
+          ));
+        
+        if (serviceLink.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('subscription.service_not_included', language),
+          });
+        }
+        
+        // Check usage allowance
+        const usageLimit = serviceLink[0].usageLimit;
+        if (usageLimit !== null) {
+          // Count current usage for this service
+          const currentUsage = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(bookings)
+            .where(and(
+              eq(bookings.subscriptionId, subscription_id),
+              eq(bookings.serviceId, service_id)
+            ));
+          
+          const usageCount = currentUsage[0]?.count || 0;
+          if (usageCount >= usageLimit) {
+            return res.status(400).json({
+              success: false,
+              message: bilingual.getMessage('subscription.usage_limit_reached', language),
+            });
+          }
+        }
+        
+        isSubscriptionBooking = true;
+        subscriptionUsageLink = serviceLink[0];
       }
       
       // Calculate pricing
-      const basePrice = servicePackage ? parseFloat(servicePackage.price.toString()) : parseFloat(service.basePrice.toString());
-      const discountPercentage = servicePackage ? parseFloat(servicePackage.discountPercentage.toString()) : 0;
-      const discountAmount = (basePrice * discountPercentage) / 100;
-      const subtotal = basePrice - discountAmount;
-      const vatAmount = HELPERS.calculateVAT(subtotal);
-      const totalAmount = subtotal + vatAmount;
+      let basePrice, discountPercentage, discountAmount, subtotal, vatAmount, totalAmount;
+      
+      if (isSubscriptionBooking) {
+        // Subscription booking - no charge
+        basePrice = 0;
+        discountPercentage = 0;
+        discountAmount = 0;
+        subtotal = 0;
+        vatAmount = 0;
+        totalAmount = 0;
+      } else {
+        // Regular booking with optional service tier
+        let servicePackage;
+        if (package_id) {
+          const packages = await storage.getServiceTiers(service_id);
+          servicePackage = packages.find(p => p.id === package_id);
+        }
+        
+        basePrice = servicePackage ? parseFloat(servicePackage.price.toString()) : parseFloat(service.basePrice.toString());
+        discountPercentage = servicePackage ? parseFloat(servicePackage.discountPercentage.toString()) : 0;
+        discountAmount = (basePrice * discountPercentage) / 100;
+        subtotal = basePrice - discountAmount;
+        vatAmount = HELPERS.calculateVAT(subtotal);
+        totalAmount = subtotal + vatAmount;
+      }
       
       // Create booking
       const booking = await storage.createBooking({
         userId: req.user.id,
         serviceId: service_id,
-        packageId: package_id,
+        tierId: package_id || null,
+        subscriptionId: subscription_id || null,
         addressId: address_id,
         scheduledDate: scheduledDateTime,
         scheduledTime: scheduled_time,
@@ -1149,6 +1252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         discountAmount: discountAmount.toString(),
         vatAmount: vatAmount.toString(),
         totalAmount: totalAmount.toString(),
+        paymentStatus: isSubscriptionBooking ? 'paid' : 'pending',
       });
       
       // Automatic technician assignment based on service category specialization
@@ -1215,6 +1319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           technician_id: assignedTechnician?.id || null,
           technician_name: assignedTechnician?.name || null,
           auto_assigned: !!assignedTechnician,
+          is_subscription_booking: isSubscriptionBooking,
+          subscription_id: subscription_id || null,
+          payment_status: booking.paymentStatus,
         }
       });
       
