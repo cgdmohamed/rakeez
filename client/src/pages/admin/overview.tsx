@@ -91,6 +91,13 @@ interface AnalyticsData {
   };
   uncollectedPayments: number;
   bookingsByPaymentMethod: any[];
+  subscriptionStats: {
+    totalSubscriptions: number;
+    activeSubscriptions: number;
+    expiredSubscriptions: number;
+    cancelledSubscriptions: number;
+    totalSubscriptionRevenue: number;
+  };
 }
 
 export default function AdminOverview() {
@@ -167,6 +174,13 @@ export default function AdminOverview() {
   const walletTotals = stats?.data?.walletTotals || { totalBalance: 0, totalEarned: 0, totalSpent: 0 };
   const uncollectedPayments = stats?.data?.uncollectedPayments || 0;
   const bookingsByPaymentMethod = stats?.data?.bookingsByPaymentMethod || [];
+  const subscriptionStats = stats?.data?.subscriptionStats || {
+    totalSubscriptions: 0,
+    activeSubscriptions: 0,
+    expiredSubscriptions: 0,
+    cancelledSubscriptions: 0,
+    totalSubscriptionRevenue: 0,
+  };
 
   const activeOrdersValue = (orderStats.inProgressOrders || 0) * (revenueStats.totalRevenue / Math.max(orderStats.totalOrders, 1) || 0);
 
@@ -366,6 +380,102 @@ export default function AdminOverview() {
             <TooltipContent>Most booked service this period</TooltipContent>
           </Tooltip>
         </div>
+
+        {/* Subscription Statistics */}
+        {subscriptionStats.totalSubscriptions > 0 && (
+          <>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="h-px bg-border flex-1" />
+              <h3 className="text-sm font-medium text-muted-foreground">Subscription Overview</h3>
+              <div className="h-px bg-border flex-1" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Active Subscriptions */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/subscriptions?status=active">
+                    <Card data-testid="card-active-subscriptions" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-green-500/30 bg-green-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-green-600">Active Subscriptions</CardTitle>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-green-600" data-testid="text-active-subs">
+                          {subscriptionStats.activeSubscriptions}
+                        </div>
+                        <p className="text-xs text-foreground/80">Currently active</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Number of active subscriptions</TooltipContent>
+              </Tooltip>
+
+              {/* Expired Subscriptions */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/subscriptions?status=expired">
+                    <Card data-testid="card-expired-subscriptions" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-red-500/30 bg-red-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-red-600">Expired</CardTitle>
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-red-600" data-testid="text-expired-subs">
+                          {subscriptionStats.expiredSubscriptions}
+                        </div>
+                        <p className="text-xs text-foreground/80">Needs renewal</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Expired subscriptions needing renewal</TooltipContent>
+              </Tooltip>
+
+              {/* Subscription Revenue */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/subscriptions">
+                    <Card data-testid="card-subscription-revenue" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer card-accent-blue">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-primary">Subscription Revenue</CardTitle>
+                        <DollarSign className="h-4 w-4 text-primary" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold" data-testid="text-sub-revenue">
+                          {subscriptionStats.totalSubscriptionRevenue.toLocaleString()} SAR
+                        </div>
+                        <p className="text-xs text-foreground/80">Total from subscriptions</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total revenue from all subscriptions</TooltipContent>
+              </Tooltip>
+
+              {/* Total Subscriptions */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/subscriptions">
+                    <Card data-testid="card-total-subscriptions" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Subscriptions</CardTitle>
+                        <Star className="h-4 w-4" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold" data-testid="text-total-subs">
+                          {subscriptionStats.totalSubscriptions}
+                        </div>
+                        <p className="text-xs text-foreground/80">All time</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total number of subscriptions created</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
 
         {/* Alerts & Tasks Widget */}
         {alerts.length > 0 && (

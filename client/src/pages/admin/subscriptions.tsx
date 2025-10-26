@@ -170,7 +170,7 @@ export default function AdminSubscriptions() {
       endDate: string;
       autoRenew: boolean;
     }) => {
-      return apiRequest('POST', '/api/v2/subscriptions', data);
+      return apiRequest('POST', '/api/v2/admin/subscriptions', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });

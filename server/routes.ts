@@ -2015,6 +2015,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create Subscription (Admin - for any user)
+  app.post('/api/v2/admin/subscriptions', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      userId: z.string().uuid(),
+      packageId: z.string().uuid(),
+      startDate: z.string().or(z.date()),
+      endDate: z.string().or(z.date()),
+      autoRenew: z.boolean().default(false),
+      benefits: z.any().optional(),
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const { userId, packageId, startDate, endDate, autoRenew, benefits } = req.body;
+      
+      // Verify the package exists
+      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, packageId));
+      if (!pkg) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      // Verify the user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('user.not_found', language),
+        });
+      }
+      
+      // Build subscription data with defaults
+      const subscriptionData = {
+        userId,
+        packageId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        autoRenew,
+        totalAmount: pkg.price,
+        status: 'active' as const,
+        benefits: benefits || pkg.inclusions,
+        usageCount: 0,
+      };
+      
+      // Create the subscription (admin can create for any user)
+      const subscription = await storage.createSubscription(subscriptionData);
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.created_successfully', language),
+        data: subscription,
+      });
+      
+    } catch (error) {
+      console.error('Create subscription (admin) error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
   // Update Subscription (Admin)
   app.put('/api/v2/admin/subscriptions/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: insertSubscriptionSchema.partial(),
@@ -2556,7 +2621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = start_date ? new Date(start_date as string) : undefined;
       const endDate = end_date ? new Date(end_date as string) : undefined;
       
-      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians, monthlyRevenue, monthlyBookings, userGrowth, recentActivity, walletTotals, uncollectedPayments, bookingsByPaymentMethod] = await Promise.all([
+      const [orderStats, revenueStats, technicianStats, topServices, allTechnicians, monthlyRevenue, monthlyBookings, userGrowth, recentActivity, walletTotals, uncollectedPayments, bookingsByPaymentMethod, subscriptionStats] = await Promise.all([
         storage.getOrderStats(startDate, endDate),
         storage.getRevenueStats(startDate, endDate),
         storage.getTechnicianStats(),
@@ -2569,6 +2634,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getWalletTotals(),
         storage.getUncollectedPayments(),
         storage.getBookingsByPaymentMethod(),
+        // Get subscription statistics
+        (async () => {
+          const allSubscriptions = await storage.getAllSubscriptions();
+          const activeCount = allSubscriptions.filter(s => s.status === 'active').length;
+          const expiredCount = allSubscriptions.filter(s => s.status === 'expired').length;
+          const cancelledCount = allSubscriptions.filter(s => s.status === 'cancelled').length;
+          const totalRevenue = allSubscriptions
+            .filter(s => s.status === 'active' || s.status === 'expired')
+            .reduce((sum, s) => sum + Number(s.totalAmount || 0), 0);
+          
+          return {
+            totalSubscriptions: allSubscriptions.length,
+            activeSubscriptions: activeCount,
+            expiredSubscriptions: expiredCount,
+            cancelledSubscriptions: cancelledCount,
+            totalSubscriptionRevenue: totalRevenue,
+          };
+        })(),
       ]);
       
       // Convert all numeric values from strings to numbers
@@ -2620,6 +2703,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           walletTotals: walletTotals || { totalBalance: 0, totalEarned: 0, totalSpent: 0 },
           uncollectedPayments: uncollectedPayments || 0,
           bookingsByPaymentMethod: bookingsByPaymentMethod || [],
+          subscriptionStats: subscriptionStats || {
+            totalSubscriptions: 0,
+            activeSubscriptions: 0,
+            expiredSubscriptions: 0,
+            cancelledSubscriptions: 0,
+            totalSubscriptionRevenue: 0,
+          },
         }
       });
       
