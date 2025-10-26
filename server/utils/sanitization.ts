@@ -64,22 +64,63 @@ export function sanitizeObject<T extends Record<string, any>>(
     // Check if this field should be sanitized
     const shouldSanitize = !fieldsToSanitize || fieldsToSanitize.includes(key);
     
-    if (shouldSanitize && typeof value === 'string') {
-      sanitized[key] = sanitizeInput(value, mode) as any;
+    if (typeof value === 'string') {
+      // Sanitize string if this field is targeted or all fields are targeted
+      if (shouldSanitize) {
+        sanitized[key] = sanitizeInput(value, mode) as any;
+      }
     } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      // Recursively sanitize nested objects
-      sanitized[key] = sanitizeObject(value, mode, fieldsToSanitize) as any;
-    } else if (Array.isArray(value)) {
-      // Sanitize array elements if they're strings
-      sanitized[key] = value.map((item: any) => 
-        typeof item === 'string' && shouldSanitize 
-          ? sanitizeInput(item, mode) 
-          : item
+      // For nested objects:
+      // - If this field is targeted, sanitize ALL descendant strings (pass undefined)
+      // - Otherwise, continue checking with the same field list
+      sanitized[key] = sanitizeObject(
+        value, 
+        mode, 
+        shouldSanitize ? undefined : fieldsToSanitize
       ) as any;
+    } else if (Array.isArray(value)) {
+      // Sanitize array elements (strings, objects, or nested arrays)
+      sanitized[key] = value.map((item: any) => {
+        if (typeof item === 'string') {
+          return shouldSanitize ? sanitizeInput(item, mode) : item;
+        } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+          // For objects in arrays:
+          // - If parent field is targeted, sanitize ALL descendant strings
+          // - Otherwise, continue with field list
+          return sanitizeObject(item, mode, shouldSanitize ? undefined : fieldsToSanitize);
+        } else if (Array.isArray(item)) {
+          // Handle nested arrays recursively
+          return sanitizeNestedArray(item, mode, shouldSanitize, fieldsToSanitize);
+        }
+        return item;
+      }) as any;
     }
   }
 
   return sanitized;
+}
+
+/**
+ * Helper function to sanitize nested arrays
+ */
+function sanitizeNestedArray(
+  arr: any[], 
+  mode: 'strict' | 'basic' | 'none', 
+  shouldSanitizeAll: boolean,
+  fieldsToSanitize?: string[]
+): any[] {
+  return arr.map((item: any) => {
+    if (typeof item === 'string') {
+      return shouldSanitizeAll ? sanitizeInput(item, mode) : item;
+    } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+      // If shouldSanitizeAll, sanitize everything (pass undefined)
+      // Otherwise, continue with the original field list
+      return sanitizeObject(item, mode, shouldSanitizeAll ? undefined : fieldsToSanitize);
+    } else if (Array.isArray(item)) {
+      return sanitizeNestedArray(item, mode, shouldSanitizeAll, fieldsToSanitize);
+    }
+    return item;
+  });
 }
 
 /**

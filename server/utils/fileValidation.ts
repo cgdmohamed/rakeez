@@ -3,6 +3,8 @@
  * Server-side validation for file uploads to prevent malicious files
  */
 
+import { fileTypeFromBuffer } from 'file-type';
+
 export interface FileValidationOptions {
   allowedMimeTypes?: string[];
   allowedExtensions?: string[];
@@ -182,7 +184,75 @@ export function detectMimeType(filename: string): string {
 }
 
 /**
- * Main file validation function
+ * Validate file content by reading actual bytes (prevents MIME spoofing)
+ * @param buffer - File buffer to validate
+ * @param claimedMimeType - MIME type claimed by client
+ * @returns Validation result with actual MIME type if valid
+ */
+export async function validateFileBuffer(
+  buffer: Buffer,
+  claimedMimeType: string
+): Promise<{ valid: boolean; actualMimeType?: string; error?: string }> {
+  try {
+    // Detect actual file type from buffer
+    const fileType = await fileTypeFromBuffer(buffer);
+    
+    if (!fileType) {
+      // If we can't detect the type, fall back to claimed type for text files
+      const textTypes = ['text/plain', 'text/csv', 'application/json'];
+      if (textTypes.includes(claimedMimeType.toLowerCase())) {
+        return { valid: true, actualMimeType: claimedMimeType };
+      }
+      
+      return {
+        valid: false,
+        error: 'Could not determine file type from content'
+      };
+    }
+    
+    // Check if actual MIME type matches claimed type
+    const actualMime = fileType.mime.toLowerCase();
+    const claimedMime = claimedMimeType.toLowerCase();
+    
+    // Allow JPEG variants (image/jpg and image/jpeg are the same)
+    const jpegVariants = ['image/jpeg', 'image/jpg'];
+    const mimeMatch = actualMime === claimedMime || 
+      (jpegVariants.includes(actualMime) && jpegVariants.includes(claimedMime));
+    
+    if (!mimeMatch) {
+      return {
+        valid: false,
+        error: `MIME type mismatch: claimed ${claimedMime}, but actual content is ${actualMime}`,
+        actualMimeType: actualMime
+      };
+    }
+    
+    // Verify against our allowed types
+    if (!ALLOWED_MIME_TYPES.all.includes(actualMime) && 
+        !ALLOWED_MIME_TYPES.all.includes(claimedMime)) {
+      return {
+        valid: false,
+        error: 'File type not in allowed list',
+        actualMimeType: actualMime
+      };
+    }
+    
+    return {
+      valid: true,
+      actualMimeType: actualMime
+    };
+    
+  } catch (error) {
+    console.error('File buffer validation error:', error);
+    return {
+      valid: false,
+      error: 'Failed to validate file content'
+    };
+  }
+}
+
+/**
+ * Main file validation function (basic validation without buffer)
  */
 export function validateFile(
   filename: string,
