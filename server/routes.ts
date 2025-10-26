@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { storage } from "./storage";
 import { bilingual } from "./utils/bilingual";
 import { redisService } from "./services/redis";
@@ -35,6 +36,45 @@ import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackag
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
+
+// HTTPS Enforcement for Production
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const proto = req.header('x-forwarded-proto');
+    if (proto && proto !== 'https') {
+      return res.redirect(301, `https://${req.header('host')}${req.url}`);
+    }
+    next();
+  });
+}
+
+// Security Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow Vite in dev
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow cross-origin resources
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: {
+    action: 'deny', // Prevent clickjacking
+  },
+  noSniff: true, // Prevent MIME type sniffing
+  xssFilter: true, // Enable XSS filter
+}));
 
 // Middleware - Secure CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
