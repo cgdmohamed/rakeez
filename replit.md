@@ -47,7 +47,12 @@ The platform features a complete subscription management system allowing custome
 - Service inclusions management with JSONB support
 - Active/inactive status toggle for package availability
 - Admin dashboard with package statistics (total, active, inactive, by tier)
-- API endpoints: GET/POST/PUT/DELETE at `/api/v2/admin/service-packages`
+- Admin API endpoints: GET/POST/PUT/DELETE at `/api/v2/admin/service-packages` (includes service links via junction table)
+- Public API endpoints:
+  * GET `/api/v2/subscription-packages` - Browse all active packages with optional tier/category filtering and bilingual content
+  * GET `/api/v2/subscription-packages/:id` - Get package details with included services (localized)
+- Admin endpoints enriched with linked services from `subscriptionPackageServices` junction table
+- Service links include usage limits and discount percentages per package
 
 **Admin Subscription Management:**
 - Manual subscription creation for any customer via admin panel
