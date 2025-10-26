@@ -71,7 +71,7 @@ export default function AdminMobileContent() {
       return apiRequest('POST', '/api/v2/admin/mobile-content/slider', data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
       toast({ title: 'Success', description: 'Slider image created successfully' });
       setIsSliderDialogOpen(false);
       resetSliderForm();
@@ -90,7 +90,7 @@ export default function AdminMobileContent() {
       return apiRequest('PUT', `/api/v2/admin/mobile-content/slider/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
       toast({ title: 'Success', description: 'Slider image updated successfully' });
       setEditingSlider(null);
       resetSliderForm();
@@ -109,7 +109,7 @@ export default function AdminMobileContent() {
       return apiRequest('DELETE', `/api/v2/admin/mobile-content/slider/${id}`, {});
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
       toast({ title: 'Success', description: 'Slider image deleted successfully' });
     },
     onError: (error: unknown) => {
@@ -126,7 +126,7 @@ export default function AdminMobileContent() {
       return apiRequest('POST', '/api/v2/admin/mobile-content/slider/reorder', { imageIds });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/slider'] });
       toast({ title: 'Success', description: 'Slider images reordered successfully' });
     },
     onError: (error: unknown) => {
@@ -144,7 +144,7 @@ export default function AdminMobileContent() {
       return apiRequest('POST', '/api/v2/admin/mobile-content/banner', data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
       toast({ title: 'Success', description: 'Banner created successfully' });
       setIsBannerDialogOpen(false);
       resetBannerForm();
@@ -163,7 +163,7 @@ export default function AdminMobileContent() {
       return apiRequest('PUT', `/api/v2/admin/mobile-content/banner/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
       toast({ title: 'Success', description: 'Banner updated successfully' });
       setEditingBanner(null);
       resetBannerForm();
@@ -182,7 +182,7 @@ export default function AdminMobileContent() {
       return apiRequest('DELETE', `/api/v2/admin/mobile-content/banner/${id}`, {});
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/mobile-content/banner'] });
       toast({ title: 'Success', description: 'Banner deleted successfully' });
     },
     onError: (error: unknown) => {
