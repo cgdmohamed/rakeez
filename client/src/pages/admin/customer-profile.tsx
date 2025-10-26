@@ -1002,7 +1002,7 @@ export default function CustomerProfile() {
                               <div className="flex gap-2 pt-2 border-t">
                                 <MapPin className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-xs font-mono" data-testid={`text-coordinates-${address.id}`}>
-                                  {address.latitude.toFixed(6)}, {address.longitude.toFixed(6)}
+                                  {Number(address.latitude).toFixed(6)}, {Number(address.longitude).toFixed(6)}
                                 </span>
                               </div>
                             )}
