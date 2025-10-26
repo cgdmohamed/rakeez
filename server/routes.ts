@@ -6777,6 +6777,331 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN - TECHNICIAN MANAGEMENT ====================
+  
+  // Get Technician Profile (Admin only)
+  app.get('/api/v2/admin/technicians/:id/profile', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const technician = await storage.getUser(id);
+      if (!technician || technician.role !== 'technician') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.technician_not_found', language),
+        });
+      }
+      
+      // Get performance metrics
+      const completedBookings = await db.query.bookings.findMany({
+        where: and(
+          eq(bookings.technicianId, id),
+          eq(bookings.status, 'completed')
+        ),
+        with: {
+          reviews: true,
+        },
+      });
+      
+      const totalCompleted = completedBookings.length;
+      
+      // Calculate average rating from reviews
+      const reviewsWithRatings = completedBookings.filter(b => (b.reviews as any)?.technicianRating);
+      const avgRating = reviewsWithRatings.length > 0
+        ? reviewsWithRatings.reduce((sum, b) => sum + ((b.reviews as any)?.technicianRating || 0), 0) / reviewsWithRatings.length
+        : 0;
+      
+      // Get active bookings count
+      const activeBookings = await db.query.bookings.findMany({
+        where: and(
+          eq(bookings.technicianId, id),
+          sql`${bookings.status} IN ('pending', 'confirmed', 'technician_assigned', 'en_route', 'in_progress')`
+        ),
+      });
+      
+      // Get assignment logs
+      const assignmentLogs = await db.query.assignmentLogs.findMany({
+        where: eq(sql`technician_id`, id),
+        orderBy: [desc(sql`created_at`)],
+        limit: 10,
+      });
+      
+      // Remove password from response
+      const { password, ...safeTechnician } = technician;
+      
+      res.json({
+        success: true,
+        message: 'Technician profile retrieved successfully',
+        data: {
+          ...safeTechnician,
+          performance: {
+            totalCompleted,
+            averageRating: parseFloat(avgRating.toFixed(2)),
+            activeBookings: activeBookings.length,
+            completionRate: totalCompleted > 0 ? parseFloat((totalCompleted / (totalCompleted + activeBookings.length) * 100).toFixed(2)) : 0,
+          },
+          recentAssignments: assignmentLogs,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get technician profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Technician Performance Metrics (Admin only)
+  app.get('/api/v2/admin/technicians/:id/performance', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get all bookings for performance calculation
+      const allBookings = await db.query.bookings.findMany({
+        where: eq(bookings.technicianId, id),
+        orderBy: [desc(bookings.createdAt)],
+      });
+      
+      const completedBookings = allBookings.filter(b => b.status === 'completed');
+      const cancelledBookings = allBookings.filter(b => b.status === 'cancelled');
+      
+      // Calculate metrics
+      const totalJobs = allBookings.length;
+      const completedJobs = completedBookings.length;
+      const cancelledJobs = cancelledBookings.length;
+      const completionRate = totalJobs > 0 ? (completedJobs / totalJobs) * 100 : 0;
+      const cancellationRate = totalJobs > 0 ? (cancelledJobs / totalJobs) * 100 : 0;
+      
+      // Get all bookings with reviews for rating calculation
+      const bookingsWithReviews = await db.query.bookings.findMany({
+        where: eq(bookings.technicianId, id),
+        with: {
+          reviews: true,
+        },
+      });
+      
+      // Calculate average rating from reviews
+      const reviewsList = bookingsWithReviews.filter(b => (b.reviews as any)?.technicianRating);
+      const ratingsSum = reviewsList.reduce((sum, b) => sum + ((b.reviews as any)?.technicianRating || 0), 0);
+      const ratingsCount = reviewsList.length;
+      const averageRating = ratingsCount > 0 ? ratingsSum / ratingsCount : 0;
+      
+      // Calculate average response time (hours from created to assigned)
+      const responseTimes = completedBookings
+        .filter(b => b.assignedAt)
+        .map(b => {
+          const createdTime = new Date(b.createdAt).getTime();
+          const assignedTime = new Date(b.assignedAt!).getTime();
+          return (assignedTime - createdTime) / (1000 * 60 * 60); // Convert to hours
+        });
+      const averageResponseTime = responseTimes.length > 0 
+        ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length 
+        : 0;
+      
+      // Get monthly performance for chart
+      const monthlyStats = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        
+        const monthBookings = allBookings.filter(b => {
+          const bookingDate = new Date(b.createdAt);
+          return bookingDate >= month && bookingDate < nextMonth;
+        });
+        
+        monthlyStats.push({
+          month: month.toLocaleDateString('en', { month: 'short', year: 'numeric' }),
+          completed: monthBookings.filter(b => b.status === 'completed').length,
+          cancelled: monthBookings.filter(b => b.status === 'cancelled').length,
+          total: monthBookings.length,
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Performance metrics retrieved successfully',
+        data: {
+          overall: {
+            totalJobs,
+            completedJobs,
+            cancelledJobs,
+            completionRate: parseFloat(completionRate.toFixed(2)),
+            cancellationRate: parseFloat(cancellationRate.toFixed(2)),
+            averageRating: parseFloat(averageRating.toFixed(2)),
+            averageResponseTime: parseFloat(averageResponseTime.toFixed(2)),
+          },
+          monthlyStats,
+          recentCompletedJobs: completedBookings.slice(0, 5),
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get technician performance error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Get Technician Assignment Logs (Admin only)
+  app.get('/api/v2/admin/technicians/:id/assignments', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const assignments = await db.query.assignmentLogs.findMany({
+        where: eq(sql`technician_id`, id),
+        orderBy: [desc(sql`created_at`)],
+        limit: 50,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Assignment logs retrieved successfully',
+        data: assignments,
+      });
+      
+    } catch (error) {
+      console.error('Get assignment logs error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Technician Availability (Admin only)
+  app.put('/api/v2/admin/technicians/:id/availability', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      availabilityStatus: z.enum(['available', 'busy', 'on_job', 'off_duty']).optional(),
+      workingHours: z.record(z.object({
+        start: z.string(),
+        end: z.string(),
+        enabled: z.boolean(),
+      })).optional(),
+      daysOff: z.array(z.string()).optional(),
+      serviceRadius: z.number().optional(),
+      homeLatitude: z.number().optional(),
+      homeLongitude: z.number().optional(),
+      maxDailyBookings: z.number().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const technician = await storage.getUser(id);
+      if (!technician || technician.role !== 'technician') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.technician_not_found', language),
+        });
+      }
+      
+      // Update technician availability settings
+      await db.update(users)
+        .set({
+          availabilityStatus: updates.availabilityStatus,
+          workingHours: updates.workingHours as any,
+          daysOff: updates.daysOff as any,
+          serviceRadius: updates.serviceRadius,
+          homeLatitude: updates.homeLatitude?.toString(),
+          homeLongitude: updates.homeLongitude?.toString(),
+          maxDailyBookings: updates.maxDailyBookings,
+        })
+        .where(eq(users.id, id));
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'technician_availability_updated',
+        resourceType: 'user',
+        resourceId: id,
+        newValues: updates,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Technician availability updated successfully',
+      });
+      
+    } catch (error) {
+      console.error('Update technician availability error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Technician Profile (Admin only)
+  app.put('/api/v2/admin/technicians/:id/profile', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.string().optional(),
+      nameAr: z.string().optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      status: z.enum(['active', 'inactive', 'suspended']).optional(),
+      certifications: z.array(z.object({
+        name: z.string(),
+        issuer: z.string(),
+        issuedDate: z.string(),
+        expiryDate: z.string().optional(),
+        certificateNumber: z.string().optional(),
+      })).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const technician = await storage.getUser(id);
+      if (!technician || technician.role !== 'technician') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.technician_not_found', language),
+        });
+      }
+      
+      // Update technician profile
+      await storage.updateUser(id, {
+        name: updates.name,
+        nameAr: updates.nameAr,
+        email: updates.email,
+        phone: updates.phone,
+        status: updates.status,
+        certifications: updates.certifications as any,
+      });
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'technician_profile_updated',
+        resourceType: 'user',
+        resourceId: id,
+        newValues: updates,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Technician profile updated successfully',
+      });
+      
+    } catch (error) {
+      console.error('Update technician profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
   // Update Booking Status (for technicians - alternative endpoint)
   app.put('/api/v2/bookings/:id/status', authenticateToken, validateRequest({
     body: z.object({

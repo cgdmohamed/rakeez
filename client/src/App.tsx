@@ -9,6 +9,7 @@ import Login from '@/pages/login';
 import AdminDashboard, { AdminLayoutWrapper } from '@/pages/admin-dashboard';
 import TechnicianDashboard from '@/pages/technician-dashboard';
 import CustomerProfile from '@/pages/admin/customer-profile';
+import TechnicianProfile from '@/pages/admin/technician-profile';
 
 // Custom error type
 interface HttpError extends Error {
@@ -143,6 +144,13 @@ function App() {
             {(params) => (
               <AdminLayoutWrapper>
                 <CustomerProfile key={params.id} />
+              </AdminLayoutWrapper>
+            )}
+          </Route>
+          <Route path="/admin/technicians/:id">
+            {(params) => (
+              <AdminLayoutWrapper>
+                <TechnicianProfile key={params.id} />
               </AdminLayoutWrapper>
             )}
           </Route>
