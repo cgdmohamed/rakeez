@@ -17,6 +17,18 @@ The backend is built with Express.js and TypeScript, following a modular control
 ### Database Design
 The project utilizes PostgreSQL via Neon Database with Drizzle ORM. The schema includes tables for users, services, bookings, payments, referrals, notifications, and more, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
+**Service Architecture (Updated October 2025):**
+- **`services`**: Core service definitions with bilingual names, descriptions, categories, and metadata (image, averageRating, reviewCount)
+- **`serviceTiers`**: Pricing tiers for individual services (one-time payment model). Each service can have multiple pricing tiers (e.g., Basic, Premium, VIP) with different features and prices
+- **`subscriptionPackages`**: Multi-service recurring bundles (subscription model) with package tiers, duration, pricing, and terms
+- **`subscriptionPackageServices`**: Junction table linking subscription packages to multiple services with quantity tracking
+- **`subscriptions`**: Customer subscriptions linked to `subscriptionPackages` (not `serviceTiers`) for recurring billing
+- **`bookings`**: Service bookings that can reference either single-service tiers or subscription-based access
+
+This separation enables two distinct booking flows:
+1. **Single Service Booking**: Customer selects a service → chooses pricing tier → one-time payment → booking created
+2. **Subscription-Based Access**: Customer purchases subscription package → gets access to multiple services → books from included services → deducts from subscription allowance
+
 ### Booking Management System
 The system offers complete administrative control over bookings, including status updates, technician assignment with notifications, cancellation, and refunds. It supports a workflow with states such as `pending`, `confirmed`, `technician_assigned`, `in_progress`, and `completed`. The admin interface provides a comprehensive table view, detailed modals, status timeline visualization, context-aware action buttons, and robust filtering/search. All actions are logged to an `audit_logs` table, and real-time updates are handled via WebSocket broadcasting and SMS notifications.
 
@@ -60,11 +72,15 @@ The platform features a complete subscription management system allowing custome
 - Consistent table design matching other profile tabs (Orders, Payments, etc.)
 - Empty state for customers without active subscriptions
 
-**Architecture Notes:**
+**Architecture Notes (Updated October 2025):**
+- Schema redesigned to separate single-service pricing (`serviceTiers`) from multi-service bundles (`subscriptionPackages`)
+- Junction table `subscriptionPackageServices` enables flexible package composition with multiple services
 - Admin creation uses custom validation schema (only userId, packageId, dates, autoRenew required)
 - Defaults enforced server-side to prevent client tampering
-- Subscriptions linked to `service_packages` table via packageId
+- Subscriptions linked to `subscriptionPackages` table (not `serviceTiers`) via packageId
 - Customer profile fetches enriched subscription data with package details (name, tier, price)
+- Database migration completed: `service_packages` → `serviceTiers`, new `subscriptionPackages` and `subscriptionPackageServices` tables created
+- All code updated to use new schema: storage layer, API routes, seed data, subscription lifecycle, webhooks
 - Future optimization needed: caching/aggregation for dashboard statistics at scale
 
 ### File Upload System
