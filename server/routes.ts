@@ -2592,12 +2592,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const language = req.headers['accept-language'] || 'en';
       
+      // Get all packages
       const packages = await db.select().from(subscriptionPackages).orderBy(desc(subscriptionPackages.createdAt));
+      
+      // Enrich each package with linked services
+      const enrichedPackages = await Promise.all(
+        packages.map(async (pkg) => {
+          const packageServices = await db
+            .select({
+              id: subscriptionPackageServices.id,
+              serviceId: subscriptionPackageServices.serviceId,
+              usageLimit: subscriptionPackageServices.usageLimit,
+              discountPercentage: subscriptionPackageServices.discountPercentage,
+              service: services,
+            })
+            .from(subscriptionPackageServices)
+            .innerJoin(services, eq(subscriptionPackageServices.serviceId, services.id))
+            .where(eq(subscriptionPackageServices.packageId, pkg.id));
+          
+          return {
+            ...pkg,
+            services: packageServices.map(ps => ({
+              id: ps.serviceId,
+              name: ps.service.name,
+              description: ps.service.description,
+              usageLimit: ps.usageLimit,
+              discountPercentage: ps.discountPercentage,
+              linkId: ps.id,
+            })),
+          };
+        })
+      );
       
       res.json({
         success: true,
         message: bilingual.getMessage('packages.retrieved_successfully', language),
-        data: packages,
+        data: enrichedPackages,
       });
       
     } catch (error) {
@@ -2614,9 +2644,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/v2/admin/service-packages', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
     try {
       const language = req.headers['accept-language'] || 'en';
-      const packageData = req.body;
+      const { services: serviceLinks, ...packageData } = req.body;
       
+      // Create the package
       const [newPackage] = await db.insert(subscriptionPackages).values(packageData).returning();
+      
+      // Create service links if provided
+      if (serviceLinks && Array.isArray(serviceLinks) && serviceLinks.length > 0) {
+        const linkValues = serviceLinks.map((link: any) => ({
+          packageId: newPackage.id,
+          serviceId: link.serviceId,
+          usageLimit: link.usageLimit || null,
+          discountPercentage: link.discountPercentage || '0.00',
+        }));
+        
+        await db.insert(subscriptionPackageServices).values(linkValues);
+      }
       
       res.status(201).json({
         success: true,
@@ -2639,8 +2682,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const language = req.headers['accept-language'] || 'en';
-      const updateData = req.body;
+      const { services: serviceLinks, ...updateData } = req.body;
       
+      // Update package details
       const [updatedPackage] = await db
         .update(subscriptionPackages)
         .set(updateData)
@@ -2652,6 +2696,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           message: bilingual.getMessage('packages.not_found', language),
         });
+      }
+      
+      // Update service links if provided
+      if (serviceLinks && Array.isArray(serviceLinks)) {
+        // Delete existing links
+        await db.delete(subscriptionPackageServices).where(eq(subscriptionPackageServices.packageId, id));
+        
+        // Create new links
+        if (serviceLinks.length > 0) {
+          const linkValues = serviceLinks.map((link: any) => ({
+            packageId: id,
+            serviceId: link.serviceId,
+            usageLimit: link.usageLimit || null,
+            discountPercentage: link.discountPercentage || '0.00',
+          }));
+          
+          await db.insert(subscriptionPackageServices).values(linkValues);
+        }
       }
       
       res.json({
@@ -2676,6 +2738,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const language = req.headers['accept-language'] || 'en';
       
+      // Delete service links first (cascade)
+      await db.delete(subscriptionPackageServices).where(eq(subscriptionPackageServices.packageId, id));
+      
+      // Then delete the package
       const [deletedPackage] = await db
         .delete(subscriptionPackages)
         .where(eq(subscriptionPackages.id, id))
