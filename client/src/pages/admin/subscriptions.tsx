@@ -84,7 +84,7 @@ export default function AdminSubscriptions() {
   });
 
   const { data: customersData } = useQuery<{ success: boolean; data: Customer[] }>({
-    queryKey: ['/api/v2/admin/users', { role: 'customer' }],
+    queryKey: ['/api/v2/admin/users?role=customer'],
     queryFn: async () => {
       const response = await fetch('/api/v2/admin/users?role=customer', {
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },

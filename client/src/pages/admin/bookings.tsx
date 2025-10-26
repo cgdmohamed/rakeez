@@ -127,7 +127,7 @@ export default function AdminBookings() {
   });
 
   const { data: techniciansData } = useQuery<{ success: boolean; data: Technician[] }>({
-    queryKey: ['/api/v2/admin/users', { role: 'technician' }],
+    queryKey: ['/api/v2/admin/users?role=technician'],
     queryFn: async () => {
       const response = await fetch('/api/v2/admin/users?role=technician', {
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
