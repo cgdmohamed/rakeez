@@ -25,7 +25,7 @@ interface SubscriptionPackage {
   id: string;
   tier: string;
   name: { en: string; ar: string };
-  duration: number;
+  durationDays: number;
   price: string;
   inclusions: { en: string[]; ar: string[] };
   termsAndConditions: { en: string; ar: string } | null;
@@ -220,7 +220,7 @@ export default function AdminSubscriptionPackages() {
       tier: pkg.tier,
       nameEn: pkg.name?.en || '',
       nameAr: pkg.name?.ar || '',
-      duration: pkg.duration?.toString() || '30',
+      duration: pkg.durationDays?.toString() || '30',
       price: pkg.price,
       inclusionsEn: pkg.inclusions?.en?.join('\n') || '',
       inclusionsAr: pkg.inclusions?.ar?.join('\n') || '',
@@ -288,7 +288,7 @@ export default function AdminSubscriptionPackages() {
         en: formData.nameEn,
         ar: formData.nameAr,
       },
-      duration: parseInt(formData.duration),
+      durationDays: parseInt(formData.duration),
       price: parseFloat(formData.price),
       inclusions: {
         en: formData.inclusionsEn.split('\n').filter(line => line.trim()),
@@ -466,7 +466,7 @@ export default function AdminSubscriptionPackages() {
                       <TableCell>
                         <Badge variant="outline" className="capitalize">{pkg.tier}</Badge>
                       </TableCell>
-                      <TableCell>{pkg.duration} days</TableCell>
+                      <TableCell>{pkg.durationDays} days</TableCell>
                       <TableCell className="font-semibold">SAR {parseFloat(pkg.price).toFixed(2)}</TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
