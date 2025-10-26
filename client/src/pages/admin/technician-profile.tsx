@@ -67,17 +67,17 @@ export default function TechnicianProfile() {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   
   const { data: profileData, isLoading: profileLoading } = useQuery({
-    queryKey: ['/api/v2/admin/technicians', id, 'profile'],
+    queryKey: [`/api/v2/admin/technicians/${id}/profile`],
     enabled: !!id,
   });
   
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
-    queryKey: ['/api/v2/admin/technicians', id, 'performance'],
+    queryKey: [`/api/v2/admin/technicians/${id}/performance`],
     enabled: !!id,
   });
   
   const { data: assignmentsData, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['/api/v2/admin/technicians', id, 'assignments'],
+    queryKey: [`/api/v2/admin/technicians/${id}/assignments`],
     enabled: !!id,
   });
   
@@ -95,7 +95,7 @@ export default function TechnicianProfile() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/technicians', id, 'profile'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/technicians/${id}/profile`] });
       toast({
         title: "Success",
         description: "Technician availability updated successfully",
@@ -125,7 +125,7 @@ export default function TechnicianProfile() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/technicians', id, 'profile'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/technicians/${id}/profile`] });
       toast({
         title: "Success",
         description: "Technician profile updated successfully",
