@@ -179,6 +179,45 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 };
 
 /**
+ * Middleware to check rate limiting by IP address (for unauthenticated requests)
+ */
+export const rateLimitByIP = (maxRequests: number = 100, windowSeconds: number = 3600) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ip = req.ip || 'unknown';
+      const key = `rate_limit:ip:${ip}`;
+      const language = req.headers['accept-language'] || 'en';
+
+      const { allowed, remaining, resetTime } = await redisService.checkRateLimit(
+        key,
+        maxRequests,
+        windowSeconds
+      );
+
+      // Add rate limit headers
+      res.set({
+        'X-RateLimit-Limit': maxRequests.toString(),
+        'X-RateLimit-Remaining': remaining.toString(),
+        'X-RateLimit-Reset': new Date(resetTime).toISOString(),
+      });
+
+      if (!allowed) {
+        return res.status(429).json({
+          success: false,
+          message: bilingual.getMessage('auth.rate_limit_exceeded', language),
+          retry_after: Math.ceil((resetTime - Date.now()) / 1000),
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Rate limiting error:', error);
+      next(); // Continue on rate limiting error
+    }
+  };
+};
+
+/**
  * Middleware to check rate limiting
  */
 export const rateLimitByUser = (maxRequests: number = 100, windowSeconds: number = 3600) => {

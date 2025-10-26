@@ -11,7 +11,7 @@ import { moyasarService } from "./services/moyasar";
 import { emailService } from "./services/email";
 import { pdfService } from "./services/pdf";
 import { notificationService } from "./services/notification";
-import { authenticateToken, authorizeRoles } from "./middleware/auth";
+import { authenticateToken, authorizeRoles, rateLimitByIP } from "./middleware/auth";
 import { validateRequest } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
@@ -91,7 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== AUTH & ONBOARDING ENDPOINTS ====================
   
   // Register
-  app.post('/api/v2/auth/register', validateRequest({
+  app.post('/api/v2/auth/register', 
+    rateLimitByIP(3, 3600), // 3 attempts per hour
+    validateRequest({
     body: z.object({
       email: z.string().email().optional(),
       phone: z.string().optional(),
@@ -176,7 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Login
-  app.post('/api/v2/auth/login', validateRequest({
+  app.post('/api/v2/auth/login', 
+    rateLimitByIP(5, 900), // 5 attempts per 15 minutes
+    validateRequest({
     body: z.object({
       identifier: z.string().min(1),
       password: z.string().min(1),
@@ -247,7 +251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Verify OTP
-  app.post('/api/v2/auth/verify-otp', validateRequest({
+  app.post('/api/v2/auth/verify-otp', 
+    rateLimitByIP(5, 300), // 5 attempts per 5 minutes
+    validateRequest({
     body: z.object({
       identifier: z.string().min(1),
       otp_code: z.string().length(6),
@@ -340,7 +346,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Resend OTP
-  app.post('/api/v2/auth/resend-otp', validateRequest({
+  app.post('/api/v2/auth/resend-otp', 
+    rateLimitByIP(3, 300), // 3 attempts per 5 minutes
+    validateRequest({
     body: z.object({
       identifier: z.string().min(1),
       language: z.enum(['en', 'ar']).default('en'),

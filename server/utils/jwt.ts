@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { User } from '@shared/schema';
 import { AUTH_CONSTANTS } from './constants';
+import { logError } from './logger';
 
 // Validate JWT secrets are properly configured
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -98,12 +99,10 @@ export const verifyToken = (token: string): JWTPayload => {
 
     return decoded;
   } catch (error) {
-    // Log detailed error for debugging
-    console.error('❌ JWT Verification Error:', {
+    // Log error safely without exposing token content
+    logError('JWT verification failed', error, {
       errorType: error instanceof jwt.TokenExpiredError ? 'TokenExpiredError' : 
                   error instanceof jwt.JsonWebTokenError ? 'JsonWebTokenError' : 'UnknownError',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      tokenPreview: token.substring(0, 50) + '...',
     });
     
     if (error instanceof jwt.TokenExpiredError) {
