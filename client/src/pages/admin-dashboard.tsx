@@ -30,6 +30,7 @@ import { Separator } from '@/components/ui/separator';
 // Import sub-pages
 import AdminOverview from './admin/overview';
 import AdminBookings from './admin/bookings';
+import AdminCalendar from './admin/calendar';
 import AdminQuotations from './admin/quotations';
 import AdminPayments from './admin/payments';
 import AdminCustomers from './admin/customers';
@@ -52,6 +53,7 @@ import AdminSubscriptionPackages from './admin/subscription-packages';
 const navigation = [
   { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Bookings', href: '/admin/bookings', icon: Calendar },
+  { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
   { name: 'Quotations', href: '/admin/quotations', icon: FileText },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
   { name: 'Customers', href: '/admin/customers', icon: Users },
@@ -278,6 +280,7 @@ export default function AdminDashboard() {
             <Route path="/admin/overview" component={AdminOverview} />
             <Route path="/admin/dashboard" component={AdminOverview} />
             <Route path="/admin/bookings" component={AdminBookings} />
+            <Route path="/admin/calendar" component={AdminCalendar} />
             <Route path="/admin/quotations" component={AdminQuotations} />
             <Route path="/admin/payments" component={AdminPayments} />
             <Route path="/admin/wallets" component={AdminWallets} />

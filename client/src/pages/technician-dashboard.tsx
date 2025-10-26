@@ -18,12 +18,14 @@ import { Separator } from '@/components/ui/separator';
 // Import sub-pages
 import TechnicianOverview from './technician/overview';
 import TechnicianBookings from './technician/bookings';
+import TechnicianCalendar from './technician/calendar';
 import TechnicianUploads from './technician/uploads';
 import TechnicianChat from './technician/chat';
 
 const navigation = [
   { name: 'Overview', href: '/technician/dashboard', icon: Home },
   { name: 'My Bookings', href: '/technician/bookings', icon: Calendar },
+  { name: 'Calendar', href: '/technician/calendar', icon: Calendar },
   { name: 'Uploads', href: '/technician/uploads', icon: Upload },
   { name: 'Chat', href: '/technician/chat', icon: MessageSquare },
 ];
@@ -127,6 +129,7 @@ export default function TechnicianDashboard() {
           <Switch>
             <Route path="/technician/dashboard" component={TechnicianOverview} />
             <Route path="/technician/bookings" component={TechnicianBookings} />
+            <Route path="/technician/calendar" component={TechnicianCalendar} />
             <Route path="/technician/uploads" component={TechnicianUploads} />
             <Route path="/technician/chat" component={TechnicianChat} />
           </Switch>
