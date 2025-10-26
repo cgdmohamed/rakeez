@@ -16,6 +16,7 @@ import { validateRequest } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
+import { PaymentTransactions } from "./utils/transactions";
 import { websocketService } from "./services/websocket";
 import bcrypt from "bcrypt";
 import { z } from "zod";
@@ -2113,6 +2114,340 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),
         error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Purchase Subscription (Customer - with payment)
+  app.post('/api/v2/subscriptions/purchase', authenticateToken, validateRequest({
+    body: z.object({
+      packageId: z.string().uuid(),
+      paymentMethod: z.enum(['moyasar', 'tabby', 'wallet']),
+      paymentSource: z.any().optional(), // Moyasar token
+      merchantUrls: z.object({
+        success: z.string().url(),
+        cancel: z.string().url(),
+        failure: z.string().url(),
+      }).optional(), // Tabby checkout URLs
+      autoRenew: z.boolean().default(false),
+      durationMonths: z.number().int().min(1).default(1), // Subscription duration
+    }),
+  }), async (req: any, res: any) => {
+    try {
+      const userId = req.user?.id;
+      const language = req.headers['accept-language'] || 'en';
+      const { packageId, paymentMethod, paymentSource, merchantUrls, autoRenew, durationMonths } = req.body;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: bilingual.getErrorMessage('auth.unauthorized', language)
+        });
+      }
+      
+      // Verify package exists and is active
+      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, packageId));
+      if (!pkg || !pkg.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      const packagePrice = parseFloat(pkg.price);
+      
+      // Calculate subscription dates
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + durationMonths);
+      
+      // Handle wallet payment
+      if (paymentMethod === 'wallet') {
+        const wallet = await storage.getWallet(userId);
+        const walletBalance = wallet ? parseFloat(wallet.balance) : 0;
+        
+        if (walletBalance < packagePrice) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('wallet.insufficient_balance', language),
+            data: {
+              required: packagePrice,
+              available: walletBalance,
+              shortfall: packagePrice - walletBalance
+            }
+          });
+        }
+        
+        // Process wallet payment and create subscription atomically
+        const result = await PaymentTransactions.processSubscriptionWalletPurchase({
+          userId,
+          packageId,
+          startDate,
+          endDate,
+          autoRenew,
+          amount: packagePrice,
+          benefits: pkg.inclusions as any
+        });
+        
+        // Create audit log after successful atomic transaction
+        await storage.createAuditLog({
+          userId,
+          action: 'subscription_purchased_wallet',
+          resourceType: 'subscription',
+          resourceId: result.subscription.id
+        });
+        
+        return res.status(201).json({
+          success: true,
+          message: bilingual.getMessage('subscriptions.purchased_successfully', language),
+          data: {
+            subscription_id: result.subscription.id,
+            package_name: pkg.name,
+            start_date: startDate,
+            end_date: endDate,
+            amount: packagePrice,
+            new_wallet_balance: result.newBalance
+          }
+        });
+      }
+      
+      // Handle Moyasar payment
+      if (paymentMethod === 'moyasar') {
+        if (!paymentSource) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('validation.invalid_payment_data', language)
+          });
+        }
+        
+        const moyasarResult = await moyasarService.createPayment({
+          amount: Math.round(packagePrice * 100), // Convert SAR to halalas
+          currency: 'SAR',
+          description: `Subscription: ${(pkg.name as any).en}`,
+          source: paymentSource,
+          callback_url: `${process.env.API_BASE_URL}/api/v2/webhooks/moyasar`,
+          metadata: {
+            subscription_purchase: true,
+            user_id: userId,
+            package_id: packageId,
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+            auto_renew: autoRenew,
+            duration_months: durationMonths
+          }
+        });
+        
+        if (!moyasarResult.success) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('payment.creation_failed', language),
+            error: moyasarResult.error
+          });
+        }
+        
+        return res.status(201).json({
+          success: true,
+          message: bilingual.getMessage('payment.created_successfully', language),
+          data: {
+            payment_method: 'moyasar',
+            moyasar: {
+              payment_id: moyasarResult.payment?.id,
+              status: moyasarResult.payment?.status,
+            },
+            package_name: pkg.name,
+            amount: packagePrice,
+            currency: 'SAR'
+          }
+        });
+      }
+      
+      // Handle Tabby payment
+      if (paymentMethod === 'tabby') {
+        if (!merchantUrls) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('validation.invalid_payment_data', language)
+          });
+        }
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: bilingual.getErrorMessage('user.not_found', language)
+          });
+        }
+        
+        try {
+          const tabbyResult = await tabbyService.createCheckoutSession({
+            payment: {
+              amount: packagePrice.toFixed(2),
+              currency: 'SAR',
+              buyer: {
+                phone: user.phone,
+                email: user.email ?? `${user.phone}@example.com`,
+                name: user.name,
+              },
+              order: {
+                reference_id: `SUB-${Date.now()}`,
+                items: [{
+                  title: (pkg.name as any).en,
+                  quantity: 1,
+                  unit_price: packagePrice.toFixed(2),
+                  category: 'Subscription'
+                }]
+              },
+              buyer_history: {
+                registered_since: user.createdAt.toISOString(),
+                loyalty_level: 0
+              }
+            },
+            lang: language === 'ar' ? 'ar' : 'en',
+            merchant_urls: {
+              success: merchantUrls.success,
+              cancel: merchantUrls.cancel,
+              failure: merchantUrls.failure
+            },
+            metadata: {
+              subscription_purchase: true,
+              user_id: userId,
+              package_id: packageId,
+              start_date: startDate.toISOString(),
+              end_date: endDate.toISOString(),
+              auto_renew: autoRenew,
+              duration_months: durationMonths
+            }
+          });
+          
+          return res.status(201).json({
+            success: true,
+            message: bilingual.getMessage('payment.created_successfully', language),
+            data: {
+              payment_method: 'tabby',
+              tabby: {
+                payment_id: tabbyResult.payment.id,
+                checkout_url: tabbyResult.configuration.available_products.installments[0]?.web_url
+              },
+              package_name: pkg.name,
+              amount: packagePrice,
+              currency: 'SAR'
+            }
+          });
+        } catch (tabbyError: any) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('payment.creation_failed', language),
+            error: tabbyError.message
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error('Purchase subscription error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      return res.status(500).json({
+        success: false,
+        message: bilingual.getErrorMessage('general.server_error', language),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      });
+    }
+  });
+  
+  // Check User Active Subscription
+  app.get('/api/v2/subscriptions/active', authenticateToken, async (req: any, res: any) => {
+    try {
+      const userId = req.user?.id;
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: bilingual.getErrorMessage('auth.unauthorized', language)
+        });
+      }
+      
+      const { getUserActiveSubscription } = await import('./utils/subscription-lifecycle');
+      const activeSubscription = await getUserActiveSubscription(userId);
+      
+      if (!activeSubscription) {
+        return res.json({
+          success: true,
+          message: bilingual.getMessage('subscriptions.no_active_subscription', language),
+          data: { hasActiveSubscription: false }
+        });
+      }
+      
+      return res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.active_found', language),
+        data: {
+          hasActiveSubscription: true,
+          subscription: activeSubscription.subscription,
+          package: activeSubscription.package,
+          benefits: activeSubscription.benefits
+        }
+      });
+    } catch (error) {
+      console.error('Check active subscription error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      return res.status(500).json({
+        success: false,
+        message: bilingual.getErrorMessage('general.server_error', language)
+      });
+    }
+  });
+  
+  // Process Subscription Auto-Renewals (Admin)
+  app.post('/api/v2/admin/subscriptions/process-renewals', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const { daysBeforeExpiration = 3 } = req.body;
+      
+      const { processAutoRenewals } = await import('./utils/subscription-lifecycle');
+      const results = await processAutoRenewals(daysBeforeExpiration);
+      
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+      
+      return res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.renewals_processed', language),
+        data: {
+          total: results.length,
+          successful: successCount,
+          failed: failureCount,
+          results
+        }
+      });
+    } catch (error) {
+      console.error('Process renewals error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      return res.status(500).json({
+        success: false,
+        message: bilingual.getErrorMessage('general.server_error', language)
+      });
+    }
+  });
+  
+  // Expire Subscriptions (Admin)
+  app.post('/api/v2/admin/subscriptions/expire', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      const { expireSubscriptions } = await import('./utils/subscription-lifecycle');
+      const result = await expireSubscriptions();
+      
+      return res.json({
+        success: true,
+        message: bilingual.getMessage('subscriptions.expired_processed', language),
+        data: result
+      });
+    } catch (error) {
+      console.error('Expire subscriptions error:', error);
+      const language = req.headers['accept-language'] || 'en';
+      return res.status(500).json({
+        success: false,
+        message: bilingual.getErrorMessage('general.server_error', language)
       });
     }
   });

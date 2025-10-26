@@ -5,6 +5,7 @@ import { moyasarService } from '../services/moyasar';
 import { tabbyService } from '../services/tabby';
 import { bilingual } from '../utils/bilingual';
 import { paymentSchema, validateSchema } from '../middleware/validation';
+import { PaymentTransactions } from '../utils/transactions';
 import crypto from 'crypto';
 
 interface AuthenticatedRequest extends Request {
@@ -53,61 +54,41 @@ export class PaymentsController {
         });
       }
 
-      // Check wallet balance
-      const walletBalance = await this.storage.getUserWalletBalance(userId);
+      // Validate wallet balance BEFORE transaction (restore 400 error handling)
+      const wallet = await this.storage.getWallet(userId);
+      if (!wallet) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('wallet.not_found', userLanguage)
+        });
+      }
+
+      const walletBalance = parseFloat(wallet.balance);
       if (walletBalance < amount) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('wallet.insufficient_balance', userLanguage),
           data: {
-            required_amount: amount,
-            available_balance: walletBalance,
+            required: amount,
+            available: walletBalance,
             shortfall: amount - walletBalance
           }
         });
       }
 
-      // Create payment record
-      const payment = await this.storage.createPayment({
+      const result = await PaymentTransactions.processWalletPayment({
         orderId: order_id,
         userId,
-        method: 'wallet',
-        provider: null,
-        providerTransactionId: null,
-        amount: amount.toString(),
-        walletAmount: amount.toString(),
-        gatewayAmount: '0.00',
-        currency: 'SAR',
-        status: 'paid',
-        providerResponse: null
+        amount
       });
 
-      // Deduct from wallet
-      const walletTransaction = await this.storage.createWalletTransaction({
-        userId,
-        type: 'debit',
-        amount: amount.toString(),
-        balanceBefore: walletBalance.toString(),
-        balanceAfter: (walletBalance - amount).toString(),
-        description: `Payment for order ${order_id}`,
-        descriptionAr: `دفع للطلب ${order_id}`,
-        orderId: order_id,
-        referenceId: payment.id
-      });
-
-      // Update order payment status
-      await this.storage.updateOrder(order_id, {
-        paymentStatus: 'paid'
-      });
-
-      // Create audit log
       await this.storage.createPaymentAuditLog({
-        paymentId: payment.id,
+        paymentId: result.payment.id,
         action: 'wallet_payment',
         oldStatus: null,
         newStatus: 'paid',
         amount: amount.toString(),
-        details: { method: 'wallet', transaction_id: walletTransaction.id },
+        details: { method: 'wallet', transaction_id: result.walletTransaction.id },
         userId
       });
 
@@ -115,15 +96,15 @@ export class PaymentsController {
         success: true,
         message: bilingual.getMessage('payment.wallet_successful', userLanguage),
         data: {
-          payment_id: payment.id,
+          payment_id: result.payment.id,
           order_id: order_id,
           amount: amount,
           currency: 'SAR',
           method: 'wallet',
           status: 'paid',
-          wallet_transaction_id: walletTransaction.id,
-          new_wallet_balance: walletBalance - amount,
-          created_at: payment.createdAt
+          wallet_transaction_id: result.walletTransaction.id,
+          new_wallet_balance: result.newBalance,
+          created_at: result.payment.createdAt
         }
       });
 
@@ -277,66 +258,45 @@ export class PaymentsController {
         }
       }
 
-      // Create payment record
-      const payment = await this.storage.createPayment({
+      const result = await PaymentTransactions.processHybridPayment({
         orderId: order_id,
         userId,
-        method: 'wallet',
-        provider: payment_method,
-        providerTransactionId: gatewayTransactionId,
-        amount: total_amount.toString(),
-        walletAmount: wallet_amount.toString(),
-        gatewayAmount: gateway_amount.toString(),
-        currency: 'SAR',
-        status: gateway_amount > 0 ? 'pending' : 'paid',
-        providerResponse: gatewayPaymentResult
+        totalAmount: total_amount,
+        walletAmount: wallet_amount,
+        gatewayAmount: gateway_amount,
+        paymentMethod: payment_method,
+        gatewayTransactionId,
+        gatewayResponse: gatewayPaymentResult
       });
-
-      // Process wallet portion if gateway was successful or no gateway payment
-      let walletTransactionId: string | null = null;
-      if (wallet_amount > 0 && (gateway_amount === 0 || gatewayPaymentResult)) {
-        const walletTransaction = await this.storage.createWalletTransaction({
-          userId,
-          type: 'debit',
-          amount: wallet_amount.toString(),
-          balanceBefore: walletBalance.toString(),
-          balanceAfter: (walletBalance - wallet_amount).toString(),
-          description: `Hybrid payment for order ${order_id} (Wallet portion)`,
-          descriptionAr: `دفع مختلط للطلب ${order_id} (جزء المحفظة)`,
-          orderId: order_id,
-          referenceId: payment.id
-        });
-        walletTransactionId = walletTransaction.id;
-      }
 
       // Create audit log
       await this.storage.createPaymentAuditLog({
-        paymentId: payment.id,
+        paymentId: result.payment.id,
         action: 'hybrid_payment_created',
         oldStatus: null,
-        newStatus: payment.status,
+        newStatus: result.payment.status,
         amount: total_amount.toString(),
         details: {
           wallet_amount,
           gateway_amount,
           gateway_method: payment_method,
           gateway_transaction_id: gatewayTransactionId,
-          wallet_transaction_id: walletTransactionId
+          wallet_transaction_id: result.walletTransaction?.id
         },
         userId
       });
 
       const responseData: any = {
-        payment_id: payment.id,
+        payment_id: result.payment.id,
         order_id: order_id,
         total_amount: total_amount,
         wallet_amount: wallet_amount,
         gateway_amount: gateway_amount,
         currency: 'SAR',
-        status: payment.status,
-        wallet_transaction_id: walletTransactionId,
-        new_wallet_balance: walletBalance - wallet_amount,
-        created_at: payment.createdAt
+        status: result.payment.status,
+        wallet_transaction_id: result.walletTransaction?.id,
+        new_wallet_balance: result.newBalance,
+        created_at: result.payment.createdAt
       };
 
       // Add gateway-specific response data

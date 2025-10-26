@@ -143,6 +143,30 @@ export class BookingsController {
         });
       }
 
+      // Check for active subscription benefits
+      let subscriptionDiscount = 0;
+      let activeSubscription = null;
+      try {
+        const { getUserActiveSubscription, incrementSubscriptionUsage } = await import('../utils/subscription-lifecycle');
+        const subscriptionData = await getUserActiveSubscription(userId);
+        
+        if (subscriptionData) {
+          activeSubscription = subscriptionData.subscription;
+          // Apply subscription discount if available (e.g., 10% discount for premium members)
+          // This is a simple implementation - you can enhance this based on package benefits
+          const subscriptionBenefits = subscriptionData.benefits as any;
+          if (subscriptionBenefits && subscriptionBenefits.discount_percentage) {
+            subscriptionDiscount = Number(subscriptionBenefits.discount_percentage);
+          } else {
+            // Default discount for subscription holders (5%)
+            subscriptionDiscount = 5;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking subscription benefits:', error);
+        // Continue without subscription benefits if there's an error
+      }
+
       // Validate referral code if provided
       let referralDiscount = 0;
       let referralData = null;
@@ -223,6 +247,9 @@ export class BookingsController {
       const discountPercentage = selectedPackage ? parseFloat(selectedPackage.discountPercentage || '0') : 0;
       const discountAmount = (basePrice * discountPercentage) / 100;
       
+      // Apply subscription discount
+      const subscriptionDiscountAmount = (basePrice * subscriptionDiscount) / 100;
+      
       // Apply referral discount
       if (referralData) {
         if (referralData.discountType === 'percentage') {
@@ -233,7 +260,7 @@ export class BookingsController {
       }
       
       // Calculate subtotal and clamp at 0 to prevent negative values
-      const subtotal = Math.max(0, basePrice - discountAmount - referralDiscount);
+      const subtotal = Math.max(0, basePrice - discountAmount - subscriptionDiscountAmount - referralDiscount);
       const vatPercentage = parseFloat(service.vatPercentage || '15');
       const vatAmount = (subtotal * vatPercentage) / 100;
       const totalAmount = subtotal + vatAmount;
@@ -276,6 +303,17 @@ export class BookingsController {
         });
       }
 
+      // Increment subscription usage if active subscription was used
+      if (activeSubscription) {
+        try {
+          const { incrementSubscriptionUsage } = await import('../utils/subscription-lifecycle');
+          await incrementSubscriptionUsage(activeSubscription.id);
+        } catch (error) {
+          console.error('Error incrementing subscription usage:', error);
+          // Continue even if usage tracking fails
+        }
+      }
+
       return res.status(201).json({
         success: true,
         message: bilingual.getMessage('booking.created_successfully', userLanguage),
@@ -297,11 +335,13 @@ export class BookingsController {
           pricing: {
             service_cost: parseFloat(booking.serviceCost),
             discount: parseFloat(booking.discountAmount),
+            subscription_discount: subscriptionDiscountAmount,
             referral_discount: parseFloat(booking.referralDiscount || '0'),
             vat_percentage: vatPercentage,
             vat_amount: parseFloat(booking.vatAmount),
             total_amount: parseFloat(booking.totalAmount)
           },
+          subscription_applied: activeSubscription !== null,
           created_at: booking.createdAt
         }
       });

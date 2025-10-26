@@ -194,6 +194,13 @@ export const processTabbyWebhook = async (event: any): Promise<void> => {
 // Moyasar event handlers
 async function handleMoyasarPaymentPaid(payment: any): Promise<void> {
   try {
+    // Check if this is a subscription purchase
+    if (payment.metadata?.subscription_purchase) {
+      await handleSubscriptionPurchase(payment.metadata, payment.id, 'moyasar');
+      console.log(`Moyasar subscription purchase ${payment.id} processed`);
+      return;
+    }
+
     const bookingId = payment.metadata?.booking_id;
     if (!bookingId) {
       console.error('No booking_id found in Moyasar payment metadata');
@@ -331,6 +338,13 @@ async function handleTabbyPaymentAuthorized(payment: any): Promise<void> {
 
 async function handleTabbyPaymentCaptured(payment: any): Promise<void> {
   try {
+    // Check if this is a subscription purchase
+    if (payment.metadata?.subscription_purchase) {
+      await handleSubscriptionPurchase(payment.metadata, payment.id, 'tabby');
+      console.log(`Tabby subscription purchase ${payment.id} processed`);
+      return;
+    }
+
     const referenceId = payment.order?.reference_id;
     if (!referenceId) return;
 
@@ -455,12 +469,68 @@ export const cleanupWebhookEvents = async (olderThanDays: number = 30): Promise<
   }
 };
 
+// Handle subscription purchase after successful payment
+async function handleSubscriptionPurchase(metadata: any, gatewayPaymentId: string, provider: string): Promise<void> {
+  try {
+    const { user_id, package_id, start_date, end_date, auto_renew } = metadata;
+    
+    if (!user_id || !package_id || !start_date || !end_date) {
+      console.error('Missing required subscription metadata');
+      return;
+    }
+    
+    const db = (await import('../db')).db;
+    const { servicePackages } = await import('../../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    // Get package details
+    const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, package_id));
+    if (!pkg) {
+      console.error(`Package ${package_id} not found`);
+      return;
+    }
+    
+    // Create subscription
+    const subscription = await storage.createSubscription({
+      userId: user_id,
+      packageId: package_id,
+      status: 'active',
+      startDate: new Date(start_date),
+      endDate: new Date(end_date),
+      autoRenew: auto_renew === true || auto_renew === 'true',
+      totalAmount: pkg.price,
+      benefits: pkg.inclusions,
+      usageCount: 0,
+    });
+    
+    // Create audit log
+    await storage.createAuditLog({
+      userId: user_id,
+      action: `subscription_purchased_${provider}`,
+      resourceType: 'subscription',
+      resourceId: subscription.id,
+      details: {
+        package_id,
+        gateway_payment_id: gatewayPaymentId,
+        provider,
+        amount: parseFloat(pkg.price),
+      }
+    });
+    
+    console.log(`Subscription ${subscription.id} created for user ${user_id} via ${provider} payment ${gatewayPaymentId}`);
+  } catch (error) {
+    console.error('Error handling subscription purchase:', error);
+    throw error;
+  }
+}
+
 // Process referral rewards
 async function processReferralReward(bookingId: string): Promise<void> {
   try {
     const db = (await import('../db')).db;
-    const { referrals, walletTransactions, wallets } = await import('../../shared/schema');
-    const { eq, sql } = await import('drizzle-orm');
+    const { referrals } = await import('../../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    const { PaymentTransactions } = await import('./transactions');
     
     // Find the referral record by bookingId
     const referral = await db.query.referrals.findFirst({
@@ -473,65 +543,26 @@ async function processReferralReward(bookingId: string): Promise<void> {
     
     const inviterReward = parseFloat(referral.inviterReward);
     
-    // Use transaction for atomicity
-    await db.transaction(async (tx) => {
-      const now = new Date();
-      
-      // If no reward, just mark as completed
-      if (inviterReward <= 0) {
-        await tx.update(referrals)
-          .set({ 
-            status: 'completed',
-            completedAt: now
-          })
-          .where(eq(referrals.id, referral.id));
-        return;
-      }
-      
-      // Get current wallet balance
-      const wallet = await tx.query.wallets.findFirst({
-        where: eq(wallets.userId, referral.inviterId),
-      });
-      
-      const currentBalance = wallet ? parseFloat(wallet.balance) : 0;
-      const newBalance = currentBalance + inviterReward;
-      
-      // Create wallet transaction
-      await tx.insert(walletTransactions).values({
-        userId: referral.inviterId,
-        amount: inviterReward.toFixed(2),
-        type: 'credit',
-        balanceBefore: currentBalance.toFixed(2),
-        balanceAfter: newBalance.toFixed(2),
-        referenceType: 'referral',
-        referenceId: referral.id,
-        description: `Referral reward for inviting user`,
-        descriptionAr: `مكافأة الإحالة لدعوة مستخدم`
-      });
-      
-      // Update wallet balance
-      if (wallet) {
-        await tx.update(wallets)
-          .set({ balance: newBalance.toFixed(2) })
-          .where(eq(wallets.userId, referral.inviterId));
-      } else {
-        await tx.insert(wallets).values({
-          userId: referral.inviterId,
-          balance: inviterReward.toFixed(2)
-        });
-      }
-      
-      // Only mark as rewarded after successful wallet credit
-      await tx.update(referrals)
+    // If no reward, just mark as completed
+    if (inviterReward <= 0) {
+      await db.update(referrals)
         .set({ 
-          status: 'rewarded',
-          completedAt: now,
-          rewardDistributedAt: now
+          status: 'completed',
+          completedAt: new Date()
         })
         .where(eq(referrals.id, referral.id));
-      
-      console.log(`Referral reward of ${inviterReward} SAR credited to user ${referral.inviterId}`);
+      return;
+    }
+    
+    // Use centralized transaction utility for reward distribution
+    await PaymentTransactions.distributeReferralReward({
+      referralId: referral.id,
+      inviterId: referral.inviterId,
+      rewardAmount: inviterReward,
+      bookingId
     });
+    
+    console.log(`Referral reward of ${inviterReward} SAR credited to user ${referral.inviterId}`);
   } catch (error) {
     console.error('Error processing referral reward:', error);
     throw error; // Re-throw to allow caller to handle

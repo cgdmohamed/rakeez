@@ -29,7 +29,7 @@ export const paymentMethodEnum = pgEnum('payment_method', ['wallet', 'moyasar', 
 export const quotationStatusEnum = pgEnum('quotation_status', ['pending', 'approved', 'rejected']);
 export const supportStatusEnum = pgEnum('support_status', ['open', 'in_progress', 'resolved', 'closed']);
 export const notificationTypeEnum = pgEnum('notification_type', [
-  'order_update', 'technician_assigned', 'payment_confirmation', 'promotional', 'quotation_request'
+  'order_update', 'technician_assigned', 'payment_confirmation', 'promotional', 'quotation_request', 'subscription'
 ]);
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
 export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
