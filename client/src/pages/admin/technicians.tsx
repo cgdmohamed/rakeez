@@ -30,7 +30,7 @@ export default function AdminTechnicians() {
   });
 
   const { data: techniciansData, isLoading } = useQuery<{ data: any[] }>({
-    queryKey: ['/api/v2/admin/users?role=technician'],
+    queryKey: ['/api/v2/admin/users', { role: 'technician' }],
   });
 
   const technicians = techniciansData?.data || [];
@@ -73,7 +73,9 @@ export default function AdminTechnicians() {
       });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users', { role: 'technician' }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'Technician created successfully',
@@ -105,7 +107,9 @@ export default function AdminTechnicians() {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, updateData);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users?role=technician'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users', { role: 'technician' }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'Technician updated successfully',

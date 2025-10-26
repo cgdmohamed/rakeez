@@ -48,7 +48,7 @@ export default function AdminCustomers() {
   });
 
   const { data: customersData, isLoading } = useQuery<CustomersResponse>({
-    queryKey: ['/api/v2/admin/users?role=customer'],
+    queryKey: ['/api/v2/admin/users', { role: 'customer' }],
   });
 
   const customers = customersData?.data || [];
@@ -98,8 +98,9 @@ export default function AdminCustomers() {
       });
     },
     onSuccess: () => {
-      // Invalidate customer lists
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
+      // Invalidate customer lists (both formats for compatibility)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users', { role: 'customer' }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
       // Invalidate analytics dashboard
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
@@ -133,8 +134,9 @@ export default function AdminCustomers() {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
     },
     onSuccess: (_, { id }) => {
-      // Invalidate customer lists
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users?role=customer'] });
+      // Invalidate customer lists (both formats for compatibility)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users', { role: 'customer' }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
       // Invalidate specific customer profile
       queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/customers/${id}/overview`] });
       // Invalidate customer's subscriptions, addresses, orders, etc.

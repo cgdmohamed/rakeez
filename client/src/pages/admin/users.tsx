@@ -100,7 +100,8 @@ export default function AdminUsers() {
       return apiRequest('POST', '/api/v2/admin/users', data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'User created successfully',
@@ -122,7 +123,8 @@ export default function AdminUsers() {
       return apiRequest('PUT', `/api/v2/admin/users/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'User updated successfully',
@@ -144,7 +146,8 @@ export default function AdminUsers() {
       return apiRequest('PATCH', `/api/v2/admin/users/${id}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'User status updated successfully',
@@ -164,7 +167,8 @@ export default function AdminUsers() {
       return apiRequest('DELETE', `/api/v2/admin/users/${id}`);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       toast({
         title: 'Success',
         description: 'User deleted successfully',

@@ -43,7 +43,7 @@ export default function AdminNotifications() {
     },
     onSuccess: () => {
       toast({ title: 'Success', description: 'Notification sent successfully' });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/notifications'] });
       setShowDialog(false);
       setFormData({ role: '', type: 'system', title_en: '', body_en: '' });
     },
