@@ -172,8 +172,15 @@ export default function AdminSubscriptions() {
     }) => {
       return apiRequest('POST', '/api/v2/admin/subscriptions', data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Invalidate all subscription-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
+      // Invalidate customer's subscription tab
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/users/${variables.userId}/subscriptions`] });
+      // Invalidate analytics dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
+      // Invalidate customer overview
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/admin/customers/${variables.userId}/overview`] });
       toast({
         title: 'Success',
         description: 'Subscription created successfully',
@@ -195,7 +202,14 @@ export default function AdminSubscriptions() {
       return apiRequest('PUT', `/api/v2/admin/subscriptions/${id}`, { status });
     },
     onSuccess: () => {
+      // Invalidate all subscription-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
+      // Invalidate all user subscription queries (we don't know the userId here, so invalidate all)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/users'], refetchType: 'active' });
+      // Invalidate analytics dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
+      // Invalidate all customer overviews
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/customers'], refetchType: 'active' });
       toast({
         title: 'Success',
         description: 'Subscription status updated successfully',

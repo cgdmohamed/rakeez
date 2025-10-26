@@ -115,7 +115,10 @@ export default function AdminSubscriptionPackages() {
       return apiRequest('POST', '/api/v2/admin/service-packages', data);
     },
     onSuccess: () => {
+      // Invalidate all package-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/service-packages'] });
+      // Invalidate subscriptions list (it shows package info)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
       toast({
         title: 'Success',
         description: 'Package created successfully',
@@ -137,7 +140,12 @@ export default function AdminSubscriptionPackages() {
       return apiRequest('PUT', `/api/v2/admin/service-packages/${id}`, data);
     },
     onSuccess: () => {
+      // Invalidate all package-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/service-packages'] });
+      // Invalidate subscriptions list (it shows package info)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
+      // Invalidate all user subscription queries (they show package details)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/users'], refetchType: 'active' });
       toast({
         title: 'Success',
         description: 'Package updated successfully',
@@ -160,7 +168,10 @@ export default function AdminSubscriptionPackages() {
       return apiRequest('DELETE', `/api/v2/admin/service-packages/${id}`);
     },
     onSuccess: () => {
+      // Invalidate all package-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/service-packages'] });
+      // Invalidate subscriptions list (it shows package info)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
       toast({
         title: 'Success',
         description: 'Package deleted successfully',
