@@ -47,6 +47,7 @@ import AdminSpareParts from './admin/spare-parts';
 import AdminPromos from './admin/promos';
 import AdminMobileContent from './admin/mobile-content';
 import AdminSubscriptions from './admin/subscriptions';
+import AdminSubscriptionPackages from './admin/subscription-packages';
 
 const navigation = [
   { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -63,6 +64,7 @@ const navigation = [
   { name: 'Brands', href: '/admin/brands', icon: Package },
   { name: 'Spare Parts', href: '/admin/spare-parts', icon: Package },
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: Repeat },
+  { name: 'Subscription Packages', href: '/admin/subscription-packages', icon: Package },
   { name: 'Promos', href: '/admin/promos', icon: Gift },
   { name: 'Mobile Content', href: '/admin/mobile-content', icon: Smartphone },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
@@ -289,6 +291,7 @@ export default function AdminDashboard() {
             <Route path="/admin/brands" component={AdminBrands} />
             <Route path="/admin/spare-parts" component={AdminSpareParts} />
             <Route path="/admin/subscriptions" component={AdminSubscriptions} />
+            <Route path="/admin/subscription-packages" component={AdminSubscriptionPackages} />
             <Route path="/admin/promos" component={AdminPromos} />
             <Route path="/admin/mobile-content" component={AdminMobileContent} />
             <Route path="/admin/analytics" component={AdminAnalytics} />
