@@ -561,8 +561,8 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       path: '/api/v2/bookings/create',
       title: 'Create Booking',
       titleAr: 'إنشاء حجز',
-      description: 'Create a new service booking (one-time or subscription-based)',
-      descriptionAr: 'إنشاء حجز خدمة جديد (دفعة واحدة أو بناءً على اشتراك)',
+      description: 'Create a new service booking (one-time or subscription-based). Supports referral codes for discounts.',
+      descriptionAr: 'إنشاء حجز خدمة جديد (دفعة واحدة أو بناءً على اشتراك). يدعم رموز الإحالة للحصول على خصومات.',
       auth: true,
       requestBody: {
         type: 'object',
@@ -573,7 +573,8 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           address_id: 'addr_123',
           scheduled_date: '2024-01-20',
           scheduled_time: '10:00',
-          notes: 'Please bring cleaning supplies'
+          notes: 'Please bring cleaning supplies',
+          referral_code: 'ABC123 (optional - customer referral code for discount)'
         }
       },
       responseExample: {
@@ -583,9 +584,15 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           data: {
             booking_id: 'bkg_123',
             status: 'pending',
-            total_amount: 500,
+            total_amount: 400,
+            referral_discount: 100,
             payment_status: 'pending'
           }
+        },
+        error: {
+          success: false,
+          message: 'Invalid referral code',
+          error: 'No active referral campaign available'
         }
       }
     },
@@ -852,18 +859,59 @@ const endpoints: Record<string, ApiEndpoint[]> = {
   referrals: [
     {
       method: 'POST',
-      path: '/api/v2/referrals/generate',
-      title: 'Generate Referral Code',
-      titleAr: 'إنشاء رمز الإحالة',
-      description: 'Generate a unique referral code for the user',
-      descriptionAr: 'إنشاء رمز إحالة فريد للمستخدم',
-      auth: true,
+      path: '/api/v2/referrals/validate',
+      title: 'Validate Referral Code',
+      titleAr: 'التحقق من رمز الإحالة',
+      description: 'Validate a referral code before applying it to a booking. Checks if code exists, has active campaign, and usage limits.',
+      descriptionAr: 'التحقق من رمز الإحالة قبل تطبيقه على الحجز. يتحقق من وجود الرمز، والحملة النشطة، وحدود الاستخدام.',
+      auth: false,
+      requestBody: {
+        type: 'object',
+        example: {
+          referral_code: 'ABC123'
+        }
+      },
       responseExample: {
         success: {
           success: true,
+          message: 'Referral code is valid',
           data: {
-            referral_code: 'AHMED2024',
-            share_url: 'https://rakeez.sa/ref/AHMED2024'
+            discount_type: 'percentage',
+            discount_value: 20,
+            inviter_name: 'Ahmed Ali',
+            campaign_name: { en: 'Launch Campaign', ar: 'حملة الإطلاق' }
+          }
+        },
+        error: {
+          success: false,
+          message: 'Invalid referral code',
+          error: 'No active referral campaign available'
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/referrals/redeem',
+      title: 'Redeem Referral Code',
+      titleAr: 'استخدام رمز الإحالة',
+      description: 'Redeem a referral code (applied during booking creation). Creates referral record and applies discount.',
+      descriptionAr: 'استخدام رمز الإحالة (يتم تطبيقه عند إنشاء الحجز). ينشئ سجل إحالة ويطبق الخصم.',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          referral_code: 'ABC123',
+          booking_id: 'bkg_123'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Referral code redeemed successfully',
+          data: {
+            referral_id: 'ref_123',
+            discount_applied: 100,
+            inviter_reward: 50
           }
         }
       }
@@ -873,17 +921,28 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       path: '/api/v2/referrals/stats',
       title: 'Get Referral Stats',
       titleAr: 'إحصائيات الإحالة',
-      description: 'Get referral statistics and earnings',
-      descriptionAr: 'الحصول على إحصائيات الإحالة والأرباح',
+      description: 'Get referral statistics and earnings for authenticated user',
+      descriptionAr: 'الحصول على إحصائيات الإحالة والأرباح للمستخدم',
       auth: true,
       responseExample: {
         success: {
           success: true,
           data: {
+            referral_code: 'ABC123',
             total_referrals: 5,
-            active_referrals: 3,
-            total_earnings: 150,
-            pending_earnings: 50
+            completed_referrals: 3,
+            pending_referrals: 2,
+            total_rewards_earned: 150.00,
+            pending_rewards: 50.00,
+            referrals: [
+              {
+                id: 'ref_123',
+                invitee_name: 'Mohammed Ali',
+                status: 'completed',
+                reward: 50.00,
+                created_at: '2024-01-15T10:00:00Z'
+              }
+            ]
           }
         }
       }
@@ -1796,6 +1855,172 @@ const endpoints: Record<string, ApiEndpoint[]> = {
         success: {
           success: true,
           message: 'Subscription updated successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals/campaigns',
+      title: 'Get Referral Campaigns',
+      titleAr: 'حملات الإحالة',
+      description: 'Get all referral campaigns (Admin only)',
+      descriptionAr: 'الحصول على جميع حملات الإحالة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'camp_123',
+              name: { en: 'Launch Campaign', ar: 'حملة الإطلاق' },
+              description: { en: 'New customer promo', ar: 'عرض ترويجي للعملاء الجدد' },
+              inviterReward: '50.00',
+              inviteeDiscountType: 'percentage',
+              inviteeDiscountValue: '20.00',
+              maxUsagePerUser: 5,
+              isActive: true,
+              validFrom: '2024-01-01T00:00:00Z',
+              validUntil: '2024-12-31T23:59:59Z',
+              createdAt: '2024-01-01T00:00:00Z'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/referrals/campaigns',
+      title: 'Create Referral Campaign',
+      titleAr: 'إنشاء حملة إحالة',
+      description: 'Create a new referral campaign (Admin only). Defines rewards for referrers and discounts for new customers.',
+      descriptionAr: 'إنشاء حملة إحالة جديدة (للمسؤولين فقط). يحدد مكافآت للمحيلين وخصومات للعملاء الجدد.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          name: { en: 'Summer Promo', ar: 'عرض الصيف' },
+          description: { en: 'Summer referral campaign', ar: 'حملة إحالة صيفية' },
+          inviterReward: 50,
+          inviteeDiscountType: 'percentage',
+          inviteeDiscountValue: 20,
+          maxUsagePerUser: 10,
+          isActive: true,
+          validFrom: '2024-06-01T00:00:00Z',
+          validUntil: '2024-08-31T23:59:59Z'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Referral campaign created successfully',
+          data: {
+            id: 'camp_456',
+            name: { en: 'Summer Promo', ar: 'عرض الصيف' }
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/referrals/campaigns/:id',
+      title: 'Update Referral Campaign',
+      titleAr: 'تحديث حملة الإحالة',
+      description: 'Update an existing referral campaign (Admin only)',
+      descriptionAr: 'تحديث حملة إحالة موجودة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          isActive: false,
+          maxUsagePerUser: 5
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Referral campaign updated successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals',
+      title: 'Get All Referrals',
+      titleAr: 'جميع الإحالات',
+      description: 'Get all referral records with filters (Admin only)',
+      descriptionAr: 'الحصول على جميع سجلات الإحالة مع التصفية (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (pending, completed, expired)',
+          descriptionAr: 'التصفية حسب الحالة (قيد الانتظار، مكتمل، منتهي)'
+        },
+        {
+          name: 'campaignId',
+          type: 'string',
+          required: false,
+          description: 'Filter by campaign ID',
+          descriptionAr: 'التصفية حسب معرف الحملة'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'ref_123',
+              campaignId: 'camp_123',
+              inviterId: 'usr_123',
+              inviterName: 'Ahmed Ali',
+              inviteeId: 'usr_456',
+              inviteeName: 'Mohammed Ali',
+              referralCode: 'ABC123',
+              status: 'completed',
+              inviterReward: '50.00',
+              inviteeDiscount: '100.00',
+              completedAt: '2024-01-15T10:00:00Z',
+              createdAt: '2024-01-10T10:00:00Z'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/referrals/analytics',
+      title: 'Get Referral Analytics',
+      titleAr: 'تحليلات الإحالة',
+      description: 'Get referral system analytics and statistics (Admin only)',
+      descriptionAr: 'الحصول على تحليلات وإحصائيات نظام الإحالة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            total_referrals: 150,
+            completed_referrals: 120,
+            pending_referrals: 25,
+            expired_referrals: 5,
+            total_rewards_distributed: 6000.00,
+            total_discounts_given: 12000.00,
+            active_campaigns: 3,
+            top_referrers: [
+              {
+                userId: 'usr_123',
+                name: 'Ahmed Ali',
+                totalReferrals: 15,
+                totalRewardsEarned: 750.00
+              }
+            ]
+          }
         }
       }
     }
