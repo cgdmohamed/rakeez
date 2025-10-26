@@ -13,12 +13,13 @@ The frontend uses React with TypeScript, featuring a component-based, bilingual 
 
 **Technician Dashboard Self-Service Features (October 2025):**
 - **Profile Management**: Technicians can view and edit their personal information (name in English and Arabic)
+- **Password Management**: Secure password change functionality with strong validation requirements (8+ characters, uppercase, lowercase, numbers, special characters)
 - **Performance & Earnings**: Comprehensive dashboard showing total jobs, completion rate, average rating, revenue, and monthly statistics with data visualization charts
 - **Quotations Management**: View and filter all created quotations by status (pending, approved, rejected) with detailed breakdowns
 - **Availability Settings**: Configure working hours, service radius, maximum daily bookings, home location, and real-time availability status
 
 ### Technical Implementations
-The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control and OTP verification via Twilio. All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
+The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control and OTP verification via Twilio. Password management includes secure change functionality available to all authenticated users (customers, technicians, and admins) with strong validation via passwordSchema (minimum 8 characters, uppercase, lowercase, numbers, special characters), rate limiting (5 attempts per 15 minutes), and audit logging. All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
 ### Feature Specifications
 
