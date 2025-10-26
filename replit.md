@@ -45,6 +45,10 @@ Allows customers to purchase service packages and administrators to create, mana
 
 The database schema separates single-service pricing (`serviceTiers`) from multi-service bundles (`subscriptionPackages`), linked by a `subscriptionPackageServices` junction table. This enables distinct booking flows. File uploads use presigned URLs for secure direct uploads to Replit Object Storage (Google Cloud Storage), with robust security features and dual-mode authentication. API documentation is comprehensive and interactive, distinguishing between public (snake_case, localized) and admin (camelCase, bilingual objects) endpoint responses.
 
+## API Documentation
+
+**Technician API Documentation**: Comprehensive guide located at `docs/TECHNICIAN_API.md` covering all technician endpoints including profile management, bookings & orders, performance metrics, quotations, and availability settings. Includes request/response examples, error handling, and best practices.
+
 ## External Dependencies
 
 **Payment Gateways:**
