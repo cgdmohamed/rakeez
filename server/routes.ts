@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import { storage } from "./storage";
 import { bilingual } from "./utils/bilingual";
 import { redisService } from "./services/redis";
@@ -20,6 +21,7 @@ import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
 import { logError, logApiError } from "./utils/logger";
 import { sanitizeInput } from "./utils/sanitization";
 import { validateFile, detectMimeType, FILE_VALIDATION_PRESETS } from "./utils/fileValidation";
+import { requestTimingMiddleware, getSystemHealth, getPerformanceSummary } from "./utils/performance";
 import { PaymentTransactions } from "./utils/transactions";
 import { websocketService } from "./services/websocket";
 import { AssignmentService } from "./services/assignmentService";
@@ -120,6 +122,23 @@ app.use(express.urlencoded({
   extended: true,
   limit: '1mb' // Limit URL-encoded data to 1MB
 }));
+
+// Response compression for better performance
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress responses for EventSource/Server-Sent Events
+    if (req.headers['accept'] === 'text/event-stream') {
+      return false;
+    }
+    // Use default compression filter
+    return compression.filter(req, res);
+  },
+  level: 6, // Compression level (0-9, 6 is default balance)
+  threshold: 1024, // Only compress responses larger than 1KB
+}));
+
+// Performance monitoring middleware
+app.use(requestTimingMiddleware);
 
 // Rate limiting middleware
 const rateLimit = async (req: any, res: any, next: any) => {
@@ -5560,6 +5579,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(payments)
         .where(eq(payments.status, 'pending'));
       
+      // Get performance and system metrics
+      const systemHealth = getSystemHealth();
+      const performanceSummary = getPerformanceSummary();
+      
       const health = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -5570,7 +5593,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pending_payments: Number(pendingPayments.count) || 0,
         },
         database: 'connected',
-        uptime: process.uptime(),
+        uptime: Math.round(process.uptime()),
+        system: {
+          memory: systemHealth.memory,
+          node_version: systemHealth.node_version,
+          platform: systemHealth.platform,
+        },
+        performance: performanceSummary,
       };
       
       res.json({
