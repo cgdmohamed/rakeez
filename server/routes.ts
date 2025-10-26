@@ -34,12 +34,6 @@ import { db } from "./db";
 import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting middleware
 const rateLimit = async (req: any, res: any, next: any) => {
