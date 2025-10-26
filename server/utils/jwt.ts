@@ -2,8 +2,37 @@ import jwt from 'jsonwebtoken';
 import { User } from '@shared/schema';
 import { AUTH_CONSTANTS } from './constants';
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'cleanserve_secret_key_change_in_production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'cleanserve_refresh_secret_change_in_production';
+// Validate JWT secrets are properly configured
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error(
+    '🚨 FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables. ' +
+    'Generate strong secrets with: openssl rand -base64 64'
+  );
+}
+
+if (JWT_SECRET.length < 32) {
+  throw new Error(
+    '🚨 FATAL: JWT_SECRET must be at least 32 characters long for security. ' +
+    `Current length: ${JWT_SECRET.length}. Generate a strong secret with: openssl rand -base64 64`
+  );
+}
+
+if (JWT_REFRESH_SECRET.length < 32) {
+  throw new Error(
+    '🚨 FATAL: JWT_REFRESH_SECRET must be at least 32 characters long for security. ' +
+    `Current length: ${JWT_REFRESH_SECRET.length}. Generate a strong secret with: openssl rand -base64 64`
+  );
+}
+
+if (JWT_SECRET === JWT_REFRESH_SECRET) {
+  throw new Error(
+    '🚨 FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be different. ' +
+    'Generate two separate secrets with: openssl rand -base64 64'
+  );
+}
 
 export interface JWTPayload {
   user_id: string;
