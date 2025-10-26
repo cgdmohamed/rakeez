@@ -164,8 +164,13 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate bookings list and audit logs
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate analytics dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
+      // Invalidate customer profiles (we don't know which customer, so invalidate all)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/customers'], refetchType: 'active' });
       toast({
         title: 'Success',
         description: 'Booking status updated successfully',
@@ -188,8 +193,11 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate bookings list and audit logs
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate analytics dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
       setAssignDialog({ open: false, bookingId: null, technicianId: '' });
       toast({
         title: 'Success',
@@ -211,8 +219,13 @@ export default function AdminBookings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/bookings'] });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate bookings list and audit logs
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/audit-logs'] });
+      // Invalidate analytics dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/analytics'] });
+      // Invalidate customer profiles (bookings tab)
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/customers'], refetchType: 'active' });
       setCancelDialog({ open: false, bookingId: null, reason: '' });
       toast({
         title: 'Success',
