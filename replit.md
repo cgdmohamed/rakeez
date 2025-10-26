@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-The frontend uses React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (on Radix UI), and Tailwind CSS. It features a component-based, bilingual UI with role-based dashboards for Admin and Technicians, a professional light design, and centralized query client with error handling. The Admin Dashboard provides comprehensive management capabilities, including a detailed Booking Management System with operational control, technician assignment, status timelines, and audit logging. Authentication uses 'auth_token' as the localStorage key for JWT tokens.
+The frontend uses React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (on Radix UI), and Tailwind CSS. It features a component-based, bilingual UI with role-based dashboards for Admin and Technicians, a professional light design, and centralized query client with error handling. The Admin Dashboard provides comprehensive management capabilities, including a detailed Booking Management System with operational control, technician assignment, status timelines, and audit logging. Customer profiles display detailed information across multiple tabs: Overview, Orders, Payments, Support Tickets, Reviews, Referrals, Subscriptions, and Addresses. Authentication uses 'auth_token' as the localStorage key for JWT tokens.
 
 ### Backend Architecture
 The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control and OTP verification via Twilio. Business logic is organized into dedicated controllers. A robust User and Roles Management System supports dynamic role creation with flexible permissions, backed by API endpoints for CRUD operations, validation, and audit logging. All error responses use structured bilingual messages with detailed stack traces in development mode.
@@ -53,10 +53,18 @@ The platform features a complete subscription management system allowing custome
 - Analytics endpoint enhanced with subscription aggregation
 - Quick links to filtered subscription views from dashboard cards
 
+**Customer Profile Integration:**
+- Subscriptions tab in customer profile displays all customer subscriptions
+- Shows package name, tier, dates, amount, status, usage count, and auto-renewal status
+- Uses existing API endpoint `/api/v2/users/:userId/subscriptions` with admin authorization
+- Consistent table design matching other profile tabs (Orders, Payments, etc.)
+- Empty state for customers without active subscriptions
+
 **Architecture Notes:**
 - Admin creation uses custom validation schema (only userId, packageId, dates, autoRenew required)
 - Defaults enforced server-side to prevent client tampering
 - Subscriptions linked to `service_packages` table via packageId
+- Customer profile fetches enriched subscription data with package details (name, tier, price)
 - Future optimization needed: caching/aggregation for dashboard statistics at scale
 
 ### File Upload System
