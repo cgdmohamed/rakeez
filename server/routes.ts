@@ -3682,6 +3682,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language = req.headers['accept-language'] || 'en';
       const brandData = req.body;
       
+      // Validate and set ACL for logo if provided
+      if (brandData.logo) {
+        // Validate it's from object storage (not external URL)
+        if (!brandData.logo.startsWith('/')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Logo must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+          });
+        }
+        
+        const { ObjectStorageService } = await import('./objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        try {
+          brandData.logo = await objectStorageService.trySetObjectEntityAclPolicy(
+            brandData.logo,
+            {
+              owner: req.user.id,
+              visibility: 'public',
+            }
+          );
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid logo URL. Please upload the file first using /api/v2/objects/upload.',
+          });
+        }
+      }
+      
       const newBrand = await storage.createBrand(brandData);
       
       await auditLog({
@@ -3718,6 +3746,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const language = req.headers['accept-language'] || 'en';
       const updateData = req.body;
+      
+      // Validate and set ACL for logo if provided
+      if (updateData.logo) {
+        // Validate it's from object storage (not external URL)
+        if (!updateData.logo.startsWith('/')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Logo must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+          });
+        }
+        
+        const { ObjectStorageService } = await import('./objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        try {
+          updateData.logo = await objectStorageService.trySetObjectEntityAclPolicy(
+            updateData.logo,
+            {
+              owner: req.user.id,
+              visibility: 'public',
+            }
+          );
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid logo URL. Please upload the file first using /api/v2/objects/upload.',
+          });
+        }
+      }
       
       const updatedBrand = await storage.updateBrand(id, updateData);
       
@@ -3824,6 +3880,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const partData = req.body;
       const language = req.headers['accept-language'] || 'en';
       
+      // Validate and set ACL for image if provided
+      let imageUrl = partData.image;
+      if (imageUrl) {
+        if (!imageUrl.startsWith('/')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Image must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+          });
+        }
+        
+        const { ObjectStorageService } = await import('./objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        try {
+          imageUrl = await objectStorageService.trySetObjectEntityAclPolicy(
+            imageUrl,
+            {
+              owner: req.user.id,
+              visibility: 'public',
+            }
+          );
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid image URL. Please upload the file first using /api/v2/objects/upload.',
+          });
+        }
+      }
+      
       const sparePart = await storage.createSparePart({
         name: partData.name,
         description: partData.description,
@@ -3831,7 +3915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         brandId: partData.brandId,
         price: partData.price.toString(),
         stock: partData.stock,
-        image: partData.image,
+        image: imageUrl,
       });
       
       await auditLog({
@@ -3880,6 +3964,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const partData = req.body;
       const language = req.headers['accept-language'] || 'en';
+      
+      // Validate and set ACL for image if provided
+      if (partData.image) {
+        if (!partData.image.startsWith('/')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Image must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+          });
+        }
+        
+        const { ObjectStorageService } = await import('./objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        try {
+          partData.image = await objectStorageService.trySetObjectEntityAclPolicy(
+            partData.image,
+            {
+              owner: req.user.id,
+              visibility: 'public',
+            }
+          );
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid image URL. Please upload the file first using /api/v2/objects/upload.',
+          });
+        }
+      }
       
       const updateData: any = {};
       if (partData.name) updateData.name = partData.name;
@@ -3967,13 +4078,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Home Slider Image (Admin)
   app.post('/api/v2/admin/mobile-content/slider', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: z.object({
-      imageUrl: z.string().url(),
+      imageUrl: z.string().min(1),
       sortOrder: z.number().min(1).max(3),
       isActive: z.boolean().optional(),
     }),
   }), async (req: any, res: any) => {
     try {
       const imageData = req.body;
+      
+      // Validate and set ACL for image
+      if (!imageData.imageUrl.startsWith('/')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Image must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+        });
+      }
+      
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      try {
+        imageData.imageUrl = await objectStorageService.trySetObjectEntityAclPolicy(
+          imageData.imageUrl,
+          {
+            owner: req.user.id,
+            visibility: 'public',
+          }
+        );
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image URL. Please upload the file first using /api/v2/objects/upload.',
+        });
+      }
+      
       const newImage = await storage.createHomeSliderImage(imageData);
       
       await auditLog({
@@ -4006,7 +4143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update Home Slider Image (Admin)
   app.put('/api/v2/admin/mobile-content/slider/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: z.object({
-      imageUrl: z.string().url().optional(),
+      imageUrl: z.string().min(1).optional(),
       sortOrder: z.number().min(1).max(3).optional(),
       isActive: z.boolean().optional(),
     }),
@@ -4014,6 +4151,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updateData = req.body;
+      
+      // Validate and set ACL for image if provided
+      if (updateData.imageUrl) {
+        if (!updateData.imageUrl.startsWith('/')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Image must be uploaded to object storage. Use /api/v2/objects/upload to get upload URL.',
+          });
+        }
+        
+        const { ObjectStorageService } = await import('./objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        try {
+          updateData.imageUrl = await objectStorageService.trySetObjectEntityAclPolicy(
+            updateData.imageUrl,
+            {
+              owner: req.user.id,
+              visibility: 'public',
+            }
+          );
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid image URL. Please upload the file first using /api/v2/objects/upload.',
+          });
+        }
+      }
       const updatedImage = await storage.updateHomeSliderImage(id, updateData);
       
       await auditLog({
