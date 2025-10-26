@@ -109,6 +109,13 @@ The platform features a complete subscription management system allowing custome
 - Backend POST/PUT endpoints handle service link persistence via junction table (delete-and-recreate pattern for updates)
 - Critical security fix: Booking validation checks scheduled datetime (not current time) against subscription window
 
+**API Documentation (Updated October 2025):**
+- Comprehensive interactive API documentation available at `/api-docs`
+- Public endpoints return snake_case fields with localized content based on Accept-Language header
+- Admin endpoints return camelCase fields directly from Drizzle models with bilingual objects
+- Subscription package endpoints fully documented with request/response examples
+- Booking creation updated to include optional `subscription_id` field for subscription-based bookings
+
 ### File Upload System
 The system integrates with Replit Object Storage (Google Cloud Storage) for file uploads, such as brand logos, spare part images, slider images, and avatars. It utilizes presigned URLs for secure direct uploads to GCS. Security features include required metadata validation (fileSize, fileType), ACL policies, presigned URL expiration, and bearer token authentication for URL generation. Deployment configuration supports dual-mode authentication for development (Replit sidecar) and production (GCS service account credentials).
 

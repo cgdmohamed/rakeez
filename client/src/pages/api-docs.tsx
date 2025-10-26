@@ -429,6 +429,94 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       }
     }
   ],
+  subscriptions: [
+    {
+      method: 'GET',
+      path: '/api/v2/subscription-packages',
+      title: 'Get Subscription Packages',
+      titleAr: 'الحصول على باقات الاشتراكات',
+      description: 'Browse all active subscription packages with optional filtering by tier or category (returns localized content based on Accept-Language header)',
+      descriptionAr: 'تصفح جميع باقات الاشتراكات النشطة مع تصفية اختيارية حسب المستوى أو الفئة (يعيد محتوى محلي بناءً على ترويسة Accept-Language)',
+      auth: false,
+      queryParams: [
+        {
+          name: 'tier',
+          type: 'string',
+          required: false,
+          description: 'Filter by tier (basic, premium, vip, enterprise)',
+          descriptionAr: 'التصفية حسب المستوى (أساسي، مميز، VIP، مؤسسي)'
+        },
+        {
+          name: 'category_id',
+          type: 'string',
+          required: false,
+          description: 'Filter by service category ID',
+          descriptionAr: 'التصفية حسب معرف فئة الخدمة'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'pkg_123',
+              name: 'Premium Cleaning Package',
+              description: 'Professional cleaning services bundle',
+              tier: 'premium',
+              price: '500.00',
+              duration_days: 30,
+              discount_percentage: '10.00',
+              inclusions: ['Free delivery', 'Priority support'],
+              terms_and_conditions: 'Terms apply',
+              image: 'https://storage.example.com/packages/premium.jpg',
+              category_id: 'cat_123'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/subscription-packages/:id',
+      title: 'Get Package Details',
+      titleAr: 'تفاصيل الباقة',
+      description: 'Get detailed information about a specific subscription package with all included services (returns localized content)',
+      descriptionAr: 'الحصول على معلومات تفصيلية حول باقة اشتراك محددة مع جميع الخدمات المضمنة (يعيد محتوى محلي)',
+      auth: false,
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            id: 'pkg_123',
+            name: 'Premium Cleaning Package',
+            description: 'Professional cleaning services bundle',
+            tier: 'premium',
+            price: '500.00',
+            duration_days: 30,
+            discount_percentage: '10.00',
+            inclusions: ['Free delivery', 'Priority support'],
+            terms_and_conditions: 'Terms apply',
+            image: 'https://storage.example.com/packages/premium.jpg',
+            category_id: 'cat_123',
+            included_services: [
+              {
+                id: 'link_123',
+                usage_limit: 3,
+                discount_percentage: '10.00',
+                service: {
+                  id: 'srv_123',
+                  name: 'Deep Cleaning',
+                  description: 'Professional deep cleaning service',
+                  category: 'Home Cleaning',
+                  image: 'https://storage.example.com/services/deep-cleaning.jpg'
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
   bookings: [
     {
       method: 'GET',
@@ -473,14 +561,15 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       path: '/api/v2/bookings/create',
       title: 'Create Booking',
       titleAr: 'إنشاء حجز',
-      description: 'Create a new service booking',
-      descriptionAr: 'إنشاء حجز خدمة جديد',
+      description: 'Create a new service booking (one-time or subscription-based)',
+      descriptionAr: 'إنشاء حجز خدمة جديد (دفعة واحدة أو بناءً على اشتراك)',
       auth: true,
       requestBody: {
         type: 'object',
         example: {
           service_id: 'srv_123',
-          package_id: 'pkg_123',
+          tier_id: 'tier_123',
+          subscription_id: 'sub_123 (optional - use for subscription-based bookings)',
           address_id: 'addr_123',
           scheduled_date: '2024-01-20',
           scheduled_time: '10:00',
@@ -494,7 +583,8 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           data: {
             booking_id: 'bkg_123',
             status: 'pending',
-            total_amount: 500
+            total_amount: 500,
+            payment_status: 'pending'
           }
         }
       }
@@ -1453,6 +1543,261 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           }
         }
       }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/service-packages',
+      title: 'Get All Subscription Packages',
+      titleAr: 'جميع باقات الاشتراكات',
+      description: 'Get all subscription packages (active and inactive) with included services (Admin only)',
+      descriptionAr: 'الحصول على جميع باقات الاشتراكات (النشطة وغير النشطة) مع الخدمات المضمنة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'pkg_123',
+              tier: 'premium',
+              name: { en: 'Premium Cleaning Package', ar: 'باقة التنظيف المميزة' },
+              description: { en: 'Professional cleaning bundle', ar: 'حزمة تنظيف احترافية' },
+              durationDays: 30,
+              price: '500.00',
+              discountPercentage: '10.00',
+              inclusions: { en: ['Free delivery'], ar: ['توصيل مجاني'] },
+              termsAndConditions: { en: 'Terms apply', ar: 'تطبق الشروط' },
+              image: null,
+              categoryId: 'cat_123',
+              isActive: true,
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z',
+              services: [
+                {
+                  id: 'srv_123',
+                  name: { en: 'Deep Cleaning', ar: 'تنظيف عميق' },
+                  description: { en: 'Professional service', ar: 'خدمة احترافية' },
+                  usageLimit: 3,
+                  discountPercentage: '10.00',
+                  linkId: 'link_123'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/service-packages',
+      title: 'Create Subscription Package',
+      titleAr: 'إنشاء باقة اشتراك',
+      description: 'Create a new subscription package with multiple services (Admin only). Requires bilingual name and description.',
+      descriptionAr: 'إنشاء باقة اشتراك جديدة مع خدمات متعددة (للمسؤولين فقط). يتطلب اسماً ووصفاً ثنائي اللغة.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          tier: 'premium',
+          name: { en: 'Premium Cleaning Package', ar: 'باقة التنظيف المميزة' },
+          description: { en: 'Professional cleaning bundle', ar: 'حزمة تنظيف احترافية' },
+          durationDays: 30,
+          price: '500.00',
+          discountPercentage: '10.00',
+          inclusions: { en: ['Free delivery', 'Priority support'], ar: ['توصيل مجاني', 'دعم أولوية'] },
+          termsAndConditions: { en: 'Terms apply', ar: 'تطبق الشروط' },
+          categoryId: 'cat_123',
+          image: null,
+          isActive: true,
+          services: [
+            {
+              serviceId: 'srv_123',
+              usageLimit: 3,
+              discountPercentage: '10.00'
+            },
+            {
+              serviceId: 'srv_456',
+              usageLimit: 2,
+              discountPercentage: '15.00'
+            }
+          ]
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription package created successfully',
+          data: {
+            id: 'pkg_789',
+            tier: 'premium',
+            name: { en: 'Premium Cleaning Package', ar: 'باقة التنظيف المميزة' },
+            durationDays: 30,
+            price: '500.00',
+            isActive: true
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/service-packages/:id',
+      title: 'Update Subscription Package',
+      titleAr: 'تحديث باقة الاشتراك',
+      description: 'Update an existing subscription package and its services (Admin only). All fields optional, services array replaces existing links.',
+      descriptionAr: 'تحديث باقة اشتراك موجودة وخدماتها (للمسؤولين فقط). جميع الحقول اختيارية، مصفوفة الخدمات تستبدل الروابط الحالية.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          tier: 'vip',
+          name: { en: 'VIP Cleaning Package', ar: 'باقة التنظيف VIP' },
+          description: { en: 'Luxury cleaning bundle', ar: 'حزمة تنظيف فاخرة' },
+          durationDays: 60,
+          price: '900.00',
+          discountPercentage: '20.00',
+          isActive: true,
+          services: [
+            {
+              serviceId: 'srv_123',
+              usageLimit: 5,
+              discountPercentage: '20.00'
+            }
+          ]
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription package updated successfully'
+        }
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v2/admin/service-packages/:id',
+      title: 'Delete Subscription Package',
+      titleAr: 'حذف باقة الاشتراك',
+      description: 'Delete a subscription package (Admin only)',
+      descriptionAr: 'حذف باقة اشتراك (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription package deleted successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/subscriptions',
+      title: 'Get All Subscriptions',
+      titleAr: 'جميع الاشتراكات',
+      description: 'Get all customer subscriptions with filters (Admin only)',
+      descriptionAr: 'الحصول على جميع اشتراكات العملاء مع التصفية (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (active, expired, cancelled)',
+          descriptionAr: 'التصفية حسب الحالة (نشط، منتهي، ملغى)'
+        },
+        {
+          name: 'userId',
+          type: 'string',
+          required: false,
+          description: 'Filter by user ID',
+          descriptionAr: 'التصفية حسب معرف المستخدم'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'sub_123',
+              userId: 'usr_456',
+              packageId: 'pkg_789',
+              startDate: '2024-01-01',
+              endDate: '2024-01-31',
+              status: 'active',
+              totalAmount: '500.00',
+              usageCount: 2,
+              autoRenew: true,
+              benefits: { en: ['Service 1', 'Service 2'], ar: ['خدمة 1', 'خدمة 2'] },
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/subscriptions',
+      title: 'Create Customer Subscription',
+      titleAr: 'إنشاء اشتراك عميل',
+      description: 'Manually create a subscription for a customer (Admin only). Server sets totalAmount from package price, status as active, and usageCount as 0.',
+      descriptionAr: 'إنشاء اشتراك يدوياً لعميل (للمسؤولين فقط). يحدد الخادم totalAmount من سعر الباقة، والحالة نشطة، و usageCount كـ 0.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          userId: 'usr_456',
+          packageId: 'pkg_789',
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+          autoRenew: false,
+          benefits: { en: ['Service 1', 'Service 2'], ar: ['خدمة 1', 'خدمة 2'] }
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription created successfully',
+          data: {
+            id: 'sub_123',
+            userId: 'usr_456',
+            packageId: 'pkg_789',
+            startDate: '2024-01-01',
+            endDate: '2024-01-31',
+            status: 'active',
+            totalAmount: '500.00',
+            usageCount: 0,
+            autoRenew: false
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/subscriptions/:id',
+      title: 'Update Subscription',
+      titleAr: 'تحديث الاشتراك',
+      description: 'Update customer subscription details (Admin only). All fields optional.',
+      descriptionAr: 'تحديث تفاصيل اشتراك العميل (للمسؤولين فقط). جميع الحقول اختيارية.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          status: 'cancelled',
+          endDate: '2024-02-28',
+          autoRenew: false
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription updated successfully'
+        }
+      }
     }
   ],
   uploads: [
@@ -1495,6 +1840,7 @@ export default function ApiDocs() {
     auth: { en: 'Authentication', ar: 'المصادقة' },
     profile: { en: 'Profile & Addresses', ar: 'الملف الشخصي والعناوين' },
     services: { en: 'Services & Parts', ar: 'الخدمات وقطع الغيار' },
+    subscriptions: { en: 'Subscription Packages', ar: 'باقات الاشتراكات' },
     bookings: { en: 'Bookings', ar: 'الحجوزات' },
     quotations: { en: 'Quotations', ar: 'عروض الأسعار' },
     payments: { en: 'Payments', ar: 'الدفعات' },
