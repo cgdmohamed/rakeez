@@ -6,7 +6,7 @@ import {
   serviceCategories, services, serviceTiers, spareParts, promotions, faqs,
   users, addresses, bookings, payments, wallets, reviews,
   quotations, notifications, supportTickets, supportMessages, walletTransactions,
-  referralCampaigns,
+  referralCampaigns, subscriptionPackages, subscriptionPackageServices,
   type InsertServiceCategory, type InsertService, type InsertServiceTier,
   type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
@@ -104,6 +104,9 @@ async function seed() {
         basePrice: ((idx + 1) * 100).toString(),
         vatPercentage: '15',
         durationMinutes: 120,
+        image: null,
+        averageRating: '4.5',
+        reviewCount: 12 + idx * 3,
         isActive: true,
       });
 
@@ -120,6 +123,9 @@ async function seed() {
         basePrice: ((idx + 1) * 150).toString(),
         vatPercentage: '15',
         durationMinutes: 180,
+        image: null,
+        averageRating: '4.8',
+        reviewCount: 25 + idx * 5,
         isActive: true,
       });
     });
@@ -170,7 +176,134 @@ async function seed() {
     });
 
     const createdPackages = await db.insert(serviceTiers).values(packagesData).onConflictDoNothing().returning();
-    console.log(`✅ Created ${createdPackages.length} service packages`);
+    console.log(`✅ Created ${createdPackages.length} service tiers`);
+
+    // 3b. Seed Subscription Packages (Multi-service bundles)
+    console.log('📦 Seeding subscription packages...');
+    const subscriptionPackagesData = [
+      {
+        name: JSON.stringify({ en: 'Basic Monthly Bundle', ar: 'الباقة الشهرية الأساسية' }),
+        description: JSON.stringify({ 
+          en: 'Perfect for regular home maintenance with 2 services per month', 
+          ar: 'مثالية للصيانة المنزلية المنتظمة مع خدمتين شهرياً' 
+        }),
+        categoryId: categories[0]?.id, // Home Cleaning
+        image: null,
+        tier: 'basic' as const,
+        price: '299.00',
+        durationDays: 30,
+        discountPercentage: '0',
+        inclusions: JSON.stringify({ 
+          en: ['2 cleaning sessions per month', 'Standard equipment', 'Customer support'], 
+          ar: ['جلستا تنظيف شهرياً', 'معدات قياسية', 'دعم العملاء'] 
+        }),
+        termsAndConditions: JSON.stringify({ 
+          en: 'Auto-renewable monthly subscription. Cancel anytime.', 
+          ar: 'اشتراك شهري قابل للتجديد التلقائي. يمكن الإلغاء في أي وقت.' 
+        }),
+        isActive: true,
+      },
+      {
+        name: JSON.stringify({ en: 'Premium Family Package', ar: 'باقة العائلة المميزة' }),
+        description: JSON.stringify({ 
+          en: 'Comprehensive cleaning solution for families with 4 services monthly', 
+          ar: 'حل تنظيف شامل للعائلات مع 4 خدمات شهرياً' 
+        }),
+        categoryId: categories[0]?.id,
+        image: null,
+        tier: 'premium' as const,
+        price: '549.00',
+        durationDays: 30,
+        discountPercentage: '10',
+        inclusions: JSON.stringify({ 
+          en: ['4 cleaning sessions per month', 'Premium products', 'Priority support', 'Free deep cleaning quarterly'], 
+          ar: ['4 جلسات تنظيف شهرياً', 'منتجات مميزة', 'دعم ذو أولوية', 'تنظيف عميق مجاني كل ربع سنة'] 
+        }),
+        termsAndConditions: JSON.stringify({ 
+          en: 'Auto-renewable. 10% discount applied. Minimum 3-month commitment.', 
+          ar: 'قابل للتجديد التلقائي. خصم 10% مطبق. التزام لمدة 3 أشهر كحد أدنى.' 
+        }),
+        isActive: true,
+      },
+      {
+        name: JSON.stringify({ en: 'VIP Complete Care', ar: 'العناية الكاملة VIP' }),
+        description: JSON.stringify({ 
+          en: 'Ultimate cleaning package with unlimited services and premium benefits', 
+          ar: 'باقة التنظيف المثالية مع خدمات غير محدودة ومزايا مميزة' 
+        }),
+        categoryId: null,
+        image: null,
+        tier: 'vip' as const,
+        price: '999.00',
+        durationDays: 30,
+        discountPercentage: '15',
+        inclusions: JSON.stringify({ 
+          en: ['Unlimited cleaning sessions', 'All premium services included', '24/7 VIP support', 'Dedicated account manager', 'Free AC maintenance monthly'], 
+          ar: ['جلسات تنظيف غير محدودة', 'جميع الخدمات المميزة مشمولة', 'دعم VIP على مدار الساعة', 'مدير حساب مخصص', 'صيانة مجانية للمكيفات شهرياً'] 
+        }),
+        termsAndConditions: JSON.stringify({ 
+          en: 'Auto-renewable. 15% discount applied. Minimum 6-month commitment.', 
+          ar: 'قابل للتجديد التلقائي. خصم 15% مطبق. التزام لمدة 6 أشهر كحد أدنى.' 
+        }),
+        isActive: true,
+      },
+    ];
+
+    const createdSubscriptionPackages = await db.insert(subscriptionPackages).values(subscriptionPackagesData).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdSubscriptionPackages.length} subscription packages`);
+
+    // 3c. Link Subscription Packages to Services
+    console.log('🔗 Linking subscription packages to services...');
+    const packageServicesData = [];
+
+    if (createdSubscriptionPackages.length > 0 && createdServices.length >= 6) {
+      // Basic Monthly Bundle - 2 basic services
+      packageServicesData.push({
+        packageId: createdSubscriptionPackages[0].id,
+        serviceId: createdServices[0].id, // Home Cleaning - Standard
+        usageLimit: 2,
+        discountPercentage: '0',
+      });
+      packageServicesData.push({
+        packageId: createdSubscriptionPackages[0].id,
+        serviceId: createdServices[2].id, // Deep Cleaning - Standard
+        usageLimit: 1,
+        discountPercentage: '0',
+      });
+
+      // Premium Family Package - 4 services including premium
+      packageServicesData.push({
+        packageId: createdSubscriptionPackages[1].id,
+        serviceId: createdServices[1].id, // Home Cleaning - Premium
+        usageLimit: 2,
+        discountPercentage: '10',
+      });
+      packageServicesData.push({
+        packageId: createdSubscriptionPackages[1].id,
+        serviceId: createdServices[3].id, // Deep Cleaning - Premium
+        usageLimit: 1,
+        discountPercentage: '10',
+      });
+      packageServicesData.push({
+        packageId: createdSubscriptionPackages[1].id,
+        serviceId: createdServices[4].id, // Carpet Cleaning - Standard
+        usageLimit: 1,
+        discountPercentage: '10',
+      });
+
+      // VIP Complete Care - unlimited services
+      for (let i = 0; i < Math.min(6, createdServices.length); i++) {
+        packageServicesData.push({
+          packageId: createdSubscriptionPackages[2].id,
+          serviceId: createdServices[i].id,
+          usageLimit: null, // Unlimited
+          discountPercentage: '15',
+        });
+      }
+    }
+
+    const createdPackageServices = await db.insert(subscriptionPackageServices).values(packageServicesData).onConflictDoNothing().returning();
+    console.log(`✅ Created ${createdPackageServices.length} package-service links`);
 
     // 4. Seed Spare Parts
     console.log('🔩 Seeding spare parts...');
@@ -591,10 +724,12 @@ async function seed() {
     for (const customer of customers) {
       demoAddresses.push({
         userId: customer.id,
-        label: 'Home',
-        address: 'King Fahd Road, Al Olaya District',
-        addressAr: 'طريق الملك فهد، حي العليا',
-        city: 'Riyadh',
+        addressName: 'Home',
+        addressType: 'home' as const,
+        streetName: 'King Fahd Road',
+        houseNo: '123',
+        district: 'Al Olaya District',
+        directions: 'Near Al Faisaliah Tower',
         latitude: '24.7136',
         longitude: '46.6753',
         isDefault: true,
@@ -795,7 +930,8 @@ async function seed() {
     console.log('📊 Summary:');
     console.log(`   - ${categories.length} service categories`);
     console.log(`   - ${createdServices.length} services`);
-    console.log(`   - ${createdPackages.length} service packages`);
+    console.log(`   - ${createdPackages.length} service tiers`);
+    console.log(`   - ${createdSubscriptionPackages.length} subscription packages with ${createdPackageServices.length} service links`);
     console.log(`   - ${createdSpareParts.length} spare parts`);
     console.log(`   - ${createdPromotions.length} promotions`);
     console.log(`   - ${createdFaqs.length} FAQs`);
