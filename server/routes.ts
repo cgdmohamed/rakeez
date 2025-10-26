@@ -2052,6 +2052,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ==================== SERVICE PACKAGES ENDPOINTS ====================
+  
+  // Get All Service Packages (Admin)
+  app.get('/api/v2/admin/service-packages', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      const packages = await db.select().from(servicePackages).orderBy(desc(servicePackages.createdAt));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('packages.retrieved_successfully', language),
+        data: packages,
+      });
+      
+    } catch (error) {
+      console.error('Get service packages error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Create Service Package (Admin)
+  app.post('/api/v2/admin/service-packages', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const packageData = req.body;
+      
+      const [newPackage] = await db.insert(servicePackages).values(packageData).returning();
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('packages.created_successfully', language),
+        data: newPackage,
+      });
+      
+    } catch (error) {
+      console.error('Create service package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Update Service Package (Admin)
+  app.put('/api/v2/admin/service-packages/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      const updateData = req.body;
+      
+      const [updatedPackage] = await db
+        .update(servicePackages)
+        .set(updateData)
+        .where(eq(servicePackages.id, id))
+        .returning();
+      
+      if (!updatedPackage) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('packages.updated_successfully', language),
+        data: updatedPackage,
+      });
+      
+    } catch (error) {
+      console.error('Update service package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Delete Service Package (Admin)
+  app.delete('/api/v2/admin/service-packages/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const [deletedPackage] = await db
+        .delete(servicePackages)
+        .where(eq(servicePackages.id, id))
+        .returning();
+      
+      if (!deletedPackage) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('packages.deleted_successfully', language),
+        data: deletedPackage,
+      });
+      
+    } catch (error) {
+      console.error('Delete service package error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
   // ==================== SUPPORT ENDPOINTS ====================
   
   // Create Support Ticket
