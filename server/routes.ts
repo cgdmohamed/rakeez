@@ -13,7 +13,7 @@ import { emailService } from "./services/email";
 import { pdfService } from "./services/pdf";
 import { notificationService } from "./services/notification";
 import { authenticateToken, authorizeRoles, rateLimitByIP } from "./middleware/auth";
-import { validateRequest } from "./middleware/validation";
+import { validateRequest, passwordSchema } from "./middleware/validation";
 import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
@@ -106,8 +106,17 @@ app.use(cors({
   maxAge: 86400 // 24 hours
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Request size limits to prevent DoS attacks
+app.use(express.json({ 
+  limit: '1mb', // Limit JSON payload to 1MB
+  verify: (req, res, buf) => {
+    req.rawBody = buf; // Store raw body for webhook signature verification
+  }
+}));
+app.use(express.urlencoded({ 
+  extended: true,
+  limit: '1mb' // Limit URL-encoded data to 1MB
+}));
 
 // Rate limiting middleware
 const rateLimit = async (req: any, res: any, next: any) => {
@@ -137,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body: z.object({
       email: z.string().email().optional(),
       phone: z.string().optional(),
-      password: z.string().min(AUTH_CONSTANTS.MIN_PASSWORD_LENGTH),
+      password: passwordSchema, // Strong password policy
       name: z.string().min(2),
       name_ar: z.string().optional(),
       language: z.enum(['en', 'ar']).default('en'),
@@ -6477,7 +6486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body: z.object({
       email: z.string().email().optional(),
       phone: z.string().optional(),
-      password: z.string().min(AUTH_CONSTANTS.MIN_PASSWORD_LENGTH),
+      password: passwordSchema, // Strong password policy
       name: z.string().min(2),
       nameAr: z.string().optional(),
       role: z.enum(['admin', 'technician', 'support', 'finance']),
