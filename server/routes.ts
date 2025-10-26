@@ -537,6 +537,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Change Password
+  app.put('/api/v2/auth/change-password', 
+    authenticateToken, 
+    rateLimitByIP(5, 900), // 5 attempts per 15 minutes
+    validateRequest({
+      body: z.object({
+        current_password: z.string().min(1, 'Current password is required'),
+        new_password: passwordSchema, // Strong password validation
+      })
+    }), 
+    async (req: any, res: any) => {
+      try {
+        const userId = req.user.id;
+        const { current_password, new_password } = req.body;
+        const user = await storage.getUser(userId);
+        const language = req.headers['accept-language'] || user?.language || 'en';
+        
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: bilingual.getMessage('auth.user_not_found', language),
+          });
+        }
+        
+        // Verify current password
+        const isValidPassword = await bcrypt.compare(current_password, user.password);
+        if (!isValidPassword) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.invalid_current_password', language),
+          });
+        }
+        
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(new_password, 10);
+        
+        // Update password
+        await storage.updateUser(userId, { password: hashedPassword });
+        
+        await auditLog({
+          userId: userId,
+          action: 'password_changed',
+          resourceType: 'user',
+          resourceId: userId,
+        });
+        
+        console.log(`User ${userId} changed password successfully`);
+        
+        res.json({
+          success: true,
+          message: bilingual.getMessage('auth.password_changed_successfully', language),
+        });
+        
+      } catch (error) {
+        logApiError('Change password error', error, req, { userId: req.user?.id });
+        res.status(500).json({
+          success: false,
+          message: bilingual.getMessage('general.server_error', 'en'),
+        });
+      }
+    }
+  );
   
   // Get Addresses
   app.get('/api/v2/addresses', authenticateToken, async (req: any, res: any) => {
@@ -7142,58 +7205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('Update technician availability error:', error);
-      res.status(500).json({
-        success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
-      });
-    }
-  });
-
-  // Change Password (for any authenticated user)
-  app.put('/api/v2/auth/change-password', authenticateToken, validateRequest({
-    body: z.object({
-      current_password: z.string().min(1, 'Current password is required'),
-      new_password: z.string().min(8, 'Password must be at least 8 characters'),
-    })
-  }), async (req: any, res: any) => {
-    try {
-      const userId = req.user.id;
-      const { current_password, new_password } = req.body;
-      const language = req.headers['accept-language'] || 'en';
-      
-      // Get user with password
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: bilingual.getMessage('user.not_found', language),
-        });
-      }
-      
-      // Verify current password
-      const isValidPassword = await bcrypt.compare(current_password, user.password);
-      if (!isValidPassword) {
-        return res.status(400).json({
-          success: false,
-          message: bilingual.getMessage('auth.invalid_current_password', language),
-        });
-      }
-      
-      // Hash new password
-      const hashedPassword = await bcrypt.hash(new_password, 10);
-      
-      // Update password
-      await storage.updateUser(userId, { password: hashedPassword });
-      
-      console.log(`User ${userId} changed password successfully`);
-      
-      res.json({
-        success: true,
-        message: bilingual.getMessage('auth.password_changed_successfully', language),
-      });
-      
-    } catch (error) {
-      console.error('Change password error:', error);
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),

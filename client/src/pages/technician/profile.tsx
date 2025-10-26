@@ -363,7 +363,7 @@ export default function TechnicianProfile() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Password must be at least 8 characters long and should include a mix of letters, numbers, and special characters.
+                Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*).
               </p>
             </div>
           ) : (
