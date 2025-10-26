@@ -4,14 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Save } from 'lucide-react';
+import { User, Mail, Phone, Save, Lock, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
 export default function TechnicianProfile() {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['/api/v2/profile'],
@@ -20,6 +25,12 @@ export default function TechnicianProfile() {
   const [formData, setFormData] = useState({
     name: '',
     name_ar: '',
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
   });
 
   const updateProfileMutation = useMutation({
@@ -38,6 +49,30 @@ export default function TechnicianProfile() {
       toast({
         title: 'Error',
         description: 'Failed to update profile',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest('PUT', '/api/v2/auth/change-password', data);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Password changed successfully',
+      });
+      setIsChangingPassword(false);
+      setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to change password',
         variant: 'destructive',
       });
     },
@@ -71,6 +106,39 @@ export default function TechnicianProfile() {
       name: '',
       name_ar: '',
     });
+  };
+
+  const handleChangePassword = () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast({
+        title: 'Error',
+        description: 'New passwords do not match',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (passwordData.new_password.length < 8) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 8 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    changePasswordMutation.mutate({
+      current_password: passwordData.current_password,
+      new_password: passwordData.new_password,
+    });
+  };
+
+  const handleCancelPasswordChange = () => {
+    setIsChangingPassword(false);
+    setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
   };
 
   return (
@@ -192,6 +260,119 @@ export default function TechnicianProfile() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Security Settings</CardTitle>
+          {!isChangingPassword && (
+            <Button onClick={() => setIsChangingPassword(true)} variant="outline" data-testid="button-change-password">
+              <Lock className="mr-2 h-4 w-4" />
+              Change Password
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isChangingPassword ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current_password">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    id="current_password"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passwordData.current_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                    placeholder="Enter current password"
+                    data-testid="input-current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    data-testid="toggle-current-password"
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new_password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new_password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordData.new_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                    placeholder="Enter new password (min 8 characters)"
+                    data-testid="input-new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    data-testid="toggle-new-password"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm_password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={passwordData.confirm_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                    placeholder="Confirm new password"
+                    data-testid="input-confirm-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    data-testid="toggle-confirm-password"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={changePasswordMutation.isPending || !passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password}
+                  className="flex-1"
+                  data-testid="button-save-password"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelPasswordChange}
+                  className="flex-1"
+                  data-testid="button-cancel-password"
+                >
+                  Cancel
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Password must be at least 8 characters long and should include a mix of letters, numbers, and special characters.
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              Keep your account secure by using a strong password. Change your password regularly to maintain account security.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
