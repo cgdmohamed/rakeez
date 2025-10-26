@@ -26,6 +26,39 @@ This system enables administrators to create and manage referral campaigns, trac
 ### Mobile Content Management System
 A comprehensive system for managing the mobile app's homepage content, including home slider images (up to 3 active, with drag-and-drop reordering and unlimited inactive drafts) and a single home banner with bilingual titles and an optional link URL. It features transactional protection with FOR UPDATE row locking, server-side validation for file uploads (max 5MB, image-only), and dedicated API endpoints for admin CRUD operations and public access.
 
+### Subscription Management System
+The platform features a complete subscription management system allowing customers to purchase service packages and administrators to create, manage, and track subscriptions. Key features include:
+
+**Subscription Packages:**
+- Full CRUD operations for service packages with bilingual naming (English/Arabic)
+- Package tiers (basic, premium, vip, enterprise) with flexible pricing and duration
+- Service inclusions management with JSONB support
+- Active/inactive status toggle for package availability
+- Admin dashboard with package statistics (total, active, inactive, by tier)
+- API endpoints: GET/POST/PUT/DELETE at `/api/v2/admin/service-packages`
+
+**Admin Subscription Management:**
+- Manual subscription creation for any customer via admin panel
+- Customer search and selection with package assignment
+- Date range configuration (start/end dates) and auto-renewal toggle
+- Admin-specific endpoint (POST `/api/v2/admin/subscriptions`) with custom validation schema
+- Server-side defaults: totalAmount from package price, status ('active'), benefits from package inclusions, usageCount (0)
+- User and package existence validation before creation
+- Subscription listing with filtering, pagination, and status management
+
+**Dashboard Integration:**
+- Subscription statistics cards on admin overview (active, expired, cancelled, total)
+- Total subscription revenue tracking and display
+- Conditional rendering (only shown when subscriptions exist)
+- Analytics endpoint enhanced with subscription aggregation
+- Quick links to filtered subscription views from dashboard cards
+
+**Architecture Notes:**
+- Admin creation uses custom validation schema (only userId, packageId, dates, autoRenew required)
+- Defaults enforced server-side to prevent client tampering
+- Subscriptions linked to `service_packages` table via packageId
+- Future optimization needed: caching/aggregation for dashboard statistics at scale
+
 ### File Upload System
 The system integrates with Replit Object Storage (Google Cloud Storage) for file uploads, such as brand logos, spare part images, slider images, and avatars. It utilizes presigned URLs for secure direct uploads to GCS. Security features include required metadata validation (fileSize, fileType), ACL policies, presigned URL expiration, and bearer token authentication for URL generation. Deployment configuration supports dual-mode authentication for development (Replit sidecar) and production (GCS service account credentials).
 
