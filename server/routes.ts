@@ -18,6 +18,8 @@ import { auditLog } from "./utils/audit";
 import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
 import { logError, logApiError } from "./utils/logger";
+import { sanitizeInput } from "./utils/sanitization";
+import { validateFile, detectMimeType, FILE_VALIDATION_PRESETS } from "./utils/fileValidation";
 import { PaymentTransactions } from "./utils/transactions";
 import { websocketService } from "./services/websocket";
 import { AssignmentService } from "./services/assignmentService";
@@ -1186,6 +1188,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }), async (req: any, res: any) => {
     try {
       const { service_id, package_id, subscription_id, address_id, scheduled_date, scheduled_time, notes, notes_ar } = req.body;
+      
+      // Sanitize user-generated content to prevent XSS
+      const sanitizedNotes = notes ? sanitizeInput(notes, 'basic') : undefined;
+      const sanitizedNotesAr = notes_ar ? sanitizeInput(notes_ar, 'basic') : undefined;
       const language = req.headers['accept-language'] || 'en';
       
       // Validate scheduled date is not in the past
@@ -1333,8 +1339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         addressId: address_id,
         scheduledDate: scheduledDateTime,
         scheduledTime: scheduled_time,
-        notes,
-        notesAr: notes_ar,
+        notes: sanitizedNotes,
+        notesAr: sanitizedNotesAr,
         serviceCost: basePrice.toString(),
         discountAmount: discountAmount.toString(),
         vatAmount: vatAmount.toString(),
@@ -2996,11 +3002,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { subject, subject_ar, message, priority, booking_id } = req.body;
       const language = req.headers['accept-language'] || 'en';
       
+      // Sanitize user-generated content to prevent XSS
+      const sanitizedSubject = sanitizeInput(subject, 'strict');
+      const sanitizedSubjectAr = subject_ar ? sanitizeInput(subject_ar, 'strict') : undefined;
+      const sanitizedMessage = sanitizeInput(message, 'basic');
+      
       // Create support ticket
       const ticket = await storage.createSupportTicket({
         userId: req.user.id,
-        subject,
-        subjectAr: subject_ar,
+        subject: sanitizedSubject,
+        subjectAr: sanitizedSubjectAr,
         priority,
         bookingId: booking_id,
       });
@@ -3009,7 +3020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const initialMessage = await storage.createSupportMessage({
         ticketId: ticket.id,
         senderId: req.user.id,
-        message,
+        message: sanitizedMessage,
       });
       
       // Broadcast message via WebSocket
@@ -3076,11 +3087,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Sanitize user-generated content to prevent XSS
+      const sanitizedMessage = sanitizeInput(message, 'basic');
+      
       // Create message
       const supportMessage = await storage.createSupportMessage({
         ticketId: ticket_id,
         senderId: req.user.id,
-        message,
+        message: sanitizedMessage,
         attachments: attachments as any,
       });
       
@@ -3192,14 +3206,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get upload URL for object
   app.post('/api/v2/objects/upload', authenticateToken, validateRequest({
     body: z.object({
+      fileName: z.string().min(1, 'File name is required'),
       fileSize: z.number().positive('File size must be positive').max(5 * 1024 * 1024, 'File size must be less than 5MB'),
-      fileType: z.string().regex(/^image\/(jpeg|jpg|png|gif|webp)$/, 'Only image files are allowed'),
+      fileType: z.string().min(1, 'File type is required'),
+      uploadType: z.enum(['profile', 'content', 'document']).optional().default('profile'),
     }),
   }), async (req: any, res: any) => {
-    const { ObjectStorageService } = await import('./objectStorage');
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
+    try {
+      const { fileName, fileSize, fileType, uploadType } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Select validation preset based on upload type
+      const validationPreset = uploadType === 'document' 
+        ? FILE_VALIDATION_PRESETS.document
+        : uploadType === 'content'
+        ? FILE_VALIDATION_PRESETS.appContent
+        : FILE_VALIDATION_PRESETS.profileImage;
+      
+      // Validate file with comprehensive security checks
+      const validation = validateFile(fileName, fileType, fileSize, validationPreset);
+      
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+        });
+      }
+      
+      // Generate upload URL with sanitized filename
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      
+      res.json({ 
+        success: true,
+        uploadURL,
+        sanitizedFilename: validation.sanitizedFilename,
+      });
+    } catch (error) {
+      logApiError('File upload URL generation error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
   });
 
   // Update user profile avatar
