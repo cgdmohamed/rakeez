@@ -57,6 +57,7 @@ export default function AdminCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
+  const [serviceFilter, setServiceFilter] = useState<string>('all');
 
   const { data: bookingsData, isLoading } = useQuery<{ success: boolean; data: Booking[] }>({
     queryKey: ['/api/v2/admin/bookings'],
@@ -66,12 +67,18 @@ export default function AdminCalendar() {
     queryKey: ['/api/v2/admin/technicians'],
   });
 
+  const { data: servicesData } = useQuery<{ success: boolean; data: Array<{ id: string; name: { en: string; ar: string } }> }>({
+    queryKey: ['/api/v2/services'],
+  });
+
   const bookings = bookingsData?.data || [];
   const technicians = techniciansData?.data || [];
+  const services = servicesData?.data || [];
 
   const filteredBookings = bookings.filter(booking => {
     if (statusFilter !== 'all' && booking.status !== statusFilter) return false;
     if (technicianFilter !== 'all' && booking.technician?.id !== technicianFilter) return false;
+    if (serviceFilter !== 'all' && booking.service?.id !== serviceFilter) return false;
     return true;
   });
 
@@ -97,7 +104,7 @@ export default function AdminCalendar() {
           <h1 className="text-3xl font-bold" data-testid="text-page-title">Booking Calendar</h1>
           <p className="text-muted-foreground">View and manage all bookings</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
               <SelectValue placeholder="Filter by status" />
@@ -107,7 +114,9 @@ export default function AdminCalendar() {
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
               <SelectItem value="technician_assigned">Assigned</SelectItem>
+              <SelectItem value="en_route">En Route</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="quotation_pending">Quotation</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
@@ -121,6 +130,18 @@ export default function AdminCalendar() {
               <SelectItem value="all">All Technicians</SelectItem>
               {technicians.map(tech => (
                 <SelectItem key={tech.id} value={tech.id}>{tech.fullName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={serviceFilter} onValueChange={setServiceFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="select-service-filter">
+              <SelectValue placeholder="Filter by service" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Services</SelectItem>
+              {services.map(service => (
+                <SelectItem key={service.id} value={service.id}>{service.name.en}</SelectItem>
               ))}
             </SelectContent>
           </Select>
