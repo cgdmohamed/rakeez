@@ -9,6 +9,10 @@ import {
   Menu,
   X,
   Home,
+  User,
+  TrendingUp,
+  FileText,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -21,11 +25,19 @@ import TechnicianBookings from './technician/bookings';
 import TechnicianCalendar from './technician/calendar';
 import TechnicianUploads from './technician/uploads';
 import TechnicianChat from './technician/chat';
+import TechnicianProfile from './technician/profile';
+import TechnicianPerformance from './technician/performance';
+import TechnicianQuotations from './technician/quotations';
+import TechnicianAvailability from './technician/availability';
 
 const navigation = [
   { name: 'Overview', href: '/technician/dashboard', icon: Home },
   { name: 'My Bookings', href: '/technician/bookings', icon: Calendar },
   { name: 'Calendar', href: '/technician/calendar', icon: Calendar },
+  { name: 'Performance', href: '/technician/performance', icon: TrendingUp },
+  { name: 'Quotations', href: '/technician/quotations', icon: FileText },
+  { name: 'Availability', href: '/technician/availability', icon: Clock },
+  { name: 'Profile', href: '/technician/profile', icon: User },
   { name: 'Uploads', href: '/technician/uploads', icon: Upload },
   { name: 'Chat', href: '/technician/chat', icon: MessageSquare },
 ];
@@ -130,6 +142,10 @@ export default function TechnicianDashboard() {
             <Route path="/technician/dashboard" component={TechnicianOverview} />
             <Route path="/technician/bookings" component={TechnicianBookings} />
             <Route path="/technician/calendar" component={TechnicianCalendar} />
+            <Route path="/technician/performance" component={TechnicianPerformance} />
+            <Route path="/technician/quotations" component={TechnicianQuotations} />
+            <Route path="/technician/availability" component={TechnicianAvailability} />
+            <Route path="/technician/profile" component={TechnicianProfile} />
             <Route path="/technician/uploads" component={TechnicianUploads} />
             <Route path="/technician/chat" component={TechnicianChat} />
           </Switch>
