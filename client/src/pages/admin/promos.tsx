@@ -75,7 +75,7 @@ export default function AdminPromos() {
     valid_until: '',
   });
 
-  const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
+  const { data: campaignsData, isLoading: campaignsLoading } = useQuery<{ success: boolean; data: ReferralCampaign[] }>({
     queryKey: ['/api/v2/admin/referrals/campaigns'],
     staleTime: 0,
   });
@@ -125,8 +125,9 @@ export default function AdminPromos() {
       });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
+      // Invalidate campaigns and analytics
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
       toast({
         title: 'Success',
         description: 'Campaign created successfully',
@@ -157,8 +158,9 @@ export default function AdminPromos() {
       });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
+      // Invalidate campaigns and analytics
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
       toast({
         title: 'Success',
         description: 'Campaign updated successfully',
@@ -180,7 +182,9 @@ export default function AdminPromos() {
       return apiRequest('PUT', `/api/v2/admin/referrals/campaigns/${id}`, { is_active: isActive });
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      // Invalidate campaigns and analytics
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/referrals/analytics'] });
       toast({
         title: 'Success',
         description: 'Campaign status updated successfully',
