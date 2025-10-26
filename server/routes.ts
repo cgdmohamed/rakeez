@@ -37,7 +37,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses, quotations } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
@@ -6955,6 +6955,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Get Technician Performance (Technician's own data)
+  app.get('/api/v2/technician/performance', authenticateToken, authorizeRoles(['technician']), async (req: any, res: any) => {
+    try {
+      const technicianId = req.user.id;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get all bookings for performance calculation
+      const allBookings = await db.query.bookings.findMany({
+        where: eq(bookings.technicianId, technicianId),
+        orderBy: [desc(bookings.createdAt)],
+      });
+      
+      const completedBookings = allBookings.filter(b => b.status === 'completed');
+      const cancelledBookings = allBookings.filter(b => b.status === 'cancelled');
+      
+      // Calculate metrics
+      const totalJobs = allBookings.length;
+      const completedJobs = completedBookings.length;
+      const cancelledJobs = cancelledBookings.length;
+      const completionRate = totalJobs > 0 ? (completedJobs / totalJobs) * 100 : 0;
+      const cancellationRate = totalJobs > 0 ? (cancelledJobs / totalJobs) * 100 : 0;
+      
+      // Get all bookings with reviews for rating calculation
+      const bookingsWithReviews = await db.query.bookings.findMany({
+        where: eq(bookings.technicianId, technicianId),
+        with: {
+          reviews: true,
+        },
+      });
+      
+      // Calculate average rating from reviews
+      const reviewsList = bookingsWithReviews.filter(b => (b.reviews as any)?.technicianRating);
+      const ratingsSum = reviewsList.reduce((sum, b) => sum + ((b.reviews as any)?.technicianRating || 0), 0);
+      const ratingsCount = reviewsList.length;
+      const averageRating = ratingsCount > 0 ? ratingsSum / ratingsCount : 0;
+      
+      // Calculate total revenue from completed bookings
+      const totalRevenue = completedBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount), 0);
+      
+      // Calculate average response time (hours from created to assigned)
+      const responseTimes = completedBookings
+        .filter(b => b.assignedAt)
+        .map(b => {
+          const createdTime = new Date(b.createdAt).getTime();
+          const assignedTime = new Date(b.assignedAt!).getTime();
+          return (assignedTime - createdTime) / (1000 * 60 * 60); // Convert to hours
+        });
+      const averageResponseTime = responseTimes.length > 0 
+        ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length 
+        : 0;
+      
+      // Get monthly performance for chart
+      const monthlyStats = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        
+        const monthBookings = allBookings.filter(b => {
+          const bookingDate = new Date(b.createdAt);
+          return bookingDate >= month && bookingDate < nextMonth;
+        });
+        
+        const monthCompleted = monthBookings.filter(b => b.status === 'completed');
+        const monthRevenue = monthCompleted.reduce((sum, b) => sum + parseFloat(b.totalAmount), 0);
+        
+        monthlyStats.push({
+          month: month.toLocaleDateString('en', { month: 'short', year: 'numeric' }),
+          completed: monthCompleted.length,
+          cancelled: monthBookings.filter(b => b.status === 'cancelled').length,
+          total: monthBookings.length,
+          revenue: parseFloat(monthRevenue.toFixed(2)),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('performance.retrieved_successfully', language),
+        data: {
+          overall: {
+            totalJobs,
+            completedJobs,
+            cancelledJobs,
+            completionRate: parseFloat(completionRate.toFixed(2)),
+            cancellationRate: parseFloat(cancellationRate.toFixed(2)),
+            averageRating: parseFloat(averageRating.toFixed(2)),
+            averageResponseTime: parseFloat(averageResponseTime.toFixed(2)),
+            totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+          },
+          monthlyStats,
+          recentCompletedJobs: completedBookings.slice(0, 10),
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get technician performance error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Technician Quotations (Technician's own quotations)
+  app.get('/api/v2/technician/quotations', authenticateToken, authorizeRoles(['technician']), async (req: any, res: any) => {
+    try {
+      const technicianId = req.user.id;
+      const { status } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const quotationsList = await db.query.quotations.findMany({
+        where: status 
+          ? and(eq(quotations.technicianId, technicianId), eq(quotations.status, status))
+          : eq(quotations.technicianId, technicianId),
+        with: {
+          booking: {
+            with: {
+              service: true,
+              user: {
+                columns: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                }
+              },
+            }
+          },
+        },
+        orderBy: [desc(quotations.createdAt)],
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('quotations.retrieved_successfully', language),
+        data: quotationsList,
+      });
+      
+    } catch (error) {
+      console.error('Get technician quotations error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Technician Availability (Technician updates their own)
+  app.put('/api/v2/technician/availability', authenticateToken, authorizeRoles(['technician']), validateRequest({
+    body: z.object({
+      availabilityStatus: z.enum(['available', 'busy', 'on_job', 'off_duty']).optional(),
+      workingHours: z.record(z.object({
+        start: z.string(),
+        end: z.string(),
+        enabled: z.boolean(),
+      })).optional(),
+      daysOff: z.array(z.string()).optional(),
+      serviceRadius: z.number().optional(),
+      homeLatitude: z.number().optional(),
+      homeLongitude: z.number().optional(),
+      maxDailyBookings: z.number().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const technicianId = req.user.id;
+      const updates = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Update technician availability settings
+      await db.update(users)
+        .set({
+          availabilityStatus: updates.availabilityStatus,
+          workingHours: updates.workingHours as any,
+          daysOff: updates.daysOff as any,
+          serviceRadius: updates.serviceRadius,
+          homeLatitude: updates.homeLatitude?.toString(),
+          homeLongitude: updates.homeLongitude?.toString(),
+          maxDailyBookings: updates.maxDailyBookings,
+        })
+        .where(eq(users.id, technicianId));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('availability.updated_successfully', language),
+      });
+      
+    } catch (error) {
+      console.error('Update technician availability error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
       });
     }
   });
