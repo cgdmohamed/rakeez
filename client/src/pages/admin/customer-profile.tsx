@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -121,6 +121,25 @@ export default function CustomerProfile() {
     updatedAt: Date;
   }
 
+  interface Subscription {
+    id: string;
+    userId: string;
+    packageId: string;
+    startDate: Date;
+    endDate: Date;
+    status: string;
+    totalAmount: number;
+    autoRenew: boolean;
+    usageCount: number;
+    benefits: any;
+    package: {
+      id: string;
+      name: { en: string; ar: string };
+      tier: string;
+      price: number;
+    } | null;
+  }
+
   interface CustomerOverviewResponse {
     success: boolean;
     message: string;
@@ -164,6 +183,11 @@ export default function CustomerProfile() {
 
   const { data: addressesData } = useQuery<{ success: boolean; data: Address[] }>({
     queryKey: [`/api/v2/admin/users/${id}/addresses`],
+    enabled: !!id,
+  });
+
+  const { data: subscriptionsData } = useQuery<{ success: boolean; data: Subscription[] }>({
+    queryKey: [`/api/v2/users/${id}/subscriptions`],
     enabled: !!id,
   });
 
@@ -487,6 +511,7 @@ export default function CustomerProfile() {
           <TabsTrigger value="tickets" data-testid="tab-tickets">Support Tickets</TabsTrigger>
           <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews</TabsTrigger>
           <TabsTrigger value="referrals" data-testid="tab-referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="addresses" data-testid="tab-addresses">Addresses</TabsTrigger>
         </TabsList>
 
@@ -836,6 +861,75 @@ export default function CustomerProfile() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="subscriptions" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-primary flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Subscriptions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {subscriptionsData?.data && subscriptionsData.data.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="table-header-primary">Package</TableHead>
+                      <TableHead className="table-header-primary">Tier</TableHead>
+                      <TableHead className="table-header-primary">Start Date</TableHead>
+                      <TableHead className="table-header-primary">End Date</TableHead>
+                      <TableHead className="table-header-primary text-right">Amount</TableHead>
+                      <TableHead className="table-header-primary">Status</TableHead>
+                      <TableHead className="table-header-primary">Usage</TableHead>
+                      <TableHead className="table-header-primary">Auto-Renew</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subscriptionsData.data.map((subscription: Subscription, idx: number) => (
+                      <TableRow key={subscription.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'} data-testid={`row-subscription-${subscription.id}`}>
+                        <TableCell className="font-medium">
+                          {subscription.package?.name?.en || 'Unknown Package'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {subscription.package?.tier || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{format(new Date(subscription.startDate), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>{format(new Date(subscription.endDate), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell className="numeric-cell">
+                          {(Number(subscription.totalAmount) || 0).toLocaleString()} SAR
+                        </TableCell>
+                        <TableCell>{getStatusBadge(subscription.status)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">
+                            {subscription.usageCount || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {subscription.autoRenew ? (
+                            <Badge className="badge-completed">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Yes
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">No</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No active subscriptions found</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="addresses" className="space-y-4">
