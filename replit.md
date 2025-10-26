@@ -77,6 +77,26 @@ The platform features a complete subscription management system allowing custome
 - Consistent table design matching other profile tabs (Orders, Payments, etc.)
 - Empty state for customers without active subscriptions
 
+**Subscription-Based Booking:**
+- Bookings can include `subscriptionId` to use subscription allowance instead of one-time payment
+- System validates:
+  * Subscription is active (status === 'active')
+  * Scheduled service datetime falls within subscription period (startDate to endDate)
+  * Requested service is included in the subscription package
+  * Usage limits have not been exceeded
+- Subscription bookings automatically set `paymentStatus` to 'paid' and `totalAmount` to 0
+- Security: Prevents booking services after subscription expiry by validating scheduled datetime against subscription window
+
+**Admin UI:**
+- Complete multi-service package management interface at `/admin/subscription-packages`
+- Features:
+  * Create/edit packages with multiple services
+  * Dynamic service rows with usage limits and discount percentages per service
+  * Comprehensive form validation (ensures all services have valid data)
+  * Statistics dashboard showing packages by tier and status
+  * Search, filter, and pagination support
+- Field mapping: Uses `durationDays` to match backend schema
+
 **Architecture Notes (Updated October 2025):**
 - Schema redesigned to separate single-service pricing (`serviceTiers`) from multi-service bundles (`subscriptionPackages`)
 - Junction table `subscriptionPackageServices` enables flexible package composition with multiple services
@@ -86,7 +106,8 @@ The platform features a complete subscription management system allowing custome
 - Customer profile fetches enriched subscription data with package details (name, tier, price)
 - Database migration completed: `service_packages` → `serviceTiers`, new `subscriptionPackages` and `subscriptionPackageServices` tables created
 - All code updated to use new schema: storage layer, API routes, seed data, subscription lifecycle, webhooks
-- Future optimization needed: caching/aggregation for dashboard statistics at scale
+- Backend POST/PUT endpoints handle service link persistence via junction table (delete-and-recreate pattern for updates)
+- Critical security fix: Booking validation checks scheduled datetime (not current time) against subscription window
 
 ### File Upload System
 The system integrates with Replit Object Storage (Google Cloud Storage) for file uploads, such as brand logos, spare part images, slider images, and avatars. It utilizes presigned URLs for secure direct uploads to GCS. Security features include required metadata validation (fileSize, fileType), ACL policies, presigned URL expiration, and bearer token authentication for URL generation. Deployment configuration supports dual-mode authentication for development (Replit sidecar) and production (GCS service account credentials).
