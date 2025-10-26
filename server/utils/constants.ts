@@ -1,7 +1,7 @@
 export const AUTH_CONSTANTS = {
   // JWT token expiration times (in seconds)
-  ACCESS_TOKEN_EXPIRY: 86400, // 24 hours
-  REFRESH_TOKEN_EXPIRY: 2592000, // 30 days
+  ACCESS_TOKEN_EXPIRY: 900, // 15 minutes (security best practice)
+  REFRESH_TOKEN_EXPIRY: 604800, // 7 days (with rotation recommended)
   
   // OTP settings
   OTP_EXPIRY: 300, // 5 minutes

@@ -2569,8 +2569,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               amount: packagePrice.toFixed(2),
               currency: 'SAR',
               buyer: {
-                phone: user.phone,
-                email: user.email ?? `${user.phone}@example.com`,
+                phone: user.phone || '',
+                email: user.email ?? `${user.phone || 'user'}@example.com`,
                 name: user.name,
               },
               order: {
