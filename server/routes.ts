@@ -30,8 +30,8 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers } from "@shared/schema";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services } from "@shared/schema";
+import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
 
@@ -858,6 +858,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== SUBSCRIPTION PACKAGES ENDPOINTS (PUBLIC) ====================
+  
+  // Get All Subscription Packages (Public - for customers)
+  app.get('/api/v2/subscription-packages', async (req: any, res: any) => {
+    try {
+      const { tier, category_id } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Execute query with base filter
+      let query = db
+        .select()
+        .from(subscriptionPackages)
+        .where(eq(subscriptionPackages.isActive, true))
+        .orderBy(asc(subscriptionPackages.price));
+      
+      let packages = await query;
+      
+      // Apply optional filters client-side for now (tier enum type issue)
+      if (tier) {
+        packages = packages.filter(pkg => pkg.tier === tier);
+      }
+      if (category_id) {
+        packages = packages.filter(pkg => pkg.categoryId === category_id);
+      }
+      
+      // Format response with bilingual content
+      const formattedPackages = packages.map(pkg => ({
+        id: pkg.id,
+        name: (pkg.name as any)[language] || (pkg.name as any).en,
+        description: (pkg.description as any)[language] || (pkg.description as any).en,
+        tier: pkg.tier,
+        price: pkg.price,
+        duration_days: pkg.durationDays,
+        discount_percentage: pkg.discountPercentage,
+        inclusions: (pkg.inclusions as any)[language] || (pkg.inclusions as any).en,
+        terms_and_conditions: pkg.termsAndConditions ? ((pkg.termsAndConditions as any)[language] || (pkg.termsAndConditions as any).en) : null,
+        image: pkg.image,
+        category_id: pkg.categoryId,
+      }));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('packages.retrieved_successfully', language),
+        data: formattedPackages,
+      });
+      
+    } catch (error) {
+      console.error('Get subscription packages error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Get Subscription Package Details with Included Services (Public)
+  app.get('/api/v2/subscription-packages/:id', async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get package details
+      const [pkg] = await db
+        .select()
+        .from(subscriptionPackages)
+        .where(and(eq(subscriptionPackages.id, id), eq(subscriptionPackages.isActive, true)));
+      
+      if (!pkg) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('packages.not_found', language),
+        });
+      }
+      
+      // Get included services with their details
+      const packageServices = await db
+        .select({
+          id: subscriptionPackageServices.id,
+          usageLimit: subscriptionPackageServices.usageLimit,
+          discountPercentage: subscriptionPackageServices.discountPercentage,
+          service: services,
+        })
+        .from(subscriptionPackageServices)
+        .innerJoin(services, eq(subscriptionPackageServices.serviceId, services.id))
+        .where(eq(subscriptionPackageServices.packageId, id));
+      
+      // Format included services
+      const includedServices = packageServices.map(ps => ({
+        id: ps.service.id,
+        name: (ps.service.name as any)[language] || (ps.service.name as any).en,
+        description: (ps.service.description as any)[language] || (ps.service.description as any).en,
+        base_price: ps.service.basePrice,
+        duration_minutes: ps.service.durationMinutes,
+        image: ps.service.image,
+        average_rating: ps.service.averageRating,
+        review_count: ps.service.reviewCount,
+        usage_limit: ps.usageLimit,
+        discount_percentage: ps.discountPercentage,
+      }));
+      
+      // Format package response
+      const formattedPackage = {
+        id: pkg.id,
+        name: (pkg.name as any)[language] || (pkg.name as any).en,
+        description: (pkg.description as any)[language] || (pkg.description as any).en,
+        tier: pkg.tier,
+        price: pkg.price,
+        duration_days: pkg.durationDays,
+        discount_percentage: pkg.discountPercentage,
+        inclusions: (pkg.inclusions as any)[language] || (pkg.inclusions as any).en,
+        terms_and_conditions: pkg.termsAndConditions ? ((pkg.termsAndConditions as any)[language] || (pkg.termsAndConditions as any).en) : null,
+        image: pkg.image,
+        category_id: pkg.categoryId,
+        included_services: includedServices,
+      };
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('packages.retrieved_successfully', language),
+        data: formattedPackage,
+      });
+      
+    } catch (error) {
+      console.error('Get subscription package details error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
       });
     }
   });
