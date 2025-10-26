@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard, ExternalLink } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -999,11 +999,36 @@ export default function CustomerProfile() {
                               </div>
                             )}
                             {address.latitude && address.longitude && (
-                              <div className="flex gap-2 pt-2 border-t">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-xs font-mono" data-testid={`text-coordinates-${address.id}`}>
-                                  {Number(address.latitude).toFixed(6)}, {Number(address.longitude).toFixed(6)}
-                                </span>
+                              <div className="flex items-center gap-2 pt-2 border-t">
+                                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <div className="flex items-center gap-2 flex-1">
+                                  <a
+                                    href={`https://www.google.com/maps/place/${Number(address.latitude).toFixed(6)},${Number(address.longitude).toFixed(6)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    data-testid={`link-google-maps-${address.id}`}
+                                  >
+                                    Open in Google Maps
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2"
+                                    onClick={() => {
+                                      const mapsUrl = `https://www.google.com/maps/place/${Number(address.latitude).toFixed(6)},${Number(address.longitude).toFixed(6)}`;
+                                      navigator.clipboard.writeText(mapsUrl);
+                                      toast({
+                                        title: 'Copied',
+                                        description: 'Google Maps link copied to clipboard',
+                                      });
+                                    }}
+                                    data-testid={`button-copy-maps-link-${address.id}`}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
                             )}
                             <div className="text-xs pt-2 border-t">
