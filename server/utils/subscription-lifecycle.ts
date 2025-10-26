@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { subscriptions, servicePackages, wallets, walletTransactions, payments } from '../../shared/schema';
+import { subscriptions, subscriptionPackages, wallets, walletTransactions, payments } from '../../shared/schema';
 import { eq, and, lte, gte, sql } from 'drizzle-orm';
 import { storage } from '../storage';
 import { moyasarService } from '../services/moyasar';
@@ -76,8 +76,8 @@ async function renewSubscription(subscriptionId: string): Promise<SubscriptionRe
   // Get package details
   const [pkg] = await db
     .select()
-    .from(servicePackages)
-    .where(eq(servicePackages.id, subscription.packageId));
+    .from(subscriptionPackages)
+    .where(eq(subscriptionPackages.id, subscription.packageId));
 
   if (!pkg) {
     throw new Error('Package not found');
@@ -286,8 +286,8 @@ export async function getUserActiveSubscription(userId: string) {
   // Get package details
   const [pkg] = await db
     .select()
-    .from(servicePackages)
-    .where(eq(servicePackages.id, activeSubscription.packageId));
+    .from(subscriptionPackages)
+    .where(eq(subscriptionPackages.id, activeSubscription.packageId));
 
   return {
     subscription: activeSubscription,

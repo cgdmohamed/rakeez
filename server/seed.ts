@@ -3,11 +3,11 @@ dotenv.config();
 
 import { db } from './db';
 import { 
-  serviceCategories, services, servicePackages, spareParts, promotions, faqs,
+  serviceCategories, services, serviceTiers, spareParts, promotions, faqs,
   users, addresses, bookings, payments, wallets, reviews,
   quotations, notifications, supportTickets, supportMessages, walletTransactions,
   referralCampaigns,
-  type InsertServiceCategory, type InsertService, type InsertServicePackage,
+  type InsertServiceCategory, type InsertService, type InsertServiceTier,
   type InsertSparePart, type InsertPromotion, type InsertFaq
 } from '@shared/schema';
 import { sql, inArray } from 'drizzle-orm';
@@ -169,7 +169,7 @@ async function seed() {
       });
     });
 
-    const createdPackages = await db.insert(servicePackages).values(packagesData).onConflictDoNothing().returning();
+    const createdPackages = await db.insert(serviceTiers).values(packagesData).onConflictDoNothing().returning();
     console.log(`✅ Created ${createdPackages.length} service packages`);
 
     // 4. Seed Spare Parts

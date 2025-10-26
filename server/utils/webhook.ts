@@ -480,11 +480,11 @@ async function handleSubscriptionPurchase(metadata: any, gatewayPaymentId: strin
     }
     
     const db = (await import('../db')).db;
-    const { servicePackages } = await import('../../shared/schema');
+    const { subscriptionPackages } = await import('../../shared/schema');
     const { eq } = await import('drizzle-orm');
     
     // Get package details
-    const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, package_id));
+    const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, package_id));
     if (!pkg) {
       console.error(`Package ${package_id} not found`);
       return;

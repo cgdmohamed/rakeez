@@ -30,7 +30,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, servicePackages } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 
 const app = express();
@@ -827,7 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const servicesWithPackages = await Promise.all(
         services.map(async (service) => {
-          const packages = await storage.getServicePackages(service.id);
+          const packages = await storage.getServiceTiers(service.id);
           return {
             id: service.id,
             name: (service.name as any)[language] || (service.name as any).en,
@@ -990,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let servicePackage;
       if (package_id) {
-        const packages = await storage.getServicePackages(service_id);
+        const packages = await storage.getServiceTiers(service_id);
         servicePackage = packages.find(p => p.id === package_id);
       }
       
@@ -1895,7 +1895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrichedSubscriptions = await Promise.all(
         subscriptions.map(async (subscription) => {
           const user = await storage.getUser(subscription.userId);
-          const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscription.packageId));
+          const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, subscription.packageId));
           
           return {
             ...subscription,
@@ -1950,7 +1950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich with package details
       const enrichedSubscriptions = await Promise.all(
         subscriptions.map(async (subscription) => {
-          const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscription.packageId));
+          const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, subscription.packageId));
           
           return {
             ...subscription,
@@ -1989,7 +1989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subscriptionData = req.body;
       
       // Verify the package exists
-      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, subscriptionData.packageId));
+      const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, subscriptionData.packageId));
       if (!pkg) {
         return res.status(404).json({
           success: false,
@@ -2032,7 +2032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId, packageId, startDate, endDate, autoRenew, benefits } = req.body;
       
       // Verify the package exists
-      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, packageId));
+      const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, packageId));
       if (!pkg) {
         return res.status(404).json({
           success: false,
@@ -2146,7 +2146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify package exists and is active
-      const [pkg] = await db.select().from(servicePackages).where(eq(servicePackages.id, packageId));
+      const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, packageId));
       if (!pkg || !pkg.isActive) {
         return res.status(404).json({
           success: false,
@@ -2459,7 +2459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const language = req.headers['accept-language'] || 'en';
       
-      const packages = await db.select().from(servicePackages).orderBy(desc(servicePackages.createdAt));
+      const packages = await db.select().from(subscriptionPackages).orderBy(desc(subscriptionPackages.createdAt));
       
       res.json({
         success: true,
@@ -2483,7 +2483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language = req.headers['accept-language'] || 'en';
       const packageData = req.body;
       
-      const [newPackage] = await db.insert(servicePackages).values(packageData).returning();
+      const [newPackage] = await db.insert(subscriptionPackages).values(packageData).returning();
       
       res.status(201).json({
         success: true,
@@ -2509,9 +2509,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = req.body;
       
       const [updatedPackage] = await db
-        .update(servicePackages)
+        .update(subscriptionPackages)
         .set(updateData)
-        .where(eq(servicePackages.id, id))
+        .where(eq(subscriptionPackages.id, id))
         .returning();
       
       if (!updatedPackage) {
@@ -2544,8 +2544,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language = req.headers['accept-language'] || 'en';
       
       const [deletedPackage] = await db
-        .delete(servicePackages)
-        .where(eq(servicePackages.id, id))
+        .delete(subscriptionPackages)
+        .where(eq(subscriptionPackages.id, id))
         .returning();
       
       if (!deletedPackage) {
@@ -3526,7 +3526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const packageData = req.body;
       const language = req.headers['accept-language'] || 'en';
       
-      const pkg = await storage.createServicePackage({
+      const pkg = await storage.createServiceTier({
         serviceId: packageData.service_id,
         tier: packageData.tier,
         name: packageData.name,
@@ -3594,7 +3594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (packageData.terms_and_conditions) updateData.termsAndConditions = packageData.terms_and_conditions;
       if (packageData.is_active !== undefined) updateData.isActive = packageData.is_active;
       
-      const pkg = await storage.updateServicePackage(id, updateData);
+      const pkg = await storage.updateServiceTier(id, updateData);
       
       await auditLog({
         userId: req.user.id,
@@ -3625,7 +3625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const language = req.headers['accept-language'] || 'en';
       
-      await storage.deleteServicePackage(id);
+      await storage.deleteServiceTier(id);
       
       await auditLog({
         userId: req.user.id,
@@ -5709,7 +5709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const services = await storage.getServicesByCategory(category.id);
           const servicesWithPackages = await Promise.all(
             services.map(async (service) => {
-              const packages = await storage.getServicePackages(service.id);
+              const packages = await storage.getServiceTiers(service.id);
               return {
                 ...service,
                 basePrice: Number(service.basePrice) || 0,
