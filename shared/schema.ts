@@ -34,6 +34,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'completed', 'rewarded']);
 export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'cancelled', 'expired']);
+export const packageTierEnum = pgEnum('package_tier', ['basic', 'premium', 'vip', 'enterprise']);
+export const addressTypeEnum = pgEnum("address_type", ["home", "office", "other"]);
 
 // Roles table (for custom role management)
 export const roles = pgTable("roles", {
@@ -71,9 +73,6 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Address type enum
-export const addressTypeEnum = pgEnum("address_type", ["home", "office", "other"]);
-
 // Addresses table
 export const addresses = pgTable("addresses", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -102,30 +101,62 @@ export const serviceCategories = pgTable("service_categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Services table
+// Services table (Single Services - one-time bookings)
 export const services = pgTable("services", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   categoryId: uuid("category_id").references(() => serviceCategories.id).notNull(),
   name: jsonb("name").notNull(), // { "en": "Deep Cleaning", "ar": "تنظيف عميق" }
   description: jsonb("description").notNull(),
+  image: text("image"), // Service image for display
   basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
   vatPercentage: decimal("vat_percentage", { precision: 5, scale: 2 }).default('15').notNull(),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default('0').notNull(), // Customer ratings (0-5)
+  reviewCount: integer("review_count").default(0).notNull(), // Total number of reviews
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Service packages table
-export const servicePackages = pgTable("service_packages", {
+// Service tiers table (Pricing options for single services)
+export const serviceTiers = pgTable("service_tiers", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   serviceId: uuid("service_id").references(() => services.id).notNull(),
   tier: varchar("tier", { length: 50 }).notNull(), // basic, premium
-  name: jsonb("name").notNull(),
+  name: jsonb("name").notNull(), // { "en": "Basic Package", "ar": "الباقة الأساسية" }
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0').notNull(),
   inclusions: jsonb("inclusions").notNull(), // Array of strings in both languages
   termsAndConditions: jsonb("terms_and_conditions"),
   isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Subscription packages table (Multi-service bundles with recurring billing)
+export const subscriptionPackages = pgTable("subscription_packages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: jsonb("name").notNull(), // { "en": "Monthly Premium Package", "ar": "الباقة الشهرية المميزة" }
+  description: jsonb("description").notNull(),
+  categoryId: uuid("category_id").references(() => serviceCategories.id), // Optional categorization
+  image: text("image"), // Package display image
+  tier: packageTierEnum("tier").default('basic').notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  durationDays: integer("duration_days").notNull(), // Subscription duration (e.g., 30 for monthly)
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0').notNull(),
+  inclusions: jsonb("inclusions").notNull(), // { "en": [...], "ar": [...] } - list of benefits
+  termsAndConditions: jsonb("terms_and_conditions"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Subscription package services junction table (Many-to-many relationship)
+export const subscriptionPackageServices = pgTable("subscription_package_services", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  packageId: uuid("package_id").references(() => subscriptionPackages.id).notNull(),
+  serviceId: uuid("service_id").references(() => services.id).notNull(),
+  usageLimit: integer("usage_limit"), // Optional limit for how many times this service can be used
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default('0').notNull(), // Service-specific discount
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -178,7 +209,8 @@ export const bookings = pgTable("bookings", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id").references(() => users.id).notNull(),
   serviceId: uuid("service_id").references(() => services.id).notNull(),
-  packageId: uuid("package_id").references(() => servicePackages.id),
+  tierId: uuid("tier_id").references(() => serviceTiers.id), // Optional pricing tier for single service bookings
+  subscriptionId: uuid("subscription_id").references(() => subscriptions.id), // Track subscription-based bookings
   addressId: uuid("address_id").references(() => addresses.id).notNull(),
   technicianId: uuid("technician_id").references(() => users.id),
   status: orderStatusEnum("status").default('pending').notNull(),
@@ -190,6 +222,7 @@ export const bookings = pgTable("bookings", {
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default('0').notNull(),
   referralCode: varchar("referral_code", { length: 20 }),
   referralDiscount: decimal("referral_discount", { precision: 10, scale: 2 }).default('0').notNull(),
+  subscriptionDiscount: decimal("subscription_discount", { precision: 10, scale: 2 }).default('0').notNull(), // Discount from active subscription
   sparePartsCost: decimal("spare_parts_cost", { precision: 10, scale: 2 }).default('0').notNull(),
   vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
@@ -260,18 +293,18 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Subscriptions table
+// Subscriptions table (Customer subscriptions to packages)
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id").references(() => users.id).notNull(),
-  packageId: uuid("package_id").references(() => servicePackages.id).notNull(),
+  packageId: uuid("package_id").references(() => subscriptionPackages.id).notNull(),
   status: subscriptionStatusEnum("status").default('active').notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   autoRenew: boolean("auto_renew").default(false).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  benefits: jsonb("benefits"), // List of included services or benefits
-  usageCount: integer("usage_count").default(0).notNull(), // Track how many times subscription was used
+  benefits: jsonb("benefits"), // Snapshot of package benefits at time of purchase
+  usageCount: integer("usage_count").default(0).notNull(), // Track how many bookings used this subscription
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -484,16 +517,37 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
     fields: [services.categoryId],
     references: [serviceCategories.id],
   }),
-  packages: many(servicePackages),
+  tiers: many(serviceTiers),
+  subscriptionPackageServices: many(subscriptionPackageServices),
   bookings: many(bookings),
 }));
 
-export const servicePackagesRelations = relations(servicePackages, ({ one, many }) => ({
+export const serviceTiersRelations = relations(serviceTiers, ({ one, many }) => ({
   service: one(services, {
-    fields: [servicePackages.serviceId],
+    fields: [serviceTiers.serviceId],
     references: [services.id],
   }),
   bookings: many(bookings),
+}));
+
+export const subscriptionPackagesRelations = relations(subscriptionPackages, ({ one, many }) => ({
+  category: one(serviceCategories, {
+    fields: [subscriptionPackages.categoryId],
+    references: [serviceCategories.id],
+  }),
+  subscriptionPackageServices: many(subscriptionPackageServices),
+  subscriptions: many(subscriptions),
+}));
+
+export const subscriptionPackageServicesRelations = relations(subscriptionPackageServices, ({ one }) => ({
+  package: one(subscriptionPackages, {
+    fields: [subscriptionPackageServices.packageId],
+    references: [subscriptionPackages.id],
+  }),
+  service: one(services, {
+    fields: [subscriptionPackageServices.serviceId],
+    references: [services.id],
+  }),
 }));
 
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
@@ -505,9 +559,13 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
     fields: [bookings.serviceId],
     references: [services.id],
   }),
-  package: one(servicePackages, {
-    fields: [bookings.packageId],
-    references: [servicePackages.id],
+  tier: one(serviceTiers, {
+    fields: [bookings.tierId],
+    references: [serviceTiers.id],
+  }),
+  subscription: one(subscriptions, {
+    fields: [bookings.subscriptionId],
+    references: [subscriptions.id],
   }),
   address: one(addresses, {
     fields: [bookings.addressId],
@@ -685,9 +743,21 @@ export const insertServiceCategorySchema = createInsertSchema(serviceCategories)
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
-export const insertServicePackageSchema = createInsertSchema(servicePackages).omit({
+export const insertServiceTierSchema = createInsertSchema(serviceTiers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSubscriptionPackageSchema = createInsertSchema(subscriptionPackages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionPackageServiceSchema = createInsertSchema(subscriptionPackageServices).omit({
   id: true,
   createdAt: true,
 });
@@ -801,8 +871,12 @@ export type ServiceCategory = typeof serviceCategories.$inferSelect;
 export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
-export type ServicePackage = typeof servicePackages.$inferSelect;
-export type InsertServicePackage = z.infer<typeof insertServicePackageSchema>;
+export type ServiceTier = typeof serviceTiers.$inferSelect;
+export type InsertServiceTier = z.infer<typeof insertServiceTierSchema>;
+export type SubscriptionPackage = typeof subscriptionPackages.$inferSelect;
+export type InsertSubscriptionPackage = z.infer<typeof insertSubscriptionPackageSchema>;
+export type SubscriptionPackageService = typeof subscriptionPackageServices.$inferSelect;
+export type InsertSubscriptionPackageService = z.infer<typeof insertSubscriptionPackageServiceSchema>;
 export type Brand = typeof brands.$inferSelect;
 export type InsertBrand = z.infer<typeof insertBrandSchema>;
 export type SparePart = typeof spareParts.$inferSelect;

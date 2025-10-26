@@ -1,13 +1,14 @@
 import { 
-  roles, users, addresses, serviceCategories, services, servicePackages, 
+  roles, users, addresses, serviceCategories, services, serviceTiers, subscriptionPackages, subscriptionPackageServices,
   brands, spareParts, bookings, quotations, quotationSpareParts, payments, 
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs, invoices, subscriptions, homeSliderImages, homeBanner,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
-  type ServicePackage, type InsertServicePackage, type Brand, type InsertBrand,
-  type SparePart, type InsertSparePart,
+  type ServiceTier, type InsertServiceTier, type SubscriptionPackage, type InsertSubscriptionPackage,
+  type SubscriptionPackageService, type InsertSubscriptionPackageService,
+  type Brand, type InsertBrand, type SparePart, type InsertSparePart,
   type Booking, type InsertBooking, type Quotation, type InsertQuotation,
   type Payment, type InsertPayment, type Wallet, type WalletTransaction, type InsertWalletTransaction,
   type Referral, type InsertReferral, type Notification, type InsertNotification,
@@ -53,16 +54,28 @@ export interface IStorage {
   getServiceCategories(language?: string): Promise<ServiceCategory[]>;
   getServicesByCategory(categoryId: string): Promise<Service[]>;
   getService(id: string): Promise<Service | undefined>;
-  getServicePackages(serviceId: string): Promise<ServicePackage[]>;
+  getServiceTiers(serviceId: string): Promise<ServiceTier[]>;
   createServiceCategory(category: InsertServiceCategory): Promise<ServiceCategory>;
   createService(service: InsertService): Promise<Service>;
-  createServicePackage(pkg: InsertServicePackage): Promise<ServicePackage>;
+  createServiceTier(tier: InsertServiceTier): Promise<ServiceTier>;
   updateService(id: string, service: Partial<InsertService>): Promise<Service>;
   updateServiceCategory(id: string, category: Partial<InsertServiceCategory>): Promise<ServiceCategory>;
-  updateServicePackage(id: string, pkg: Partial<InsertServicePackage>): Promise<ServicePackage>;
+  updateServiceTier(id: string, tier: Partial<InsertServiceTier>): Promise<ServiceTier>;
   deleteService(id: string): Promise<void>;
   deleteServiceCategory(id: string): Promise<void>;
-  deleteServicePackage(id: string): Promise<void>;
+  deleteServiceTier(id: string): Promise<void>;
+  
+  // Subscription Packages
+  getSubscriptionPackages(tier?: string): Promise<SubscriptionPackage[]>;
+  getSubscriptionPackage(id: string): Promise<SubscriptionPackage | undefined>;
+  createSubscriptionPackage(pkg: InsertSubscriptionPackage): Promise<SubscriptionPackage>;
+  updateSubscriptionPackage(id: string, pkg: Partial<InsertSubscriptionPackage>): Promise<SubscriptionPackage>;
+  deleteSubscriptionPackage(id: string): Promise<void>;
+  
+  // Subscription Package Services (junction table)
+  getSubscriptionPackageServices(packageId: string): Promise<SubscriptionPackageService[]>;
+  addServiceToSubscriptionPackage(data: InsertSubscriptionPackageService): Promise<SubscriptionPackageService>;
+  removeServiceFromSubscriptionPackage(id: string): Promise<void>;
   
   // Brands
   getBrands(): Promise<Brand[]>;
@@ -414,11 +427,11 @@ export class DatabaseStorage implements IStorage {
     return service || undefined;
   }
 
-  async getServicePackages(serviceId: string): Promise<ServicePackage[]> {
+  async getServiceTiers(serviceId: string): Promise<ServiceTier[]> {
     return await db
       .select()
-      .from(servicePackages)
-      .where(and(eq(servicePackages.serviceId, serviceId), eq(servicePackages.isActive, true)));
+      .from(serviceTiers)
+      .where(and(eq(serviceTiers.serviceId, serviceId), eq(serviceTiers.isActive, true)));
   }
 
   async createServiceCategory(category: InsertServiceCategory): Promise<ServiceCategory> {
@@ -431,9 +444,9 @@ export class DatabaseStorage implements IStorage {
     return newService;
   }
 
-  async createServicePackage(pkg: InsertServicePackage): Promise<ServicePackage> {
-    const [newPackage] = await db.insert(servicePackages).values(pkg).returning();
-    return newPackage;
+  async createServiceTier(tier: InsertServiceTier): Promise<ServiceTier> {
+    const [newTier] = await db.insert(serviceTiers).values(tier).returning();
+    return newTier;
   }
 
   async updateService(id: string, service: Partial<InsertService>): Promise<Service> {
@@ -454,13 +467,13 @@ export class DatabaseStorage implements IStorage {
     return updatedCategory;
   }
 
-  async updateServicePackage(id: string, pkg: Partial<InsertServicePackage>): Promise<ServicePackage> {
-    const [updatedPackage] = await db
-      .update(servicePackages)
-      .set(pkg)
-      .where(eq(servicePackages.id, id))
+  async updateServiceTier(id: string, tier: Partial<InsertServiceTier>): Promise<ServiceTier> {
+    const [updatedTier] = await db
+      .update(serviceTiers)
+      .set(tier)
+      .where(eq(serviceTiers.id, id))
       .returning();
-    return updatedPackage;
+    return updatedTier;
   }
 
   async deleteService(id: string): Promise<void> {
@@ -471,8 +484,61 @@ export class DatabaseStorage implements IStorage {
     await db.update(serviceCategories).set({ isActive: false }).where(eq(serviceCategories.id, id));
   }
 
-  async deleteServicePackage(id: string): Promise<void> {
-    await db.update(servicePackages).set({ isActive: false }).where(eq(servicePackages.id, id));
+  async deleteServiceTier(id: string): Promise<void> {
+    await db.update(serviceTiers).set({ isActive: false }).where(eq(serviceTiers.id, id));
+  }
+  
+  // Subscription Packages
+  async getSubscriptionPackages(tier?: string): Promise<SubscriptionPackage[]> {
+    const conditions = [eq(subscriptionPackages.isActive, true)];
+    if (tier) {
+      conditions.push(eq(subscriptionPackages.tier, tier as any));
+    }
+    return await db
+      .select()
+      .from(subscriptionPackages)
+      .where(and(...conditions))
+      .orderBy(asc(subscriptionPackages.createdAt));
+  }
+
+  async getSubscriptionPackage(id: string): Promise<SubscriptionPackage | undefined> {
+    const [pkg] = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, id));
+    return pkg || undefined;
+  }
+
+  async createSubscriptionPackage(pkg: InsertSubscriptionPackage): Promise<SubscriptionPackage> {
+    const [newPackage] = await db.insert(subscriptionPackages).values(pkg).returning();
+    return newPackage;
+  }
+
+  async updateSubscriptionPackage(id: string, pkg: Partial<InsertSubscriptionPackage>): Promise<SubscriptionPackage> {
+    const [updatedPackage] = await db
+      .update(subscriptionPackages)
+      .set(pkg)
+      .where(eq(subscriptionPackages.id, id))
+      .returning();
+    return updatedPackage;
+  }
+
+  async deleteSubscriptionPackage(id: string): Promise<void> {
+    await db.update(subscriptionPackages).set({ isActive: false }).where(eq(subscriptionPackages.id, id));
+  }
+
+  // Subscription Package Services (junction table)
+  async getSubscriptionPackageServices(packageId: string): Promise<SubscriptionPackageService[]> {
+    return await db
+      .select()
+      .from(subscriptionPackageServices)
+      .where(eq(subscriptionPackageServices.packageId, packageId));
+  }
+
+  async addServiceToSubscriptionPackage(data: InsertSubscriptionPackageService): Promise<SubscriptionPackageService> {
+    const [newEntry] = await db.insert(subscriptionPackageServices).values(data).returning();
+    return newEntry;
+  }
+
+  async removeServiceFromSubscriptionPackage(id: string): Promise<void> {
+    await db.delete(subscriptionPackageServices).where(eq(subscriptionPackageServices.id, id));
   }
 
   async deleteSparePart(id: string): Promise<void> {
