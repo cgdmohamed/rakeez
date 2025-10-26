@@ -5,8 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, ChevronLeft, ChevronRight, Calendar, User, Package, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Search, ChevronLeft, ChevronRight, Calendar, User, Package, CheckCircle, XCircle, Clock, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -45,18 +48,74 @@ interface SubscriptionsResponse {
   data: Subscription[];
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+interface ServicePackage {
+  id: string;
+  name: { en: string; ar: string };
+  tier: string;
+  price: string;
+  inclusions: { en: string[]; ar: string[] };
+}
+
 export default function AdminSubscriptions() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [formData, setFormData] = useState({
+    userId: '',
+    packageId: '',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    autoRenew: false,
+  });
 
   const { data: subscriptionsData, isLoading } = useQuery<SubscriptionsResponse>({
     queryKey: ['/api/v2/admin/subscriptions'],
   });
 
+  const { data: customersData } = useQuery<{ success: boolean; data: Customer[] }>({
+    queryKey: ['/api/v2/admin/users', { role: 'customer' }],
+    queryFn: async () => {
+      const response = await fetch('/api/v2/admin/users?role=customer', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+      });
+      return response.json();
+    },
+  });
+
+  const { data: packagesData } = useQuery<{ success: boolean; data: any[] }>({
+    queryKey: ['/api/v2/admin/service-packages'],
+    queryFn: async () => {
+      const response = await fetch('/api/v2/admin/service-packages', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+      });
+      return response.json();
+    },
+  });
+
   const subscriptions = subscriptionsData?.data || [];
+  const customers = customersData?.data || [];
+  const packages = packagesData?.data || [];
+
+  const filteredCustomers = customers.filter((customer) => {
+    if (!customerSearch) return true;
+    const query = customerSearch.toLowerCase();
+    return (
+      customer.name?.toLowerCase().includes(query) ||
+      customer.email?.toLowerCase().includes(query) ||
+      customer.phone?.includes(query)
+    );
+  });
 
   // Apply filters
   const filteredSubscriptions = subscriptions.filter((subscription) => {
@@ -103,6 +162,34 @@ export default function AdminSubscriptions() {
     }
   }, [currentPage, totalPages]);
 
+  const createMutation = useMutation({
+    mutationFn: async (data: {
+      userId: string;
+      packageId: string;
+      startDate: string;
+      endDate: string;
+      autoRenew: boolean;
+    }) => {
+      return apiRequest('POST', '/api/v2/subscriptions', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/admin/subscriptions'] });
+      toast({
+        title: 'Success',
+        description: 'Subscription created successfully',
+      });
+      setCreateDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create subscription',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       return apiRequest('PUT', `/api/v2/admin/subscriptions/${id}`, { status });
@@ -122,6 +209,30 @@ export default function AdminSubscriptions() {
       });
     },
   });
+
+  const resetForm = () => {
+    setFormData({
+      userId: '',
+      packageId: '',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      autoRenew: false,
+    });
+    setCustomerSearch('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.userId || !formData.packageId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select both a customer and a package',
+        variant: 'destructive',
+      });
+      return;
+    }
+    createMutation.mutate(formData);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -161,12 +272,16 @@ export default function AdminSubscriptions() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold" data-testid="page-title">Subscriptions Management</h1>
           <p className="text-muted-foreground">View and manage customer subscriptions</p>
         </div>
+        <Button onClick={() => setCreateDialogOpen(true)} data-testid="button-create-subscription">
+          <Plus className="mr-2 h-4 w-4" />
+          Create Subscription
+        </Button>
       </div>
 
       {/* Statistics Cards */}
@@ -388,6 +503,120 @@ export default function AdminSubscriptions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Subscription Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Subscription</DialogTitle>
+            <DialogDescription>
+              Manually assign a subscription package to a customer
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="customer">Customer *</Label>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Search customers..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    data-testid="input-customer-search"
+                  />
+                  <Select 
+                    value={formData.userId} 
+                    onValueChange={(value) => setFormData({ ...formData, userId: value })}
+                  >
+                    <SelectTrigger data-testid="select-customer">
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredCustomers.slice(0, 50).map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name} - {customer.phone || customer.email}
+                        </SelectItem>
+                      ))}
+                      {filteredCustomers.length === 0 && (
+                        <SelectItem value="none" disabled>No customers found</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="package">Subscription Package *</Label>
+                <Select 
+                  value={formData.packageId} 
+                  onValueChange={(value) => setFormData({ ...formData, packageId: value })}
+                >
+                  <SelectTrigger data-testid="select-package">
+                    <SelectValue placeholder="Select a package" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {packages.map((pkg: any) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name?.en || 'Unknown'} ({pkg.tier}) - SAR {parseFloat(pkg.price).toFixed(2)}
+                      </SelectItem>
+                    ))}
+                    {packages.length === 0 && (
+                      <SelectItem value="none" disabled>No packages available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    data-testid="input-start-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    data-testid="input-end-date"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="autoRenew"
+                  checked={formData.autoRenew}
+                  onCheckedChange={(checked) => setFormData({ ...formData, autoRenew: checked })}
+                  data-testid="switch-auto-renew"
+                />
+                <Label htmlFor="autoRenew" className="cursor-pointer">
+                  Auto-renew subscription
+                </Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending}
+                data-testid="button-submit-subscription"
+              >
+                {createMutation.isPending ? 'Creating...' : 'Create Subscription'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
