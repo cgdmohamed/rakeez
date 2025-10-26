@@ -18,6 +18,7 @@ import { generateToken, generateRefreshToken } from "./utils/jwt";
 import { verifyMoyasarSignature, verifyTabbySignature } from "./utils/webhook";
 import { PaymentTransactions } from "./utils/transactions";
 import { websocketService } from "./services/websocket";
+import { AssignmentService } from "./services/assignmentService";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { 
@@ -30,7 +31,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
@@ -1255,41 +1256,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus: isSubscriptionBooking ? 'paid' : 'pending',
       });
       
-      // Automatic technician assignment based on service category specialization
+      // Smart technician assignment using AI-powered algorithm
       let assignedTechnician = null;
       try {
-        const allTechnicians = await storage.getAllUsers('technician', 'active');
-        const categoryId = service.categoryId;
+        // Get customer address for location-based assignment
+        const [address] = await db
+          .select()
+          .from(addresses)
+          .where(eq(addresses.id, address_id));
         
-        // Find technicians specialized in this service category
-        const qualifiedTechnicians = allTechnicians.filter((tech: any) => {
-          if (!tech.specializations) return true; // If no specializations set, consider available for all
-          const specializations = Array.isArray(tech.specializations) 
-            ? tech.specializations 
-            : [];
-          return specializations.length === 0 || specializations.includes(categoryId);
-        });
-        
-        if (qualifiedTechnicians.length > 0) {
-          // Assign to the first available qualified technician
-          assignedTechnician = qualifiedTechnicians[0];
-          await storage.assignTechnician(booking.id, assignedTechnician.id);
-          
-          // Create notification for assigned technician
-          await storage.createNotification({
-            userId: assignedTechnician.id,
-            type: 'technician_assigned',
-            title: { en: 'New Job Assigned', ar: 'تم تعيين وظيفة جديدة' },
-            body: { 
-              en: `You have been assigned to booking #${booking.id.slice(0, 8)}`, 
-              ar: `تم تعيينك للحجز #${booking.id.slice(0, 8)}` 
+        if (!address || !address.latitude || !address.longitude) {
+          console.warn('Address location not available for smart assignment, falling back to manual assignment');
+        } else {
+          // Use smart assignment service
+          const assignmentResult = await AssignmentService.findBestTechnician(
+            {
+              serviceId: service_id,
+              scheduledDate: scheduledDateTime,
+              scheduledTime: scheduled_time,
+              customerLatitude: parseFloat(address.latitude),
+              customerLongitude: parseFloat(address.longitude),
             },
-            data: { bookingId: booking.id },
-          });
+            booking.id
+          );
+          
+          if (assignmentResult.technicianId) {
+            // Assign the selected technician
+            await storage.assignTechnician(booking.id, assignmentResult.technicianId);
+            
+            // Get technician details for response
+            assignedTechnician = await storage.getUser(assignmentResult.technicianId);
+            
+            // Create notification for assigned technician
+            await storage.createNotification({
+              userId: assignmentResult.technicianId,
+              type: 'technician_assigned',
+              title: { en: 'New Job Assigned', ar: 'تم تعيين وظيفة جديدة' },
+              body: { 
+                en: `You have been assigned to booking #${booking.id.slice(0, 8)} (Smart Assignment)`, 
+                ar: `تم تعيينك للحجز #${booking.id.slice(0, 8)} (تعيين ذكي)` 
+              },
+              data: { bookingId: booking.id },
+            });
+            
+            console.log(`Smart assignment successful: Technician ${assignmentResult.technicianId} assigned to booking ${booking.id} (Score: ${assignmentResult.assignmentLog?.totalScore || 'N/A'})`);
+          } else {
+            console.warn('No suitable technician found via smart assignment');
+          }
         }
       } catch (techError) {
-        console.error('Technician auto-assignment error:', techError);
-        // Continue even if auto-assignment fails - booking remains in pending status
+        console.error('Smart technician assignment error:', techError);
+        // Continue even if auto-assignment fails - booking remains in pending status for manual assignment
       }
       
       await auditLog({
