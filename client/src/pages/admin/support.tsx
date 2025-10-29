@@ -30,7 +30,7 @@ export default function AdminSupport() {
   });
 
   const { data: messagesData, isLoading: messagesLoading } = useQuery<any>({
-    queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'],
+    queryKey: [`/api/v2/admin/support/tickets/${selectedTicket?.id}/messages`],
     enabled: !!selectedTicket?.id,
   });
 
@@ -64,7 +64,7 @@ export default function AdminSupport() {
     onSuccess: () => {
       toast({ title: 'Success', description: 'Reply sent successfully' });
       setReplyMessage('');
-      queryClient.refetchQueries({ queryKey: ['/api/v2/admin/support/tickets', selectedTicket?.id, 'messages'] });
+      queryClient.refetchQueries({ queryKey: [`/api/v2/admin/support/tickets/${selectedTicket?.id}/messages`] });
     },
     onError: () => {
       toast({ title: 'Error', description: 'Failed to send reply', variant: 'destructive' });
@@ -361,27 +361,33 @@ export default function AdminSupport() {
                     No messages yet. Be the first to reply!
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {messages.map((message: any, idx: number) => (
-                      <Card
+                      <div
                         key={idx}
-                        className={message.isAdmin ? 'ml-8 bg-primary/5' : 'mr-8'}
+                        className={`flex ${message.isAdmin ? 'justify-end' : 'justify-start'}`}
                         data-testid={`message-${idx}`}
                       >
-                        <CardHeader className="py-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm">
-                              {message.isAdmin ? 'Support Team' : selectedTicket?.userName}
-                            </CardTitle>
+                        <div className={`max-w-[75%] ${message.isAdmin ? 'ml-12' : 'mr-12'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-foreground/70">
+                              {message.senderName || (message.isAdmin ? 'Support Team' : selectedTicket?.userName)}
+                            </span>
                             <span className="text-xs text-muted-foreground">
                               {format(new Date(message.createdAt), 'MMM d, h:mm a')}
                             </span>
                           </div>
-                        </CardHeader>
-                        <CardContent className="py-3 pt-0">
-                          <p className="text-sm">{message.message}</p>
-                        </CardContent>
-                      </Card>
+                          <div
+                            className={`rounded-lg p-3 ${
+                              message.isAdmin
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted border border-border'
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{message.message}</p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

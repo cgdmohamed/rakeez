@@ -17,10 +17,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard, ExternalLink, MessageSquare, Send } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -47,6 +49,11 @@ export default function CustomerProfile() {
     mode: 'create' | 'edit'; 
     address: Address | null 
   }>({ open: false, mode: 'create', address: null });
+  const [ticketDialog, setTicketDialog] = useState<{ 
+    open: boolean; 
+    ticket: SupportTicket | null 
+  }>({ open: false, ticket: null });
+  const [replyMessage, setReplyMessage] = useState('');
 
   interface Booking {
     id: string;
@@ -191,6 +198,11 @@ export default function CustomerProfile() {
     enabled: !!id,
   });
 
+  const { data: ticketMessagesData, isLoading: messagesLoading } = useQuery<any>({
+    queryKey: [`/api/v2/admin/support/tickets/${ticketDialog.ticket?.id}/messages`],
+    enabled: !!ticketDialog.ticket?.id,
+  });
+
   const addressForm = useForm<AddressFormData>({
     resolver: zodResolver(addressFormSchema),
     defaultValues: {
@@ -305,6 +317,27 @@ export default function CustomerProfile() {
     },
   });
 
+  const replyToTicketMutation = useMutation({
+    mutationFn: async ({ ticketId, message }: { ticketId: string; message: string }) => {
+      return apiRequest('POST', `/api/v2/admin/support/tickets/${ticketId}/messages`, { message });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Reply sent',
+        description: 'Your reply has been sent successfully',
+      });
+      setReplyMessage('');
+      queryClient.refetchQueries({ queryKey: [`/api/v2/admin/support/tickets/${ticketDialog.ticket?.id}/messages`] });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to send reply',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleTopupSubmit = () => {
     const amount = parseFloat(topupDialog.amount);
     if (amount > 0 && topupDialog.reason.trim()) {
@@ -346,6 +379,19 @@ export default function CustomerProfile() {
     if (confirm('Are you sure you want to delete this address?')) {
       deleteAddressMutation.mutate(addressId);
     }
+  };
+
+  const handleViewTicket = (ticket: SupportTicket) => {
+    setTicketDialog({ open: true, ticket });
+    setReplyMessage('');
+  };
+
+  const handleSendReply = () => {
+    if (!replyMessage.trim() || !ticketDialog.ticket) return;
+    replyToTicketMutation.mutate({
+      ticketId: ticketDialog.ticket.id,
+      message: replyMessage,
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -655,6 +701,7 @@ export default function CustomerProfile() {
                       <TableHead className="table-header-primary">Priority</TableHead>
                       <TableHead className="table-header-primary">Status</TableHead>
                       <TableHead className="table-header-primary">Created</TableHead>
+                      <TableHead className="table-header-primary">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -665,6 +712,17 @@ export default function CustomerProfile() {
                         <TableCell>{getStatusBadge(ticket.priority)}</TableCell>
                         <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                         <TableCell>{format(new Date(ticket.createdAt), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewTicket(ticket)}
+                            data-testid={`button-view-ticket-${ticket.id}`}
+                          >
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            View
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1332,6 +1390,109 @@ export default function CustomerProfile() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Ticket Dialog */}
+      <Dialog open={ticketDialog.open} onOpenChange={(open) => setTicketDialog({ open, ticket: null })}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col" data-testid="dialog-ticket-details">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-title">
+              {ticketDialog.ticket?.subject}
+            </DialogTitle>
+            <DialogDescription>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-muted-foreground">
+                  Ticket ID: {ticketDialog.ticket?.id.slice(0, 8)}
+                </span>
+                <Separator orientation="vertical" className="h-4" />
+                {getStatusBadge(ticketDialog.ticket?.priority || 'low')}
+                {getStatusBadge(ticketDialog.ticket?.status || 'open')}
+                <Separator orientation="vertical" className="h-4" />
+                <span className="text-xs text-muted-foreground">
+                  {ticketDialog.ticket?.createdAt && format(new Date(ticketDialog.ticket.createdAt), 'MMM d, yyyy h:mm a')}
+                </span>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Messages */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <h4 className="font-semibold mb-3">Conversation</h4>
+              <ScrollArea className="flex-1 pr-4">
+                {messagesLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
+                  </div>
+                ) : !ticketMessagesData?.data || ticketMessagesData.data.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No messages yet. Be the first to reply!
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {ticketMessagesData.data.map((message: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`flex ${message.isAdmin ? 'justify-end' : 'justify-start'}`}
+                        data-testid={`message-${idx}`}
+                      >
+                        <div className={`max-w-[75%] ${message.isAdmin ? 'ml-12' : 'mr-12'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-foreground/70">
+                              {message.senderName || (message.isAdmin ? 'Support Team' : user?.name)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(message.createdAt), 'MMM d, h:mm a')}
+                            </span>
+                          </div>
+                          <div
+                            className={`rounded-lg p-3 ${
+                              message.isAdmin
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted border border-border'
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{message.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+
+            {/* Reply Section */}
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Type your reply..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                rows={3}
+                data-testid="input-reply-message"
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setTicketDialog({ open: false, ticket: null })}
+                  data-testid="button-close-dialog"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={handleSendReply}
+                  disabled={!replyMessage.trim() || replyToTicketMutation.isPending}
+                  data-testid="button-send-reply"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {replyToTicketMutation.isPending ? 'Sending...' : 'Send Reply'}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
