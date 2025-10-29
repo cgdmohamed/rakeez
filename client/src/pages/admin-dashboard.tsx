@@ -49,6 +49,7 @@ import AdminPromos from './admin/promos';
 import AdminMobileContent from './admin/mobile-content';
 import AdminSubscriptions from './admin/subscriptions';
 import AdminSubscriptionPackages from './admin/subscription-packages';
+import TechnicianSpecializations from './admin/technician-specializations';
 
 const navigation = [
   { name: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -58,6 +59,7 @@ const navigation = [
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Technicians', href: '/admin/technicians', icon: Wrench },
+  { name: 'Technician Skills', href: '/admin/technician-specializations', icon: UserCog },
   { name: 'Users', href: '/admin/users', icon: UserCog },
   { name: 'Roles', href: '/admin/roles', icon: Shield },
   { name: 'Notifications', href: '/admin/notifications', icon: Bell },
