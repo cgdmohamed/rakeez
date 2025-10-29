@@ -371,10 +371,10 @@ export default function AdminSupport() {
                         <div className={`max-w-[75%] ${message.isAdmin ? 'ml-12' : 'mr-12'}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-medium text-foreground/70">
-                              {message.senderName || (message.isAdmin ? 'Support Team' : selectedTicket?.userName)}
+                              {message.sender?.name || (message.isAdmin ? 'Support Team' : selectedTicket?.userName)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(message.createdAt), 'MMM d, h:mm a')}
+                              {format(new Date(message.created_at), 'MMM d, h:mm a')}
                             </span>
                           </div>
                           <div

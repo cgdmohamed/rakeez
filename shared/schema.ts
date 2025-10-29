@@ -420,6 +420,9 @@ export const supportTickets = pgTable("support_tickets", {
   status: supportStatusEnum("status").default('open').notNull(),
   assignedTo: uuid("assigned_to").references(() => users.id),
   bookingId: uuid("booking_id").references(() => bookings.id), // Optional link to booking
+  rating: integer("rating"), // Customer rating 1-5 stars
+  ratingComment: text("rating_comment"), // Optional customer feedback on support quality
+  ratedAt: timestamp("rated_at"), // When the rating was submitted
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
