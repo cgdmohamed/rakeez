@@ -23,7 +23,6 @@ import {
   Repeat,
   BookOpen,
   Tags,
-  ChevronDown,
   ChevronRight,
   CalendarDays,
 } from 'lucide-react';
@@ -168,10 +167,16 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
   const Sidebar = () => (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <Link href="/admin/dashboard" className="flex items-center justify-center">
-          <img src="/logo.svg" alt="Rakeez" className="h-12 w-auto" />
+        <Link href="/admin/dashboard" className="flex items-center justify-center group">
+          <img 
+            src="/logo.svg" 
+            alt="Rakeez" 
+            className="h-12 w-auto transition-transform duration-300 group-hover:scale-110" 
+          />
         </Link>
-        <p className="text-center text-xs mt-2 font-medium text-sidebar-foreground/70">Rakeez Admin Portal</p>
+        <p className="text-center text-xs mt-2 font-medium text-sidebar-foreground/70 animate-in fade-in duration-500">
+          Rakeez Admin Portal
+        </p>
       </div>
       <Separator />
       <ScrollArea className="flex-1 px-3 py-4">
@@ -184,32 +189,38 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
                 {groupIndex > 0 && <Separator className="my-3" />}
                 
                 <Collapsible open={isOpen} onOpenChange={() => toggleGroup(group.section)}>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group">
-                    <span className="uppercase tracking-wider">{group.section}</span>
-                    {isOpen ? (
-                      <ChevronDown className="h-3.5 w-3.5 transition-transform" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 transition-transform" />
-                    )}
+                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold text-sidebar-foreground/70 hover:text-sidebar-foreground transition-all duration-200 group">
+                    <span className="uppercase tracking-wider group-hover:tracking-widest transition-all duration-200">
+                      {group.section}
+                    </span>
+                    <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${isOpen ? 'rotate-90' : 'rotate-0'}`} />
                   </CollapsibleTrigger>
                   
-                  <CollapsibleContent className="space-y-0.5 mt-1">
-                    {group.items.map((item) => {
+                  <CollapsibleContent className="space-y-0.5 mt-1 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
+                    {group.items.map((item, itemIndex) => {
                       const Icon = item.icon;
                       const isActive = location === item.href || (item.href !== '/admin/dashboard' && location.startsWith(item.href));
                       return (
                         <Link key={item.name} href={item.href}>
                           <a
-                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all ${
-                              isActive
-                                ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
-                                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group/item
+                              ${isActive
+                                ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm hover:shadow-md scale-100'
+                                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:-translate-y-0.5 hover:shadow-sm'
                             }`}
                             data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                             onClick={() => setMobileMenuOpen(false)}
+                            style={{ 
+                              animationDelay: `${itemIndex * 50}ms`,
+                              animationFillMode: 'backwards'
+                            }}
                           >
-                            <Icon className={`h-4 w-4 ${isActive ? 'text-sidebar-primary-foreground' : 'text-sidebar-foreground/70'}`} />
-                            <span>{item.name}</span>
+                            <Icon className={`h-4 w-4 transition-all duration-200 group-hover/item:scale-110 ${
+                              isActive 
+                                ? 'text-sidebar-primary-foreground' 
+                                : 'text-sidebar-foreground/70 group-hover/item:text-sidebar-accent-foreground'
+                            }`} />
+                            <span className="transition-all duration-200">{item.name}</span>
                           </a>
                         </Link>
                       );
@@ -225,12 +236,12 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
       <div className="p-4">
         <Button
           variant="outline"
-          className="w-full justify-start"
+          className="w-full justify-start group/logout transition-all duration-200 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
           onClick={handleLogout}
           data-testid="button-logout"
         >
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          <LogOut className="mr-2 h-4 w-4 transition-transform duration-200 group-hover/logout:rotate-12" />
+          <span className="transition-all duration-200">Logout</span>
         </Button>
       </div>
     </div>
@@ -249,10 +260,14 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
           <Button
             variant="ghost"
             size="icon"
-            className="fixed top-4 left-4 z-40"
+            className="fixed top-4 left-4 z-40 transition-all duration-200 hover:scale-110 hover:bg-sidebar-accent active:scale-95"
             data-testid="button-mobile-menu"
           >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6 transition-transform duration-200 rotate-0 hover:rotate-90" />
+            ) : (
+              <Menu className="h-6 w-6 transition-transform duration-200" />
+            )}
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-64">
@@ -262,7 +277,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-background">
-        <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8">
+        <div className="container mx-auto p-6 lg:p-8 pt-20 lg:pt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {children}
         </div>
       </main>
