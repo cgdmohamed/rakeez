@@ -7,6 +7,7 @@ import {
   FileText,
   CreditCard,
   Users,
+  User,
   UserCog,
   Wrench,
   BarChart3,
@@ -54,6 +55,7 @@ import AdminPromos from './admin/promos';
 import AdminMobileContent from './admin/mobile-content';
 import AdminSubscriptions from './admin/subscriptions';
 import AdminSubscriptionPackages from './admin/subscription-packages';
+import AdminMyProfile from './admin/my-profile';
 
 interface NavigationItem {
   name: string;
@@ -88,6 +90,7 @@ const navigationGroups: NavigationGroup[] = [
   {
     section: 'User Management',
     items: [
+      { name: 'My Profile', href: '/admin/my-profile', icon: User },
       { name: 'Customers', href: '/admin/customers', icon: Users },
       { name: 'Technicians', href: '/admin/technicians', icon: Wrench },
       { name: 'Users', href: '/admin/users', icon: UserCog },
@@ -294,6 +297,7 @@ export default function AdminDashboard() {
         <Route path="/admin/customers/:id" component={CustomerProfile} />
         <Route path="/admin/overview" component={AdminOverview} />
         <Route path="/admin/dashboard" component={AdminOverview} />
+        <Route path="/admin/my-profile" component={AdminMyProfile} />
         <Route path="/admin/bookings" component={AdminBookings} />
         <Route path="/admin/calendar" component={AdminCalendar} />
         <Route path="/admin/quotations" component={AdminQuotations} />
