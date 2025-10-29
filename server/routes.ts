@@ -6254,19 +6254,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = req.body;
       const language = req.headers['accept-language'] || 'en';
       
+      console.log('[Support Ticket Update] Ticket ID:', id);
+      console.log('[Support Ticket Update] Update Data:', JSON.stringify(updateData, null, 2));
+      
       const ticket = await storage.getSupportTicket(id);
       if (!ticket) {
+        console.log('[Support Ticket Update] Ticket not found:', id);
         return res.status(404).json({
           success: false,
           message: bilingual.getMessage('support.ticket_not_found', language),
         });
       }
       
-      await storage.updateSupportTicket(id, {
-        status: updateData.status,
-        priority: updateData.priority,
-        assignedTo: updateData.assigned_to,
-      });
+      const dataToUpdate: any = {};
+      if (updateData.status) dataToUpdate.status = updateData.status;
+      if (updateData.priority) dataToUpdate.priority = updateData.priority;
+      if (updateData.assigned_to) dataToUpdate.assignedTo = updateData.assigned_to;
+      
+      console.log('[Support Ticket Update] Data to update:', JSON.stringify(dataToUpdate, null, 2));
+      
+      await storage.updateSupportTicket(id, dataToUpdate);
+      
+      console.log('[Support Ticket Update] Successfully updated');
       
       res.json({
         success: true,
@@ -6274,10 +6283,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
     } catch (error) {
-      console.error('Update support ticket error:', error);
+      console.error('[Support Ticket Update] Error:', error);
+      console.error('[Support Ticket Update] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({
         success: false,
-        message: bilingual.getMessage('general.server_error', 'en'),
+        message: error instanceof Error ? error.message : bilingual.getMessage('general.server_error', 'en'),
       });
     }
   });

@@ -416,6 +416,7 @@ export const supportTickets = pgTable("support_tickets", {
   userId: uuid("user_id").references(() => users.id).notNull(),
   subject: text("subject").notNull(),
   subjectAr: text("subject_ar"),
+  description: text("description"), // Initial request/issue description
   priority: varchar("priority", { length: 10 }).default('medium').notNull(),
   status: supportStatusEnum("status").default('open').notNull(),
   assignedTo: uuid("assigned_to").references(() => users.id),
