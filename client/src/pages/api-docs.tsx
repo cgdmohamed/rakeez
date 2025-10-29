@@ -2127,6 +2127,254 @@ const endpoints: Record<string, ApiEndpoint[]> = {
       }
     },
     {
+      method: 'GET',
+      path: '/api/v2/admin/users',
+      title: 'Get All Users',
+      titleAr: 'جميع المستخدمين',
+      description: 'Retrieve all users with optional filtering by role and status (Admin only)',
+      descriptionAr: 'استرداد جميع المستخدمين مع تصفية اختيارية حسب الدور والحالة (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'role',
+          type: 'string',
+          required: false,
+          description: 'Filter by role (customer, technician, admin)',
+          descriptionAr: 'التصفية حسب الدور (عميل، فني، مدير)'
+        },
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (active, inactive, suspended)',
+          descriptionAr: 'التصفية حسب الحالة (نشط، غير نشط، معلق)'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              id: 'usr_123',
+              name: 'Ahmed Ali',
+              email: 'ahmed@example.com',
+              phone: '+966501234567',
+              role: 'customer',
+              status: 'active',
+              createdAt: '2024-01-01T00:00:00Z'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/users',
+      title: 'Create User',
+      titleAr: 'إنشاء مستخدم',
+      description: 'Create a new user account (Admin only)',
+      descriptionAr: 'إنشاء حساب مستخدم جديد (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          name: 'John Doe',
+          name_ar: 'جون دو',
+          email: 'john@example.com',
+          phone: '+966501234567',
+          password: 'SecurePass123!',
+          role: 'customer',
+          status: 'active'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'User created successfully',
+          data: {
+            id: 'usr_123',
+            name: 'John Doe',
+            email: 'john@example.com'
+          }
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/technicians/specializations',
+      title: 'Get Technician Specializations',
+      titleAr: 'تخصصات الفنيين',
+      description: 'Get all technicians with their specializations and coverage statistics (Admin only)',
+      descriptionAr: 'الحصول على جميع الفنيين مع تخصصاتهم وإحصائيات التغطية (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      queryParams: [
+        {
+          name: 'categoryId',
+          type: 'string',
+          required: false,
+          description: 'Filter by service category',
+          descriptionAr: 'التصفية حسب فئة الخدمة'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            technicians: [
+              {
+                id: 'tech_123',
+                name: 'Ahmed Al-Rashid',
+                email: 'ahmed@rakeez.sa',
+                status: 'active',
+                specializations: [
+                  { id: 'cat_1', name: 'AC Repair' }
+                ]
+              }
+            ],
+            categories: [
+              { id: 'cat_1', name: 'AC Repair', nameAr: 'صيانة المكيفات' }
+            ],
+            coverageStats: [
+              { categoryId: 'cat_1', categoryName: 'AC Repair', technicianCount: 15 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/admin/technicians/:id/specializations',
+      title: 'Update Technician Specializations',
+      titleAr: 'تحديث تخصصات الفني',
+      description: 'Update service categories for a technician (Admin only). Empty array means all services.',
+      descriptionAr: 'تحديث فئات الخدمة للفني (للمسؤولين فقط). المصفوفة الفارغة تعني جميع الخدمات.',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          specializations: ['cat_1', 'cat_2', 'cat_3']
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Specializations updated successfully'
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/admin/support/analytics',
+      title: 'Support Analytics',
+      titleAr: 'تحليلات الدعم',
+      description: 'Get support ticket analytics including ratings and metrics (Admin only)',
+      descriptionAr: 'الحصول على تحليلات تذاكر الدعم بما في ذلك التقييمات والمقاييس (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            totalTickets: 150,
+            averageRating: 4.5,
+            ratingDistribution: {
+              '1': 2,
+              '2': 5,
+              '3': 10,
+              '4': 50,
+              '5': 83
+            },
+            statusCounts: {
+              open: 25,
+              in_progress: 15,
+              resolved: 90,
+              closed: 20
+            }
+          }
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/bookings/:id/assign',
+      title: 'Assign Technician',
+      titleAr: 'تعيين فني',
+      description: 'Manually assign a technician to a booking (Admin only)',
+      descriptionAr: 'تعيين فني يدوياً لحجز (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          technician_id: 'tech_123'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Technician assigned successfully',
+          data: {
+            bookingId: 'bkg_123',
+            technicianId: 'tech_123',
+            technicianName: 'Ahmed Al-Rashid'
+          }
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/bookings/:id/auto-assign',
+      title: 'Auto-Assign Technician',
+      titleAr: 'تعيين فني تلقائي',
+      description: 'Use smart algorithm to automatically assign best technician (Admin only)',
+      descriptionAr: 'استخدام خوارزمية ذكية لتعيين أفضل فني تلقائياً (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Technician auto-assigned successfully',
+          data: {
+            bookingId: 'bkg_123',
+            technicianId: 'tech_123',
+            technicianName: 'Ahmed Al-Rashid',
+            matchScore: 95
+          }
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/admin/support/tickets/:id/messages',
+      title: 'Reply to Support Ticket',
+      titleAr: 'الرد على تذكرة الدعم',
+      description: 'Send a message reply to a support ticket (Admin only)',
+      descriptionAr: 'إرسال رد رسالة إلى تذكرة الدعم (للمسؤولين فقط)',
+      auth: true,
+      roles: ['admin'],
+      requestBody: {
+        type: 'object',
+        example: {
+          message: 'We have assigned a technician to your issue'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Message sent successfully',
+          data: {
+            id: 'msg_123',
+            message: 'We have assigned a technician to your issue',
+            created_at: '2025-10-29T13:00:00.000Z'
+          }
+        }
+      }
+    },
+    {
       method: 'PUT',
       path: '/api/v2/admin/subscriptions/:id',
       title: 'Update Subscription',
