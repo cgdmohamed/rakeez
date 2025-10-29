@@ -6979,6 +6979,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check for related data that would prevent deletion
+      const relatedData = [];
+      
+      // Check for bookings (as customer)
+      const userBookings = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(bookings)
+        .where(eq(bookings.customerId, id));
+      
+      const bookingCount = Number(userBookings[0]?.count || 0);
+      if (bookingCount > 0) {
+        relatedData.push(`${bookingCount} booking${bookingCount > 1 ? 's' : ''}`);
+      }
+      
+      // Check for payments
+      const userPayments = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(payments)
+        .where(eq(payments.customerId, id));
+      
+      const paymentCount = Number(userPayments[0]?.count || 0);
+      if (paymentCount > 0) {
+        relatedData.push(`${paymentCount} payment${paymentCount > 1 ? 's' : ''}`);
+      }
+      
+      // Check for wallet transactions
+      const userTransactions = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(walletTransactions)
+        .where(eq(walletTransactions.customerId, id));
+      
+      const transactionCount = Number(userTransactions[0]?.count || 0);
+      if (transactionCount > 0) {
+        relatedData.push(`${transactionCount} wallet transaction${transactionCount > 1 ? 's' : ''}`);
+      }
+      
+      // If there's related data, prevent deletion
+      if (relatedData.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: language === 'ar' 
+            ? `لا يمكن حذف هذا المستخدم. يحتوي على ${relatedData.join('، ')} في النظام.`
+            : `Cannot delete this user. User has ${relatedData.join(', ')} in the system.`,
+          relatedData: {
+            bookings: bookingCount,
+            payments: paymentCount,
+            transactions: transactionCount,
+          },
+        });
+      }
+      
       await storage.deleteUser(id);
       
       await auditLog({
