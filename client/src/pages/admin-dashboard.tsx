@@ -26,12 +26,16 @@ import {
   Tags,
   ChevronRight,
   CalendarDays,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useQuery } from '@tanstack/react-query';
 
 // Import sub-pages
 import AdminOverview from './admin/overview';
@@ -138,12 +142,23 @@ const navigationGroups: NavigationGroup[] = [
 export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     navigationGroups.reduce((acc, group) => {
       acc[group.section] = group.defaultOpen ?? false;
       return acc;
     }, {} as Record<string, boolean>)
   );
+
+  const userId = localStorage.getItem('user_id');
+  
+  const { data: userProfile } = useQuery({
+    queryKey: ['/api/v2/admin/users', userId],
+    enabled: !!userId,
+  });
 
   useEffect(() => {
     // Check if user is authenticated and has admin role
@@ -156,6 +171,16 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
+  useEffect(() => {
+    // Apply theme to document
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_role');
@@ -163,9 +188,16 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
     setLocation('/login');
   };
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   const toggleGroup = (section: string) => {
     setOpenGroups(prev => ({ ...prev, [section]: !prev[section] }));
   };
+
+  const user = userProfile?.data;
+  const userInitials = user?.nameEn ? user.nameEn.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'AD';
 
   const Sidebar = () => (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -236,16 +268,59 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
         </nav>
       </ScrollArea>
       <Separator />
-      <div className="p-4">
-        <Button
-          variant="outline"
-          className="w-full justify-start group/logout transition-all duration-200 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
-          onClick={handleLogout}
-          data-testid="button-logout"
-        >
-          <LogOut className="mr-2 h-4 w-4 transition-transform duration-200 group-hover/logout:rotate-12" />
-          <span className="transition-all duration-200">Logout</span>
-        </Button>
+      
+      {/* Compact Bottom Section */}
+      <div className="p-3 space-y-3">
+        {/* User Info with Avatar */}
+        <Link href="/admin/my-profile">
+          <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200 cursor-pointer group">
+            <Avatar className="h-9 w-9 border-2 border-sidebar-border group-hover:border-sidebar-primary transition-colors duration-200">
+              <AvatarImage src={user?.avatar || undefined} alt={user?.nameEn || 'Admin'} />
+              <AvatarFallback className="text-xs font-semibold bg-sidebar-primary text-sidebar-primary-foreground">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate group-hover:text-sidebar-primary transition-colors duration-200">
+                {user?.nameEn || 'Admin User'}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">
+                {user?.role || 'Administrator'}
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        {/* Action Icons Row */}
+        <div className="flex items-center justify-between px-1">
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-8 w-8 rounded-lg transition-all duration-200 hover:bg-sidebar-accent hover:scale-110 active:scale-95"
+            data-testid="button-theme-toggle"
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            {theme === 'light' ? (
+              <Moon className="h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors" />
+            ) : (
+              <Sun className="h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors" />
+            )}
+          </Button>
+
+          {/* Logout Icon */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="h-8 w-8 rounded-lg transition-all duration-200 hover:bg-destructive/10 hover:scale-110 active:scale-95 group/logout"
+            data-testid="button-logout"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4 text-sidebar-foreground/70 group-hover/logout:text-destructive transition-all duration-200 group-hover/logout:rotate-12" />
+          </Button>
+        </div>
       </div>
     </div>
   );
