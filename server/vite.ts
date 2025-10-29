@@ -22,7 +22,9 @@ export function log(message: string, source = "express") {
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: process.env.REPL_ID 
+      ? { server, clientPort: 443 }  // On Replit: use secure websocket port
+      : { server },                   // Locally or production: use default HMR
     allowedHosts: true as const,
   };
 
