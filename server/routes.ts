@@ -2734,15 +2734,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               success: merchantUrls.success,
               cancel: merchantUrls.cancel,
               failure: merchantUrls.failure
-            },
-            metadata: {
-              subscription_purchase: true,
-              user_id: userId,
-              package_id: packageId,
-              start_date: startDate.toISOString(),
-              end_date: endDate.toISOString(),
-              auto_renew: autoRenew,
-              duration_months: durationMonths
             }
           });
           
@@ -7716,10 +7707,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const specs = tech.specializations as string[] || [];
         const specializationDetails = specs.map(specId => {
           const category = categories.find(c => c.id === specId);
-          return category ? {
+          if (!category) return null;
+          const catName = category.name as any;
+          return {
             id: category.id,
-            name: language === 'ar' ? category.nameAr || category.name : category.name,
-          } : null;
+            name: language === 'ar' ? (catName?.ar || catName?.en || catName) : (catName?.en || catName),
+          };
         }).filter(Boolean);
         
         return {
@@ -7735,14 +7728,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Calculate coverage statistics
-      const coverageStats = categories.map(cat => ({
-        categoryId: cat.id,
-        categoryName: language === 'ar' ? cat.nameAr || cat.name : cat.name,
-        technicianCount: technicians.filter(tech => {
-          const specs = tech.specializations as string[] || [];
-          return specs.includes(cat.id);
-        }).length,
-      }));
+      const coverageStats = categories.map(cat => {
+        const catName = cat.name as any;
+        return {
+          categoryId: cat.id,
+          categoryName: language === 'ar' ? (catName?.ar || catName?.en || catName) : (catName?.en || catName),
+          technicianCount: technicians.filter(tech => {
+            const specs = tech.specializations as string[] || [];
+            return specs.includes(cat.id);
+          }).length,
+        };
+      });
       
       res.json({
         success: true,

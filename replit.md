@@ -55,7 +55,11 @@ The database schema separates single-service pricing (`serviceTiers`) from multi
 
 ## API Documentation
 
+**Admin API Documentation**: Comprehensive guide located at `docs/ADMIN_API.md` covering all admin endpoints including users management, roles & permissions, customers, technicians, bookings, quotations, payments, support tickets, services, subscription packages, promos & referrals, mobile content, and analytics. Includes request/response examples, error handling, and best practices.
+
 **Technician API Documentation**: Comprehensive guide located at `docs/TECHNICIAN_API.md` covering all technician endpoints including profile management, bookings & orders, performance metrics, quotations, and availability settings. Includes request/response examples, error handling, and best practices.
+
+**WebSocket API Documentation**: Real-time communication guide located at `docs/WEBSOCKET_API.md` for live order updates and notifications.
 
 ## External Dependencies
 
