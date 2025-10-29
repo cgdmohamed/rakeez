@@ -108,6 +108,10 @@ export default function AdminOverview() {
     queryKey: ['/api/v2/admin/analytics'],
   });
 
+  const { data: supportAnalytics } = useQuery({
+    queryKey: ['/api/v2/admin/support/analytics'],
+  });
+
   const handleExportReport = async () => {
     try {
       const response = await fetch('/api/v2/admin/analytics/export?format=csv&type=analytics', {
@@ -472,6 +476,102 @@ export default function AdminOverview() {
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>Total number of subscriptions created</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
+
+        {/* Support Analytics */}
+        {supportAnalytics?.data && (
+          <>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="h-px bg-border flex-1" />
+              <h3 className="text-sm font-medium text-muted-foreground">Support Overview</h3>
+              <div className="h-px bg-border flex-1" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Total Tickets */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/support">
+                    <Card data-testid="card-total-tickets" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
+                        <Bell className="h-4 w-4" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold" data-testid="text-total-tickets">
+                          {supportAnalytics.data.totalTickets}
+                        </div>
+                        <p className="text-xs text-foreground/80">All time</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total support tickets created</TooltipContent>
+              </Tooltip>
+
+              {/* Average Rating */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/support">
+                    <Card data-testid="card-avg-rating" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-yellow-500/30 bg-yellow-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-yellow-600">Average Rating</CardTitle>
+                        <Star className="h-4 w-4 text-yellow-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-yellow-600" data-testid="text-avg-rating">
+                          {supportAnalytics.data.averageRating.toFixed(1)} ⭐
+                        </div>
+                        <p className="text-xs text-foreground/80">{supportAnalytics.data.ratedTickets} ratings</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Average customer satisfaction rating</TooltipContent>
+              </Tooltip>
+
+              {/* Open Tickets */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/support?status=open">
+                    <Card data-testid="card-open-tickets" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-blue-500/30 bg-blue-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-blue-600">Open Tickets</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-blue-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-blue-600" data-testid="text-open-tickets">
+                          {supportAnalytics.data.statusCounts.open}
+                        </div>
+                        <p className="text-xs text-foreground/80">Needs attention</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Open support tickets requiring response</TooltipContent>
+              </Tooltip>
+
+              {/* Resolved Tickets */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/support?status=resolved">
+                    <Card data-testid="card-resolved-tickets" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-green-500/30 bg-green-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-green-600">Resolved</CardTitle>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-green-600" data-testid="text-resolved-tickets">
+                          {supportAnalytics.data.statusCounts.resolved}
+                        </div>
+                        <p className="text-xs text-foreground/80">Successfully resolved</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Resolved support tickets</TooltipContent>
               </Tooltip>
             </div>
           </>
