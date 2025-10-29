@@ -6,6 +6,8 @@ import ApiDocumentation from '@/components/api-documentation';
 import ApiDocs from '@/pages/api-docs';
 import NotFound from '@/pages/not-found';
 import Login from '@/pages/login';
+import ForgotPassword from '@/pages/forgot-password';
+import ResetPassword from '@/pages/reset-password';
 import AdminDashboard, { AdminLayoutWrapper } from '@/pages/admin-dashboard';
 import TechnicianDashboard from '@/pages/technician-dashboard';
 import CustomerProfile from '@/pages/admin/customer-profile';
@@ -133,6 +135,8 @@ function App() {
           <Route path="/" component={ApiDocumentation} />
           <Route path="/api-docs" component={ApiDocs} />
           <Route path="/login" component={Login} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/admin/customers/:id/overview">
             {(params) => (
               <AdminLayoutWrapper>

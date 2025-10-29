@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, EyeOff } from 'lucide-react';
+import { Link } from 'wouter';
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -15,6 +18,18 @@ export default function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState<'admin' | 'technician'>('admin');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedIdentifier = localStorage.getItem('saved_identifier');
+    const savedRememberMe = localStorage.getItem('remember_me') === 'true';
+    if (savedIdentifier && savedRememberMe) {
+      setIdentifier(savedIdentifier);
+      setRememberMe(true);
+    }
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: async (data: { identifier: string; password: string }) => {
@@ -26,6 +41,15 @@ export default function Login() {
         localStorage.setItem('auth_token', data.data.access_token);
         localStorage.setItem('user_role', data.data.user.role);
         localStorage.setItem('user_id', data.data.user.id);
+        
+        // Handle "Remember me"
+        if (rememberMe) {
+          localStorage.setItem('saved_identifier', identifier);
+          localStorage.setItem('remember_me', 'true');
+        } else {
+          localStorage.removeItem('saved_identifier');
+          localStorage.removeItem('remember_me');
+        }
         
         toast({
           title: 'Login successful',
@@ -76,79 +100,78 @@ export default function Login() {
               <TabsTrigger value="technician" data-testid="tab-technician">Technician</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="admin">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="admin-identifier">Email or Phone</Label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="identifier">Email or Phone</Label>
+                <Input
+                  id="identifier"
+                  data-testid="input-identifier"
+                  type="text"
+                  placeholder={userType === 'admin' ? 'admin@rakeez.sa' : 'technician@rakeez.sa'}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
                   <Input
-                    id="admin-identifier"
-                    data-testid="input-identifier"
-                    type="text"
-                    placeholder="admin@rakeez.sa"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="admin-password">Password</Label>
-                  <Input
-                    id="admin-password"
+                    id="password"
                     data-testid="input-password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="pr-10"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-password"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  data-testid="button-login"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? 'Logging in...' : 'Login as Admin'}
-                </Button>
-              </form>
-            </TabsContent>
+              </div>
 
-            <TabsContent value="technician">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tech-identifier">Email or Phone</Label>
-                  <Input
-                    id="tech-identifier"
-                    data-testid="input-identifier"
-                    type="text"
-                    placeholder="technician@rakeez.sa"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    required
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    data-testid="checkbox-remember"
                   />
+                  <Label
+                    htmlFor="remember"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Remember me
+                  </Label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tech-password">Password</Label>
-                  <Input
-                    id="tech-password"
-                    data-testid="input-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  data-testid="button-login"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? 'Logging in...' : 'Login as Technician'}
-                </Button>
-              </form>
-            </TabsContent>
+                <Link href="/forgot-password">
+                  <a className="text-sm text-primary hover:underline" data-testid="link-forgot-password">
+                    Forgot password?
+                  </a>
+                </Link>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                data-testid="button-login"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? 'Logging in...' : `Login as ${userType === 'admin' ? 'Admin' : 'Technician'}`}
+              </Button>
+            </form>
           </Tabs>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
