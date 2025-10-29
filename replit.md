@@ -19,7 +19,15 @@ The frontend uses React with TypeScript, featuring a component-based, bilingual 
 - **Availability Settings**: Configure working hours, service radius, maximum daily bookings, home location, and real-time availability status
 
 ### Technical Implementations
-The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control and OTP verification via Twilio. Password management includes secure change functionality available to all authenticated users (customers, technicians, and admins) with strong validation via passwordSchema (minimum 8 characters, uppercase, lowercase, numbers, special characters), rate limiting (5 attempts per 15 minutes), and audit logging. All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
+The backend is built with Express.js and TypeScript, following a modular controller-service architecture. It uses JWT for authentication and authorization with role-based access control and OTP verification via Twilio. Password management includes secure change functionality available to all authenticated users (customers, technicians, and admins) with strong validation via passwordSchema (minimum 8 characters, uppercase, lowercase, numbers, special characters), rate limiting (5 attempts per 15 minutes), and audit logging. 
+
+**Authentication Flow (October 2025):**
+- **Global 401 Error Handler**: Automatic redirection to login page when authentication fails, with token cleanup
+- **Login Features**: Remember me checkbox, password visibility toggle, forgot password flow with email verification
+- **Password Reset**: Complete flow with token validation and secure password update
+- **Session Protection**: All protected routes check authentication on mount and redirect to login if invalid
+
+All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
 ### Feature Specifications
 
