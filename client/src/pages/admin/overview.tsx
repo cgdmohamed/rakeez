@@ -244,8 +244,13 @@ export default function AdminOverview() {
             <h1 className="text-3xl font-bold text-primary" data-testid="text-title">Admin Dashboard</h1>
             <p className="text-foreground/70">Operational Analytics & Performance Overview</p>
           </div>
-          <Button onClick={handleExportReport} variant="outline" className="gap-2">
-            <FileDown className="w-4 h-4" />
+          <Button 
+            onClick={handleExportReport} 
+            variant="outline" 
+            className="gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-95 group"
+            data-testid="button-export-report"
+          >
+            <FileDown className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5" />
             Export Report
           </Button>
         </div>
@@ -258,7 +263,8 @@ export default function AdminOverview() {
               <Link href="/admin/bookings?status=pending">
                 <Card 
                   data-testid="card-pending-bookings" 
-                  className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-warning/30 bg-warning/5"
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer border-warning/30 bg-warning/5 animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '0ms', animationDuration: '500ms' }}
                 >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-warning">Pending</CardTitle>
@@ -280,7 +286,11 @@ export default function AdminOverview() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/bookings?status=in_progress">
-                <Card data-testid="card-active-orders" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                <Card 
+                  data-testid="card-active-orders" 
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '100ms', animationDuration: '500ms' }}
+                >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-secondary">Active</CardTitle>
                     <Activity className="h-4 w-4 text-secondary" />
@@ -301,7 +311,11 @@ export default function AdminOverview() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/technicians">
-                <Card data-testid="card-tech-performance" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                <Card 
+                  data-testid="card-tech-performance" 
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '200ms', animationDuration: '500ms' }}
+                >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">Technicians</CardTitle>
                     <UserCheck className="h-4 w-4 text-primary" />
@@ -325,7 +339,11 @@ export default function AdminOverview() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/wallets">
-                <Card data-testid="card-wallet-totals" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                <Card 
+                  data-testid="card-wallet-totals" 
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '300ms', animationDuration: '500ms' }}
+                >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-purple">Wallets</CardTitle>
                     <Wallet className="h-4 w-4 text-purple" />
@@ -346,7 +364,11 @@ export default function AdminOverview() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/payments">
-                <Card data-testid="card-total-revenue" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer card-accent-blue">
+                <Card 
+                  data-testid="card-total-revenue" 
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer card-accent-blue animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '400ms', animationDuration: '500ms' }}
+                >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">Revenue</CardTitle>
                     <DollarSign className="h-4 w-4 text-primary" />
@@ -367,7 +389,11 @@ export default function AdminOverview() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/admin/services">
-                <Card data-testid="card-top-service" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer card-accent-green">
+                <Card 
+                  data-testid="card-top-service" 
+                  className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer card-accent-green animate-in fade-in slide-in-from-bottom-4"
+                  style={{ animationDelay: '500ms', animationDuration: '500ms' }}
+                >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-accent">Top Service</CardTitle>
                     <TrendingUp className="h-4 w-4 text-accent" />
