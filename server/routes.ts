@@ -6986,7 +6986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userBookings = await db
         .select({ count: sql<number>`count(*)` })
         .from(bookings)
-        .where(eq(bookings.customerId, id));
+        .where(eq(bookings.userId, id));
       
       const bookingCount = Number(userBookings[0]?.count || 0);
       if (bookingCount > 0) {
@@ -6997,7 +6997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userPayments = await db
         .select({ count: sql<number>`count(*)` })
         .from(payments)
-        .where(eq(payments.customerId, id));
+        .where(eq(payments.userId, id));
       
       const paymentCount = Number(userPayments[0]?.count || 0);
       if (paymentCount > 0) {
@@ -7008,7 +7008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userTransactions = await db
         .select({ count: sql<number>`count(*)` })
         .from(walletTransactions)
-        .where(eq(walletTransactions.customerId, id));
+        .where(eq(walletTransactions.userId, id));
       
       const transactionCount = Number(userTransactions[0]?.count || 0);
       if (transactionCount > 0) {
