@@ -373,9 +373,11 @@ export default function AdminSupport() {
                             <span className="text-xs font-medium text-foreground/70">
                               {message.sender?.name || (message.isAdmin ? 'Support Team' : selectedTicket?.userName)}
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(message.created_at), 'MMM d, h:mm a')}
-                            </span>
+                            {message.created_at && (
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(message.created_at), 'MMM d, h:mm a')}
+                              </span>
+                            )}
                           </div>
                           <div
                             className={`rounded-lg p-3 ${
