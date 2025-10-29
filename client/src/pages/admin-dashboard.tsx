@@ -115,7 +115,7 @@ const navigationGroups: NavigationGroup[] = [
     defaultOpen: false,
   },
   {
-    section: 'Support & Communication',
+    section: 'Communications',
     items: [
       { name: 'Support', href: '/admin/support', icon: MessageSquare },
       { name: 'Notifications', href: '/admin/notifications', icon: Bell },
