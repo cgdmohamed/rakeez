@@ -3194,6 +3194,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rate Support Ticket (Customer)
+  app.post('/api/v2/support/tickets/:id/rate', authenticateToken, validateRequest({
+    body: z.object({
+      rating: z.number().int().min(1).max(5),
+      comment: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { rating, comment } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Verify ticket belongs to user and is resolved/closed
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('support.ticket_not_found', language),
+        });
+      }
+      
+      if (ticket.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getMessage('auth.forbidden', language),
+        });
+      }
+      
+      if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Ticket must be resolved or closed before rating',
+        });
+      }
+      
+      if (ticket.rating) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ticket has already been rated',
+        });
+      }
+      
+      await storage.updateSupportTicket(id, {
+        rating,
+        ratingComment: comment || null,
+        ratedAt: new Date(),
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('support.rating_submitted', language),
+      });
+      
+    } catch (error) {
+      console.error('Rate support ticket error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // Get FAQs (Public endpoint)
   app.get('/api/v2/support/faqs', async (req: any, res: any) => {
     try {
@@ -6243,6 +6305,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send Support Message (Admin Reply)
+  app.post('/api/v2/admin/support/tickets/:id/messages', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      message: z.string().min(1),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('support.ticket_not_found', language),
+        });
+      }
+      
+      const sanitizedMessage = sanitizeInput(message, 'basic');
+      
+      const supportMessage = await storage.createSupportMessage({
+        ticketId: id,
+        senderId: req.user.id,
+        message: sanitizedMessage,
+      });
+      
+      await websocketService.broadcastSupportMessage(id, req.user.id, supportMessage);
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('support.message_sent', language),
+        data: supportMessage,
+      });
+      
+    } catch (error) {
+      console.error('Send admin support message error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get Support Analytics
+  app.get('/api/v2/admin/support/analytics', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      const allTickets = await storage.getAllSupportTickets();
+      
+      const totalTickets = allTickets.length;
+      const ratedTickets = allTickets.filter(t => t.rating).length;
+      const averageRating = ratedTickets > 0 
+        ? allTickets.reduce((sum, t) => sum + (t.rating || 0), 0) / ratedTickets 
+        : 0;
+      
+      const ratingDistribution = {
+        '1': allTickets.filter(t => t.rating === 1).length,
+        '2': allTickets.filter(t => t.rating === 2).length,
+        '3': allTickets.filter(t => t.rating === 3).length,
+        '4': allTickets.filter(t => t.rating === 4).length,
+        '5': allTickets.filter(t => t.rating === 5).length,
+      };
+      
+      const statusCounts = {
+        open: allTickets.filter(t => t.status === 'open').length,
+        in_progress: allTickets.filter(t => t.status === 'in_progress').length,
+        resolved: allTickets.filter(t => t.status === 'resolved').length,
+        closed: allTickets.filter(t => t.status === 'closed').length,
+      };
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.analytics_retrieved', language),
+        data: {
+          totalTickets,
+          ratedTickets,
+          averageRating: parseFloat(averageRating.toFixed(2)),
+          ratingDistribution,
+          statusCounts,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get support analytics error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
   // ==================== ADMIN - SERVICES & PRICING ====================
   
   // Get All Services (Admin)
@@ -7475,6 +7630,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update Technician Specializations (Admin only)
+  app.put('/api/v2/admin/technicians/:id/specializations', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      specializations: z.array(z.string().uuid()),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { specializations } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const technician = await storage.getUser(id);
+      if (!technician || technician.role !== 'technician') {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('admin.technician_not_found', language),
+        });
+      }
+      
+      await db.update(users)
+        .set({
+          specializations: specializations as any,
+        })
+        .where(eq(users.id, id));
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'technician_specializations_updated',
+        resourceType: 'user',
+        resourceId: id,
+        newValues: { specializations },
+      });
+      
+      res.json({
+        success: true,
+        message: 'Technician specializations updated successfully',
+      });
+      
+    } catch (error) {
+      console.error('Update technician specializations error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get All Technicians with Specializations (Admin only)
+  app.get('/api/v2/admin/technicians/specializations', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { categoryId } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get all technicians
+      const technicians = await db.query.users.findMany({
+        where: eq(users.role, 'technician'),
+        orderBy: [asc(users.name)],
+      });
+      
+      // Get all service categories for reference
+      const categories = await storage.getServiceCategories();
+      
+      // Filter by category if specified
+      let filteredTechnicians = technicians;
+      if (categoryId) {
+        filteredTechnicians = technicians.filter(tech => {
+          const specs = tech.specializations as string[] || [];
+          return specs.includes(categoryId as string);
+        });
+      }
+      
+      // Map technicians with their specialization details
+      const techsWithSpecs = filteredTechnicians.map(tech => {
+        const specs = tech.specializations as string[] || [];
+        const specializationDetails = specs.map(specId => {
+          const category = categories.find(c => c.id === specId);
+          return category ? {
+            id: category.id,
+            name: language === 'ar' ? category.nameAr || category.name : category.name,
+          } : null;
+        }).filter(Boolean);
+        
+        return {
+          id: tech.id,
+          name: tech.name,
+          nameAr: tech.nameAr,
+          email: tech.email,
+          phone: tech.phone,
+          status: tech.status,
+          availabilityStatus: tech.availabilityStatus,
+          specializations: specializationDetails,
+        };
+      });
+      
+      // Calculate coverage statistics
+      const coverageStats = categories.map(cat => ({
+        categoryId: cat.id,
+        categoryName: language === 'ar' ? cat.nameAr || cat.name : cat.name,
+        technicianCount: technicians.filter(tech => {
+          const specs = tech.specializations as string[] || [];
+          return specs.includes(cat.id);
+        }).length,
+      }));
+      
+      res.json({
+        success: true,
+        message: 'Technicians and specializations retrieved successfully',
+        data: {
+          technicians: techsWithSpecs,
+          categories,
+          coverageStats,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get technicians specializations error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
   // Update Technician Profile (Admin only)
   app.put('/api/v2/admin/technicians/:id/profile', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: z.object({
