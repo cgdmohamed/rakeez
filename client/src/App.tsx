@@ -43,6 +43,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Global function to handle 401 errors
+const handle401 = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('user_id');
+  window.location.href = '/login';
+};
+
 // Custom fetcher for react-query
 const defaultFetcher = async (url: string): Promise<any> => {
   const token = localStorage.getItem('auth_token');
@@ -65,6 +73,11 @@ const defaultFetcher = async (url: string): Promise<any> => {
     } catch {
       // If we can't parse JSON, use the status text
       error.message = response.statusText || error.message;
+    }
+
+    // Handle 401 Unauthorized - redirect to login
+    if (response.status === 401) {
+      handle401();
     }
     
     throw error;
@@ -115,6 +128,11 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
       error.data = errorData;
     } catch {
       error.message = response.statusText || error.message;
+    }
+
+    // Handle 401 Unauthorized - redirect to login
+    if (response.status === 401) {
+      handle401();
     }
     
     throw error;
