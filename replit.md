@@ -11,6 +11,18 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The frontend uses React with TypeScript, featuring a component-based, bilingual UI with role-based dashboards (Admin, Technicians), a professional light design, and centralized query client with error handling. Admin and Technician dashboards provide comprehensive management capabilities.
 
+**Admin Dashboard Navigation (October 2025):**
+The admin sidebar features an organized, collapsible group-based navigation structure with visual hierarchy:
+- **Dashboard** - Overview (default open)
+- **Operations** - Bookings, Calendar, Quotations, Payments (default open)
+- **User Management** - Customers, Technicians, Users, Roles (collapsible)
+- **Services & Products** - Services, Brands, Spare Parts, Subscription Packages, Subscriptions (collapsible)
+- **Marketing** - Promos, Mobile Content (collapsible)
+- **Support & Communication** - Support, Notifications (collapsible)
+- **Analytics** - Analytics (collapsible)
+
+Each section has a clear header with chevron indicators, visual separators, and improved icons for better scannability. Active items are highlighted with primary color and shadow effects.
+
 **Technician Dashboard Self-Service Features (October 2025):**
 - **Profile Management**: Technicians can view and edit their personal information (name in English and Arabic)
 - **Password Management**: Secure password change functionality with strong validation requirements (8+ characters, uppercase, lowercase, numbers, special characters)
