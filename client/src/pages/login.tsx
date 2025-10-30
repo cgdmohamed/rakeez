@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, EyeOff } from 'lucide-react';
 import { Link } from 'wouter';
 
@@ -17,7 +16,6 @@ export default function Login() {
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'admin' | 'technician'>('admin');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -94,25 +92,19 @@ export default function Login() {
           <CardDescription>Admin & Technician Portal</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={userType} onValueChange={(v) => setUserType(v as 'admin' | 'technician')}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
-              <TabsTrigger value="technician" data-testid="tab-technician">Technician</TabsTrigger>
-            </TabsList>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="identifier">Email or Phone</Label>
-                <Input
-                  id="identifier"
-                  data-testid="input-identifier"
-                  type="text"
-                  placeholder={userType === 'admin' ? 'admin@rakeez.sa' : 'technician@rakeez.sa'}
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="identifier">Email or Phone</Label>
+              <Input
+                id="identifier"
+                data-testid="input-identifier"
+                type="text"
+                placeholder="Enter your email or phone number"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+              />
+            </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -163,16 +155,15 @@ export default function Login() {
                 </Link>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                data-testid="button-login"
-                disabled={loginMutation.isPending}
-              >
-                {loginMutation.isPending ? 'Logging in...' : `Login as ${userType === 'admin' ? 'Admin' : 'Technician'}`}
-              </Button>
-            </form>
-          </Tabs>
+            <Button
+              type="submit"
+              className="w-full"
+              data-testid="button-login"
+              disabled={loginMutation.isPending}
+            >
+              {loginMutation.isPending ? 'Logging in...' : 'Login'}
+            </Button>
+          </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Demo Credentials:</p>
