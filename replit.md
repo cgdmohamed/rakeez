@@ -15,11 +15,12 @@ The frontend uses React with TypeScript, featuring a component-based, bilingual 
 The admin sidebar features an organized, collapsible group-based navigation structure with visual hierarchy:
 - **Dashboard** - Overview (default open)
 - **Operations** - Bookings, Calendar, Quotations, Payments (default open)
-- **User Management** - Customers, Technicians, Users, Roles (collapsible)
+- **User Management** - My Profile, Customers, Technicians, Users, Roles (collapsible)
 - **Services & Products** - Services, Brands, Spare Parts, Subscription Packages, Subscriptions (collapsible)
 - **Marketing** - Promos, Mobile Content (collapsible)
 - **Support & Communication** - Support, Notifications (collapsible)
 - **Analytics** - Analytics (collapsible)
+- **Documentation** - API FAQ (collapsible)
 
 Each section has a clear header with chevron indicators, visual separators, and improved icons for better scannability. Active items are highlighted with primary color and shadow effects.
 
@@ -35,9 +36,17 @@ The backend is built with Express.js and TypeScript, following a modular control
 
 **Authentication Flow (October 2025):**
 - **Global 401 Error Handler**: Automatic redirection to login page when authentication fails, with token cleanup
-- **Login Features**: Remember me checkbox, password visibility toggle, forgot password flow with email verification
+- **Login Features**: Simplified unified login form (removed role tabs), remember me checkbox, password visibility toggle, forgot password flow with email verification
 - **Password Reset**: Complete flow with token validation and secure password update
 - **Session Protection**: All protected routes check authentication on mount and redirect to login if invalid
+
+**API Integration FAQ (October 2025):**
+- **Comprehensive Documentation**: New API FAQ page in admin portal documenting common integration issues
+- **CORS Solutions**: Detailed guide for configuring CORS with Nginx reverse proxy, including exact configuration snippets
+- **Authentication Guide**: Proper JWT token handling, common 401 errors, and resolution steps
+- **Rate Limiting**: Documentation of API rate limits and best practices
+- **Production Checklist**: Environment setup, security configuration, and deployment best practices
+- **WebSocket Setup**: Nginx configuration for WebSocket connections
 
 All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
