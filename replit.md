@@ -76,6 +76,8 @@ The database schema separates single-service pricing (`serviceTiers`) from multi
 
 ## API Documentation
 
+**Customer API Documentation**: Complete guide located at `docs/CUSTOMER_API.md` covering all customer-facing endpoints including authentication (registration, login, OTP verification, password reset), profile management, service discovery, booking & scheduling, order tracking, payments & wallet, subscriptions, referrals & rewards, and support tickets. Features snake_case naming, localized responses, comprehensive examples, rate limiting details, and best practices for mobile/web integration.
+
 **Admin API Documentation**: Comprehensive guide located at `docs/ADMIN_API.md` covering all admin endpoints including users management, roles & permissions, customers, technicians, bookings, quotations, payments, support tickets, services, subscription packages, promos & referrals, mobile content, and analytics. Includes request/response examples, error handling, and best practices.
 
 **Technician API Documentation**: Comprehensive guide located at `docs/TECHNICIAN_API.md` covering all technician endpoints including profile management, bookings & orders, performance metrics, quotations, and availability settings. Includes request/response examples, error handling, and best practices.
