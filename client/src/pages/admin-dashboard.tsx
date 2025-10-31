@@ -60,7 +60,6 @@ import AdminMobileContent from './admin/mobile-content';
 import AdminSubscriptions from './admin/subscriptions';
 import AdminSubscriptionPackages from './admin/subscription-packages';
 import AdminMyProfile from './admin/my-profile';
-import ApiFaq from './admin/api-faq';
 
 interface NavigationItem {
   name: string;
@@ -134,13 +133,6 @@ const navigationGroups: NavigationGroup[] = [
     section: 'Analytics',
     items: [
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-    ],
-    defaultOpen: false,
-  },
-  {
-    section: 'Documentation',
-    items: [
-      { name: 'API FAQ', href: '/admin/api-faq', icon: BookOpen },
     ],
     defaultOpen: false,
   },
@@ -400,7 +392,6 @@ export default function AdminDashboard() {
         <Route path="/admin/promos" component={AdminPromos} />
         <Route path="/admin/mobile-content" component={AdminMobileContent} />
         <Route path="/admin/analytics" component={AdminAnalytics} />
-        <Route path="/admin/api-faq" component={ApiFaq} />
       </Switch>
     </AdminLayoutWrapper>
   );

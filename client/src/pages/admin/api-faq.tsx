@@ -2,17 +2,53 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Code, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Code, AlertTriangle, CheckCircle, Info, ArrowLeft, BookOpen } from 'lucide-react';
+import { Link } from 'wouter';
 
 export default function ApiFaq() {
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">API Integration FAQ</h1>
-        <p className="text-muted-foreground mt-2">
-          Common issues and solutions for integrating with the Rakeez API
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Navigation Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center justify-between">
+          <div className="flex items-center gap-6">
+            <Link href="/">
+              <a className="flex items-center gap-2 font-semibold">
+                <BookOpen className="h-5 w-5" />
+                <span>Rakeez API</span>
+              </a>
+            </Link>
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/api-docs">
+                <a className="text-muted-foreground hover:text-foreground transition-colors">
+                  API Documentation
+                </a>
+              </Link>
+              <Link href="/api-faq">
+                <a className="text-foreground font-medium">
+                  FAQ
+                </a>
+              </Link>
+            </nav>
+          </div>
+          <div>
+            <Link href="/login">
+              <Button variant="outline" size="sm">
+                Sign In
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="container py-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">API Integration FAQ</h1>
+          <p className="text-muted-foreground mt-2">
+            Common issues and solutions for integrating with the Rakeez API
+          </p>
+        </div>
 
       <Card>
         <CardHeader>
@@ -332,12 +368,14 @@ Production:  wss://yourdomain.com/ws`}
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>For detailed API documentation, refer to:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><code className="bg-muted px-1 py-0.5 rounded">docs/CUSTOMER_API.md</code> - Customer/Client API reference</li>
             <li><code className="bg-muted px-1 py-0.5 rounded">docs/ADMIN_API.md</code> - Complete admin API reference</li>
             <li><code className="bg-muted px-1 py-0.5 rounded">docs/TECHNICIAN_API.md</code> - Technician API documentation</li>
             <li><code className="bg-muted px-1 py-0.5 rounded">docs/WEBSOCKET_API.md</code> - Real-time WebSocket events</li>
           </ul>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

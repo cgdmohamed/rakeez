@@ -12,6 +12,7 @@ import AdminDashboard, { AdminLayoutWrapper } from '@/pages/admin-dashboard';
 import TechnicianDashboard from '@/pages/technician-dashboard';
 import CustomerProfile from '@/pages/admin/customer-profile';
 import TechnicianProfile from '@/pages/admin/technician-profile';
+import ApiFaq from '@/pages/admin/api-faq';
 
 // Custom error type
 interface HttpError extends Error {
@@ -152,6 +153,7 @@ function App() {
         <Switch>
           <Route path="/" component={ApiDocumentation} />
           <Route path="/api-docs" component={ApiDocs} />
+          <Route path="/api-faq" component={ApiFaq} />
           <Route path="/login" component={Login} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
