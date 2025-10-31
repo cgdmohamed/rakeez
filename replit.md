@@ -20,7 +20,6 @@ The admin sidebar features an organized, collapsible group-based navigation stru
 - **Marketing** - Promos, Mobile Content (collapsible)
 - **Support & Communication** - Support, Notifications (collapsible)
 - **Analytics** - Analytics (collapsible)
-- **Documentation** - API FAQ (collapsible)
 
 Each section has a clear header with chevron indicators, visual separators, and improved icons for better scannability. Active items are highlighted with primary color and shadow effects.
 
@@ -41,12 +40,14 @@ The backend is built with Express.js and TypeScript, following a modular control
 - **Session Protection**: All protected routes check authentication on mount and redirect to login if invalid
 
 **API Integration FAQ (October 2025):**
-- **Comprehensive Documentation**: New API FAQ page in admin portal documenting common integration issues
+- **Public Access**: API FAQ page available at `/api-faq` without authentication for easy developer access
+- **Comprehensive Documentation**: Documenting common integration issues with step-by-step solutions
 - **CORS Solutions**: Detailed guide for configuring CORS with Nginx reverse proxy, including exact configuration snippets
 - **Authentication Guide**: Proper JWT token handling, common 401 errors, and resolution steps
 - **Rate Limiting**: Documentation of API rate limits and best practices
 - **Production Checklist**: Environment setup, security configuration, and deployment best practices
 - **WebSocket Setup**: Nginx configuration for WebSocket connections
+- **Navigation**: Integrated header with links to API docs and login for seamless developer experience
 
 All error responses use structured bilingual messages. The project utilizes PostgreSQL via Neon Database with Drizzle ORM, employing JSONB for bilingual content, enum types, soft deletes, and timestamp tracking.
 
