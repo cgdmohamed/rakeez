@@ -486,6 +486,7 @@ export const notificationSettings = pgTable("notification_settings", {
   promotions: boolean("promotions").default(true).notNull(),
   technicianMessages: boolean("technician_messages").default(true).notNull(),
   paymentNotifications: boolean("payment_notifications").default(true).notNull(),
+  walletUpdates: boolean("wallet_updates").default(true).notNull(),
   subscriptionReminders: boolean("subscription_reminders").default(true).notNull(),
   emailNotifications: boolean("email_notifications").default(true).notNull(),
   smsNotifications: boolean("sms_notifications").default(true).notNull(),

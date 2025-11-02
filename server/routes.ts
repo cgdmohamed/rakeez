@@ -3096,6 +3096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             },
             lang: language === 'ar' ? 'ar' : 'en',
+            merchant_code: process.env.TABBY_MERCHANT_CODE || 'cleanserve_sa',
             merchant_urls: {
               success: merchantUrls.success,
               cancel: merchantUrls.cancel,
