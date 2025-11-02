@@ -172,6 +172,16 @@ export class BookingsController {
       let referralDiscount = 0;
       let referralData = null;
       if (referral_code) {
+        // Check if referral system is enabled
+        const isReferralEnabled = await this.storage.isMarketingFeatureEnabled('referral');
+        if (!isReferralEnabled) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('referral.system_disabled', userLanguage) || (userLanguage === 'ar' ? 'نظام الإحالة معطل حالياً' : 'Referral system is currently disabled'),
+            error: 'Referral system is disabled'
+          });
+        }
+
         const db = await import('../db').then(m => m.db);
         const { users, referralCampaigns, referrals } = await import('../../shared/schema');
         const { eq, and, lte, sql } = await import('drizzle-orm');
@@ -247,6 +257,16 @@ export class BookingsController {
       let couponDiscount = 0;
       let couponData = null;
       if (coupon_code) {
+        // Check if coupon system is enabled
+        const isCouponEnabled = await this.storage.isMarketingFeatureEnabled('coupon');
+        if (!isCouponEnabled) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.system_disabled', userLanguage) || (userLanguage === 'ar' ? 'نظام القسائم معطل حالياً' : 'Coupon system is currently disabled'),
+            error: 'Coupon system is disabled'
+          });
+        }
+
         const db = await import('../db').then(m => m.db);
         const { coupons, couponUsages, bookings } = await import('../../shared/schema');
         const { eq, and, lte, gte, sql, count } = await import('drizzle-orm');

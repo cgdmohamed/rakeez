@@ -204,6 +204,14 @@ export class PaymentTransactions {
 
   static async distributeReferralReward(data: ReferralRewardData) {
     return await db.transaction(async (tx) => {
+      // Check if referral system is enabled
+      const { marketingSettings } = await import('../../shared/schema');
+      const [settings] = await tx.select().from(marketingSettings).limit(1);
+      
+      if (settings && settings.referralSystemEnabled === false) {
+        throw new Error('Referral system is currently disabled');
+      }
+
       const wallet = await tx
         .select()
         .from(wallets)
@@ -328,6 +336,14 @@ export class PaymentTransactions {
 
   static async deductCredits(data: CreditDeductionData) {
     return await db.transaction(async (tx) => {
+      // Check if credit system is enabled
+      const { marketingSettings } = await import('../../shared/schema');
+      const [settings] = await tx.select().from(marketingSettings).limit(1);
+      
+      if (settings && settings.creditSystemEnabled === false) {
+        throw new Error('Credit system is currently disabled');
+      }
+
       // Validate positive amount
       if (data.amount <= 0) {
         throw new Error('Credit deduction amount must be positive');

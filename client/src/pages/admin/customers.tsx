@@ -13,7 +13,7 @@ import { Plus, Edit, Eye, Search, ChevronLeft, ChevronRight } from 'lucide-react
 import { format } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 
 interface Customer {
   id: string;
@@ -33,6 +33,7 @@ interface CustomersResponse {
 
 export default function AdminCustomers() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
@@ -358,7 +359,12 @@ export default function AdminCustomers() {
             </TableHeader>
             <TableBody>
               {paginatedCustomers.map((customer: Customer, index: number) => (
-                <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`} className={index % 2 === 1 ? 'bg-muted/30' : ''}>
+                <TableRow 
+                  key={customer.id} 
+                  data-testid={`row-customer-${customer.id}`} 
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors ${index % 2 === 1 ? 'bg-muted/30' : ''}`}
+                  onClick={() => setLocation(`/admin/customers/${customer.id}`)}
+                >
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>{customer.email || 'N/A'}</TableCell>
                   <TableCell>{customer.phone || 'N/A'}</TableCell>
@@ -375,7 +381,7 @@ export default function AdminCustomers() {
                   <TableCell>
                     {customer.createdAt && format(new Date(customer.createdAt), 'MMM dd, yyyy')}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <Link href={`/admin/customers/${customer.id}`}>
                         <Button

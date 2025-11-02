@@ -64,6 +64,7 @@ import AdminSubscriptionPackages from './admin/subscription-packages';
 import AdminMyProfile from './admin/my-profile';
 import AdminCoupons from './admin/coupons';
 import AdminLoyaltySettings from './admin/loyalty-settings';
+import AdminMarketingSettings from './admin/marketing-settings';
 
 interface NavigationItem {
   name: string;
@@ -123,6 +124,7 @@ const navigationGroups: NavigationGroup[] = [
       { name: 'Promos', href: '/admin/promos', icon: Gift },
       { name: 'Coupons', href: '/admin/coupons', icon: Percent },
       { name: 'Loyalty Settings', href: '/admin/loyalty-settings', icon: Heart },
+      { name: 'Marketing Settings', href: '/admin/marketing-settings', icon: Settings },
       { name: 'Mobile Content', href: '/admin/mobile-content', icon: Smartphone },
     ],
     defaultOpen: false,
@@ -412,6 +414,7 @@ export default function AdminDashboard() {
         <Route path="/admin/promos" component={AdminPromos} />
         <Route path="/admin/coupons" component={AdminCoupons} />
         <Route path="/admin/loyalty-settings" component={AdminLoyaltySettings} />
+        <Route path="/admin/marketing-settings" component={AdminMarketingSettings} />
         <Route path="/admin/mobile-content" component={AdminMobileContent} />
         <Route path="/admin/analytics" component={AdminAnalytics} />
       </Switch>

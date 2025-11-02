@@ -140,6 +140,10 @@ export default function AdminOverview() {
     queryKey: ['/api/v2/admin/analytics'],
   });
 
+  const { data: marketingSettings } = useQuery<{ data: any }>({
+    queryKey: ['/api/v2/admin/marketing/settings'],
+  });
+
   const { data: supportAnalytics } = useQuery({
     queryKey: ['/api/v2/admin/support/analytics'],
   });
@@ -586,14 +590,22 @@ export default function AdminOverview() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold text-purple-600" data-testid="text-coupon-redemptions">
-                          {marketingStats.coupons.totalRedemptions}
+                          {marketingSettings?.data?.couponSystemEnabled !== false ? marketingStats.coupons.totalRedemptions : 'Disabled'}
                         </div>
-                        <p className="text-xs text-foreground/80">{marketingStats.coupons.totalDiscountDistributed.toLocaleString()} SAR saved</p>
+                        <p className="text-xs text-foreground/80">
+                          {marketingSettings?.data?.couponSystemEnabled !== false 
+                            ? `${marketingStats.coupons.totalDiscountDistributed.toLocaleString()} SAR saved` 
+                            : 'Enable in settings'}
+                        </p>
                       </CardContent>
                     </Card>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent>Total coupon redemptions and savings</TooltipContent>
+                <TooltipContent>
+                  {marketingSettings?.data?.couponSystemEnabled !== false 
+                    ? 'Total coupon redemptions and savings' 
+                    : 'Coupon system is currently disabled'}
+                </TooltipContent>
               </Tooltip>
 
               {/* Active Credits */}
@@ -607,14 +619,24 @@ export default function AdminOverview() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold text-accent" data-testid="text-active-credits">
-                          {marketingStats.credits.activeBalance.toLocaleString()} SAR
+                          {marketingSettings?.data?.creditSystemEnabled !== false 
+                            ? `${marketingStats.credits.activeBalance.toLocaleString()} SAR`
+                            : 'Disabled'}
                         </div>
-                        <p className="text-xs text-foreground/80">{marketingStats.credits.activeUsers} active users</p>
+                        <p className="text-xs text-foreground/80">
+                          {marketingSettings?.data?.creditSystemEnabled !== false 
+                            ? `${marketingStats.credits.activeUsers} active users` 
+                            : 'Enable in settings'}
+                        </p>
                       </CardContent>
                     </Card>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent>Total active promotional credits balance</TooltipContent>
+                <TooltipContent>
+                  {marketingSettings?.data?.creditSystemEnabled !== false 
+                    ? 'Total active promotional credits balance' 
+                    : 'Credit system is currently disabled'}
+                </TooltipContent>
               </Tooltip>
 
               {/* Loyalty Rewards */}
@@ -628,17 +650,23 @@ export default function AdminOverview() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold text-pink-600" data-testid="text-loyalty-rewards">
-                          {marketingStats.loyalty.isEnabled ? `${(marketingStats.loyalty.totalRewardsDistributed || 0).toLocaleString()} SAR` : 'Disabled'}
+                          {(marketingSettings?.data?.loyaltyProgramEnabled !== false && marketingStats.loyalty.isEnabled) 
+                            ? `${(marketingStats.loyalty.totalRewardsDistributed || 0).toLocaleString()} SAR` 
+                            : 'Disabled'}
                         </div>
                         <p className="text-xs text-foreground/80">
-                          {marketingStats.loyalty.isEnabled ? `${marketingStats.loyalty.activeUsersWithCredits} users with credits` : 'Enable in settings'}
+                          {(marketingSettings?.data?.loyaltyProgramEnabled !== false && marketingStats.loyalty.isEnabled)
+                            ? `${marketingStats.loyalty.activeUsersWithCredits} users with credits` 
+                            : 'Enable in settings'}
                         </p>
                       </CardContent>
                     </Card>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {marketingStats.loyalty.isEnabled ? 'Total rewards distributed to customers' : 'Loyalty program is currently disabled'}
+                  {(marketingSettings?.data?.loyaltyProgramEnabled !== false && marketingStats.loyalty.isEnabled)
+                    ? 'Total rewards distributed to customers' 
+                    : 'Loyalty program is currently disabled'}
                 </TooltipContent>
               </Tooltip>
             </div>

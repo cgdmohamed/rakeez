@@ -4,7 +4,7 @@ import {
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs, invoices, subscriptions, homeSliderImages, homeBanner,
-  coupons, creditTransactions, loyaltySettings,
+  coupons, couponUsages, creditTransactions, loyaltySettings, marketingSettings,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServiceTier, type InsertServiceTier, type SubscriptionPackage, type InsertSubscriptionPackage,
@@ -17,7 +17,8 @@ import {
   type Faq, type InsertFaq, type Review, type InsertReview, type Promotion, type InsertPromotion,
   type AuditLog, type InsertAuditLog, type WebhookEvent, type OrderStatusLog,
   type Subscription, type InsertSubscription,
-  type HomeSliderImage, type InsertHomeSliderImage, type HomeBanner, type InsertHomeBanner
+  type HomeSliderImage, type InsertHomeSliderImage, type HomeBanner, type InsertHomeBanner,
+  type MarketingSettings, type InsertMarketingSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, count } from "drizzle-orm";
@@ -199,6 +200,10 @@ export interface IStorage {
   getCouponStats(startDate?: Date, endDate?: Date): Promise<any>;
   getCreditStats(startDate?: Date, endDate?: Date): Promise<any>;
   getLoyaltyMetrics(): Promise<any>;
+  getMarketingSettings(): Promise<MarketingSettings | null>;
+  isMarketingFeatureEnabled(feature: 'coupon' | 'credit' | 'referral' | 'loyalty'): Promise<boolean>;
+  updateMarketingSettings(settings: Partial<InsertMarketingSettings>, updatedBy: string): Promise<MarketingSettings>;
+  getCustomerMarketingProfile(userId: string): Promise<any>;
   
   // Customer Management
   getCustomerOverview(userId: string): Promise<any>;
@@ -1859,6 +1864,146 @@ export class DatabaseStorage implements IStorage {
         creditExpiryDays: loyaltyConfig.creditExpiryDays || 90,
         maxCreditUsagePercentage: Number(loyaltyConfig.maxCreditPercentage) || 30,
         minBookingAmountForCredits: Number(loyaltyConfig.minBookingForCredit) || 50,
+      },
+    };
+  }
+
+  async getMarketingSettings(): Promise<MarketingSettings | null> {
+    const [settings] = await db.select().from(marketingSettings).limit(1);
+    return settings || null;
+  }
+
+  async isMarketingFeatureEnabled(feature: 'coupon' | 'credit' | 'referral' | 'loyalty'): Promise<boolean> {
+    const settings = await this.getMarketingSettings();
+    
+    // If no settings exist, assume all features are enabled (default behavior)
+    if (!settings) {
+      return true;
+    }
+    
+    switch (feature) {
+      case 'coupon':
+        return settings.couponSystemEnabled;
+      case 'credit':
+        return settings.creditSystemEnabled;
+      case 'referral':
+        return settings.referralSystemEnabled;
+      case 'loyalty':
+        return settings.loyaltyProgramEnabled;
+      default:
+        return true;
+    }
+  }
+
+  async updateMarketingSettings(settings: Partial<InsertMarketingSettings>, updatedBy: string): Promise<MarketingSettings> {
+    // Check if settings exist
+    const existingSettings = await this.getMarketingSettings();
+    
+    if (existingSettings) {
+      // Update existing settings
+      const [updated] = await db
+        .update(marketingSettings)
+        .set({ ...settings, updatedBy, updatedAt: new Date() })
+        .where(eq(marketingSettings.id, existingSettings.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new settings with defaults
+      const [newSettings] = await db
+        .insert(marketingSettings)
+        .values({
+          couponSystemEnabled: settings.couponSystemEnabled ?? true,
+          creditSystemEnabled: settings.creditSystemEnabled ?? true,
+          referralSystemEnabled: settings.referralSystemEnabled ?? true,
+          loyaltyProgramEnabled: settings.loyaltyProgramEnabled ?? true,
+          updatedBy,
+        })
+        .returning();
+      return newSettings;
+    }
+  }
+
+  async getCustomerMarketingProfile(userId: string): Promise<any> {
+    // Get coupons used by this customer
+    const couponsUsed = await db
+      .select({
+        id: couponUsages.id,
+        couponCode: coupons.code,
+        couponName: coupons.name,
+        discountAmount: couponUsages.discountAmount,
+        bookingId: couponUsages.bookingId,
+        usedAt: couponUsages.createdAt,
+      })
+      .from(couponUsages)
+      .leftJoin(coupons, eq(couponUsages.couponId, coupons.id))
+      .where(eq(couponUsages.userId, userId))
+      .orderBy(desc(couponUsages.createdAt))
+      .limit(50);
+
+    // Get credit balance and transactions
+    const creditTransactionsData = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, userId))
+      .orderBy(desc(creditTransactions.createdAt))
+      .limit(100);
+
+    // Calculate active credit balance
+    const activeBalance = creditTransactionsData
+      .filter(tx => !tx.isExpired && (!tx.expiresAt || tx.expiresAt > new Date()))
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+    // Get referral stats
+    const referralsMade = await db
+      .select()
+      .from(referrals)
+      .where(eq(referrals.inviterId, userId))
+      .orderBy(desc(referrals.createdAt));
+
+    const totalReferralRewards = creditTransactionsData
+      .filter(tx => tx.type === 'referral_reward')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+    return {
+      couponsUsed: couponsUsed.map(c => ({
+        id: c.id,
+        code: c.couponCode,
+        name: c.couponName,
+        discountAmount: Number(c.discountAmount),
+        bookingId: c.bookingId,
+        usedAt: c.usedAt,
+      })),
+      credits: {
+        activeBalance: Number(activeBalance.toFixed(2)),
+        transactions: creditTransactionsData.map(tx => ({
+          id: tx.id,
+          type: tx.type,
+          amount: Number(tx.amount),
+          balance: Number(tx.balance),
+          reason: tx.reason,
+          expiresAt: tx.expiresAt,
+          isExpired: tx.isExpired,
+          createdAt: tx.createdAt,
+        })),
+        totalGranted: creditTransactionsData
+          .filter(tx => Number(tx.amount) > 0)
+          .reduce((sum, tx) => sum + Number(tx.amount), 0),
+        totalUsed: Math.abs(creditTransactionsData
+          .filter(tx => Number(tx.amount) < 0)
+          .reduce((sum, tx) => sum + Number(tx.amount), 0)),
+      },
+      referrals: {
+        totalReferrals: referralsMade.length,
+        successfulReferrals: referralsMade.filter(r => r.status === 'completed').length,
+        totalRewardsEarned: Number(totalReferralRewards.toFixed(2)),
+        referrals: referralsMade.map(r => ({
+          id: r.id,
+          referralCode: r.referralCode,
+          inviteeId: r.inviteeId,
+          status: r.status,
+          rewardDistributedAt: r.rewardDistributedAt,
+          createdAt: r.createdAt,
+        })),
       },
     };
   }

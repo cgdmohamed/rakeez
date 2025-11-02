@@ -467,6 +467,17 @@ export const loyaltySettings = pgTable("loyalty_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Marketing Settings table (global on/off switches for marketing features)
+export const marketingSettings = pgTable("marketing_settings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  couponSystemEnabled: boolean("coupon_system_enabled").default(true).notNull(),
+  creditSystemEnabled: boolean("credit_system_enabled").default(true).notNull(),
+  referralSystemEnabled: boolean("referral_system_enabled").default(true).notNull(),
+  loyaltyProgramEnabled: boolean("loyalty_program_enabled").default(true).notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Notification Settings table
 export const notificationSettings = pgTable("notification_settings", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1026,6 +1037,11 @@ export const insertLoyaltySettingsSchema = createInsertSchema(loyaltySettings).o
   updatedAt: true,
 });
 
+export const insertMarketingSettingsSchema = createInsertSchema(marketingSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
@@ -1094,3 +1110,5 @@ export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
 export type LoyaltySettings = typeof loyaltySettings.$inferSelect;
 export type InsertLoyaltySettings = z.infer<typeof insertLoyaltySettingsSchema>;
+export type MarketingSettings = typeof marketingSettings.$inferSelect;
+export type InsertMarketingSettings = z.infer<typeof insertMarketingSettingsSchema>;

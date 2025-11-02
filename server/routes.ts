@@ -4734,6 +4734,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // ==================== MARKETING SETTINGS ENDPOINTS ====================
+
+  // Get Marketing Settings
+  app.get('/api/v2/admin/marketing/settings', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const settings = await storage.getMarketingSettings();
+      
+      // If no settings exist, return defaults
+      if (!settings) {
+        return res.json({
+          success: true,
+          data: {
+            couponSystemEnabled: true,
+            creditSystemEnabled: true,
+            referralSystemEnabled: true,
+            loyaltyProgramEnabled: true,
+          }
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          couponSystemEnabled: settings.couponSystemEnabled,
+          creditSystemEnabled: settings.creditSystemEnabled,
+          referralSystemEnabled: settings.referralSystemEnabled,
+          loyaltyProgramEnabled: settings.loyaltyProgramEnabled,
+          updatedAt: settings.updatedAt,
+          updatedBy: settings.updatedBy,
+        }
+      });
+    } catch (error) {
+      logApiError('Get marketing settings error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Update Marketing Settings
+  app.patch('/api/v2/admin/marketing/settings', 
+    authenticateToken, 
+    authorizeRoles(['admin']),
+    validateRequest({
+      body: z.object({
+        couponSystemEnabled: z.boolean().optional(),
+        creditSystemEnabled: z.boolean().optional(),
+        referralSystemEnabled: z.boolean().optional(),
+        loyaltyProgramEnabled: z.boolean().optional(),
+      })
+    }),
+    async (req: any, res: any) => {
+      try {
+        const updates = req.body;
+        
+        const updatedSettings = await storage.updateMarketingSettings(updates, req.user.id);
+        
+        // Audit logging
+        await auditLog({
+          userId: req.user.id,
+          action: 'marketing_settings_updated',
+          resourceType: 'marketing_settings',
+          resourceId: updatedSettings.id,
+          newValues: updates
+        });
+        
+        res.json({
+          success: true,
+          message: 'Marketing settings updated successfully',
+          data: {
+            couponSystemEnabled: updatedSettings.couponSystemEnabled,
+            creditSystemEnabled: updatedSettings.creditSystemEnabled,
+            referralSystemEnabled: updatedSettings.referralSystemEnabled,
+            loyaltyProgramEnabled: updatedSettings.loyaltyProgramEnabled,
+            updatedAt: updatedSettings.updatedAt,
+            updatedBy: updatedSettings.updatedBy,
+          }
+        });
+      } catch (error) {
+        logApiError('Update marketing settings error', error, req);
+        res.status(500).json({
+          success: false,
+          message: bilingual.getMessage('general.server_error', 'en'),
+        });
+      }
+    }
+  );
   
   // ==================== SUPPORT ENDPOINTS ====================
   
@@ -7805,6 +7894,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', language),
+      });
+    }
+  });
+
+  // Get Customer Marketing Profile
+  app.get('/api/v2/admin/customers/:id/marketing', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      
+      const user = await storage.getUser(id);
+      if (!user || user.role !== 'customer') {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found',
+        });
+      }
+      
+      const marketingProfile = await storage.getCustomerMarketingProfile(id);
+      
+      res.json({
+        success: true,
+        data: marketingProfile,
+      });
+      
+    } catch (error) {
+      logApiError('Get customer marketing profile error', error, req);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve marketing profile',
       });
     }
   });

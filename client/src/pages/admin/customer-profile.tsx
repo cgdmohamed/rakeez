@@ -22,7 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard, ExternalLink, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Wallet, Star, Calendar, DollarSign, XCircle, CheckCircle, Award, Users, Copy, MapPin, Home, Building2, Package, Plus, Pencil, Trash2, CreditCard, ExternalLink, MessageSquare, Send, Percent } from 'lucide-react';
 import { Link } from 'wouter';
 import { SarSymbol } from '@/components/sar-symbol';
 
@@ -180,6 +180,11 @@ export default function CustomerProfile() {
 
   const { data: overviewData, isLoading, error, isError } = useQuery<CustomerOverviewResponse>({
     queryKey: [`/api/v2/admin/customers/${id}/overview`],
+    enabled: !!id,
+  });
+
+  const { data: marketingData } = useQuery<{ data: any }>({
+    queryKey: [`/api/v2/admin/customers/${id}/marketing`],
     enabled: !!id,
   });
 
@@ -557,6 +562,7 @@ export default function CustomerProfile() {
           <TabsTrigger value="tickets" data-testid="tab-tickets">Support Tickets</TabsTrigger>
           <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews</TabsTrigger>
           <TabsTrigger value="referrals" data-testid="tab-referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="marketing" data-testid="tab-marketing">Marketing</TabsTrigger>
           <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="addresses" data-testid="tab-addresses">Addresses</TabsTrigger>
         </TabsList>
@@ -1131,6 +1137,240 @@ export default function CustomerProfile() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Marketing Tab */}
+        <TabsContent value="marketing" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Coupons Used */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2 text-lg">
+                  <Percent className="h-5 w-5" />
+                  Coupons Used
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {marketingData?.data?.couponsUsed && marketingData.data.couponsUsed.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="text-sm text-muted-foreground">
+                      Total: {marketingData.data.couponsUsed.length}
+                    </div>
+                    {marketingData.data.couponsUsed.map((coupon: any, idx: number) => (
+                      <div key={idx} className="border rounded-lg p-3 space-y-1">
+                        <div className="flex justify-between items-start">
+                          <code className="text-sm font-semibold">{coupon.code}</code>
+                          <Badge variant="outline" className="text-xs">
+                            <SarSymbol />{Number(coupon.discountAmount).toFixed(2)}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {coupon.name}
+                        </div>
+                        {coupon.usedAt && (
+                          <div className="text-xs text-muted-foreground">
+                            Used {format(new Date(coupon.usedAt), 'MMM dd, yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Percent className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">No coupons used</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Credit Balance */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2 text-lg">
+                  <CreditCard className="h-5 w-5" />
+                  Credit Balance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {marketingData?.data?.credits ? (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-accent">
+                        <SarSymbol />{marketingData.data.credits.activeBalance.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Active Balance</div>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Granted</div>
+                        <div className="font-semibold">
+                          <SarSymbol />{marketingData.data.credits.totalGranted.toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Used</div>
+                        <div className="font-semibold">
+                          <SarSymbol />{marketingData.data.credits.totalUsed.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">No credit data</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Referral Stats */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5" />
+                  Referral Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {marketingData?.data?.referrals ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="text-center p-2 bg-muted rounded-lg">
+                        <div className="text-2xl font-bold">{marketingData.data.referrals.totalReferrals}</div>
+                        <div className="text-muted-foreground text-xs">Total</div>
+                      </div>
+                      <div className="text-center p-2 bg-muted rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{marketingData.data.referrals.successfulReferrals}</div>
+                        <div className="text-muted-foreground text-xs">Successful</div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Rewards Earned</div>
+                      <div className="text-2xl font-bold text-accent">
+                        <SarSymbol />{marketingData.data.referrals.totalRewardsEarned.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">No referral data</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Credit Transaction History */}
+          {marketingData?.data?.credits?.transactions && marketingData.data.credits.transactions.length > 0 && (
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Credit Transaction History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {marketingData.data.credits.transactions.map((tx: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-sm">
+                          {format(new Date(tx.createdAt), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {tx.type.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{tx.reason || '-'}</TableCell>
+                        <TableCell className={`text-right font-semibold ${Number(tx.amount) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {Number(tx.amount) > 0 ? '+' : ''}<SarSymbol />{Number(tx.amount).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          <SarSymbol />{Number(tx.balance).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {tx.expiresAt ? format(new Date(tx.expiresAt), 'MMM dd, yyyy') : 'Never'}
+                        </TableCell>
+                        <TableCell>
+                          {tx.isExpired ? (
+                            <Badge variant="secondary" className="text-xs">Expired</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-green-600">Active</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Referral Details */}
+          {marketingData?.data?.referrals?.referrals && marketingData.data.referrals.referrals.length > 0 && (
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Referral Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Referral Code</TableHead>
+                      <TableHead>Invited User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Rewarded</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {marketingData.data.referrals.referrals.map((ref: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <code className="text-sm font-semibold">{ref.referralCode}</code>
+                        </TableCell>
+                        <TableCell className="text-sm">{ref.inviteeId}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={ref.status === 'completed' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {ref.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {format(new Date(ref.createdAt), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {ref.rewardDistributedAt ? format(new Date(ref.rewardDistributedAt), 'MMM dd, yyyy') : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
