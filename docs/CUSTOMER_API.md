@@ -2974,6 +2974,16 @@ https://changelog.rakeez.sa
 
 ## Changelog
 
+### Version 2.1 (November 2025)
+- **Added Password Management**: Change password endpoint for all authenticated users
+- **Enhanced Booking Management**: Edit booking details (date, time, address, notes)
+- **Subscription Enhancements**: Get active subscriptions and cancel subscription with prorated refunds
+- **Wallet Features**: Wallet top-up and comprehensive payment history endpoints
+- **Notification Preferences**: Get and update notification settings for push, SMS, and email
+- **Referral Sharing**: Generate shareable referral links and QR codes
+- **Support Improvements**: Upload attachments (images, PDFs) to support tickets
+- **App Configuration**: Get global app config including maintenance status, version info, and features
+
 ### Version 2.0 (October 2025)
 - Added subscription packages API
 - Enhanced wallet transaction history
@@ -2989,6 +2999,6 @@ https://changelog.rakeez.sa
 
 ---
 
-**Last Updated:** October 31, 2025  
-**API Version:** 2.0  
-**Document Version:** 1.0
+**Last Updated:** November 2, 2025  
+**API Version:** 2.1  
+**Document Version:** 2.0
