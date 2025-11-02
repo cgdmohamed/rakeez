@@ -70,6 +70,7 @@ export default function AdminAnalytics() {
               <SelectItem value="bookings">Bookings</SelectItem>
               <SelectItem value="payments">Payments</SelectItem>
               <SelectItem value="technicians">Technicians</SelectItem>
+              <SelectItem value="marketing">Marketing</SelectItem>
               <SelectItem value="financial">Financial</SelectItem>
             </SelectContent>
           </Select>
