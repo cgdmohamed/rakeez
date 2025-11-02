@@ -5480,7 +5480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { start_date, end_date, format = 'csv', type = 'analytics' } = req.query;
       
-      const validTypes = ['analytics', 'technicians', 'bookings', 'payments'];
+      const validTypes = ['analytics', 'technicians', 'bookings', 'payments', 'marketing'];
       const validFormats = ['csv', 'excel'];
       
       if (!validTypes.includes(type as string)) {
@@ -5504,14 +5504,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       switch (type) {
         case 'analytics': {
-          const [orderStats, revenueStats, technicianStats] = await Promise.all([
+          const [orderStats, revenueStats, technicianStats, couponStats, creditStats, loyaltyMetrics] = await Promise.all([
             storage.getOrderStats(startDate, endDate),
             storage.getRevenueStats(startDate, endDate),
             storage.getTechnicianStats(),
+            storage.getCouponStats(startDate, endDate),
+            storage.getCreditStats(startDate, endDate),
+            storage.getLoyaltyMetrics(),
           ]);
           exportData = {
             summary: { ...orderStats, ...revenueStats },
             technicianPerformance: technicianStats,
+            marketing: {
+              coupons: couponStats,
+              credits: creditStats,
+              loyalty: loyaltyMetrics,
+            },
           };
           break;
         }
@@ -5560,6 +5568,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           exportData = {
             summary: {},
             payments: payments,
+          };
+          break;
+        }
+        
+        case 'marketing': {
+          const [couponStats, creditStats, loyaltyMetrics] = await Promise.all([
+            storage.getCouponStats(startDate, endDate),
+            storage.getCreditStats(startDate, endDate),
+            storage.getLoyaltyMetrics(),
+          ]);
+          exportData = {
+            couponStats,
+            creditStats,
+            loyaltyMetrics,
           };
           break;
         }
