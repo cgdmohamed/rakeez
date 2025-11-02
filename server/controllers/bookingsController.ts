@@ -108,7 +108,8 @@ export class BookingsController {
         scheduled_time,
         notes,
         notes_ar,
-        referral_code
+        referral_code,
+        coupon_code
       } = validation.data;
 
       // Verify service exists
@@ -242,6 +243,124 @@ export class BookingsController {
         };
       }
 
+      // Validate coupon code if provided
+      let couponDiscount = 0;
+      let couponData = null;
+      if (coupon_code) {
+        const db = await import('../db').then(m => m.db);
+        const { coupons, couponUsages, bookings } = await import('../../shared/schema');
+        const { eq, and, lte, gte, sql, count } = await import('drizzle-orm');
+
+        // Query coupon
+        const coupon = await db.query.coupons.findFirst({
+          where: and(
+            eq(coupons.code, coupon_code),
+            eq(coupons.isActive, true)
+          ),
+        });
+
+        if (!coupon) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.invalid_code', userLanguage),
+            error: 'Invalid or inactive coupon code'
+          });
+        }
+
+        // Check expiration
+        const now = new Date();
+        if (coupon.validFrom > now) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.not_yet_valid', userLanguage),
+            error: 'Coupon is not yet valid'
+          });
+        }
+
+        if (coupon.validUntil && coupon.validUntil < now) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.expired', userLanguage),
+            error: 'Coupon has expired'
+          });
+        }
+
+        // Check total usage limit
+        if (coupon.maxUsesTotal !== null && coupon.currentUses >= coupon.maxUsesTotal) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.usage_limit_reached', userLanguage),
+            error: 'Coupon usage limit has been reached'
+          });
+        }
+
+        // Check per-user usage limit
+        const userUsageCount = await db
+          .select({ count: count() })
+          .from(couponUsages)
+          .where(
+            and(
+              eq(couponUsages.couponId, coupon.id),
+              eq(couponUsages.userId, userId)
+            )
+          );
+
+        const userUses = userUsageCount[0]?.count || 0;
+
+        if (userUses >= coupon.maxUsesPerUser) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.user_limit_reached', userLanguage),
+            error: 'You have already used this coupon the maximum number of times'
+          });
+        }
+
+        // Check first-time only restriction
+        if (coupon.firstTimeOnly) {
+          const userBookingsCount = await db
+            .select({ count: count() })
+            .from(bookings)
+            .where(
+              and(
+                eq(bookings.userId, userId),
+                sql`${bookings.paymentStatus} = 'paid'`
+              )
+            );
+
+          const completedBookings = userBookingsCount[0]?.count || 0;
+
+          if (completedBookings > 0) {
+            return res.status(400).json({
+              success: false,
+              message: bilingual.getErrorMessage('coupon.first_time_only', userLanguage),
+              error: 'This coupon is only valid for first-time users'
+            });
+          }
+        }
+
+        // Check service eligibility
+        if (coupon.serviceIds) {
+          const eligibleServices = coupon.serviceIds as string[];
+          if (eligibleServices.length > 0 && !eligibleServices.includes(service_id)) {
+            return res.status(400).json({
+              success: false,
+              message: bilingual.getErrorMessage('coupon.service_not_eligible', userLanguage),
+              error: 'This coupon is not valid for the selected service'
+            });
+          }
+        }
+
+        // Store coupon data for later validation against subtotal
+        couponData = {
+          id: coupon.id,
+          code: coupon.code,
+          type: coupon.type,
+          value: Number(coupon.value),
+          minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
+          maxDiscountAmount: coupon.maxDiscountAmount ? Number(coupon.maxDiscountAmount) : null
+        };
+      }
+
       // Calculate pricing
       const basePrice = selectedPackage ? parseFloat(selectedPackage.price) : parseFloat(service.basePrice);
       const discountPercentage = selectedPackage ? parseFloat(selectedPackage.discountPercentage || '0') : 0;
@@ -259,8 +378,39 @@ export class BookingsController {
         }
       }
       
-      // Calculate subtotal and clamp at 0 to prevent negative values
-      const subtotal = Math.max(0, basePrice - discountAmount - subscriptionDiscountAmount - referralDiscount);
+      // Calculate subtotal before coupon (for coupon min order validation)
+      const subtotalBeforeCoupon = Math.max(0, basePrice - discountAmount - subscriptionDiscountAmount - referralDiscount);
+      
+      // Apply coupon discount
+      if (couponData) {
+        // Validate minimum order amount
+        if (couponData.minOrderAmount && subtotalBeforeCoupon < couponData.minOrderAmount) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('coupon.min_order_not_met', userLanguage),
+            error: `Minimum order amount of ${couponData.minOrderAmount} SAR required for this coupon`,
+            data: {
+              subtotal: subtotalBeforeCoupon,
+              required: couponData.minOrderAmount
+            }
+          });
+        }
+
+        // Calculate coupon discount based on type
+        if (couponData.type === 'percentage') {
+          couponDiscount = (subtotalBeforeCoupon * couponData.value) / 100;
+          // Apply max discount cap if set
+          if (couponData.maxDiscountAmount && couponDiscount > couponData.maxDiscountAmount) {
+            couponDiscount = couponData.maxDiscountAmount;
+          }
+        } else {
+          // Fixed amount
+          couponDiscount = couponData.value;
+        }
+      }
+      
+      // Calculate final subtotal and clamp at 0 to prevent negative values
+      const subtotal = Math.max(0, subtotalBeforeCoupon - couponDiscount);
       const vatPercentage = parseFloat(service.vatPercentage || '15');
       const vatAmount = (subtotal * vatPercentage) / 100;
       const totalAmount = subtotal + vatAmount;
@@ -280,6 +430,9 @@ export class BookingsController {
         discountAmount: discountAmount.toFixed(2),
         referralCode: referral_code || undefined,
         referralDiscount: referralDiscount.toFixed(2),
+        subscriptionDiscount: subscriptionDiscountAmount.toFixed(2),
+        couponCode: coupon_code || undefined,
+        couponDiscount: couponDiscount.toFixed(2),
         sparePartsCost: '0.00',
         vatAmount: vatAmount.toFixed(2),
         totalAmount: totalAmount.toFixed(2),
@@ -301,6 +454,32 @@ export class BookingsController {
           inviterReward: referralData.inviterReward.toFixed(2),
           inviteeDiscount: referralDiscount.toFixed(2),
         });
+      }
+
+      // Track coupon usage if coupon was used
+      if (couponData && coupon_code) {
+        const db = await import('../db').then(m => m.db);
+        const { couponUsages, coupons } = await import('../../shared/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        // Insert coupon usage record
+        await db.insert(couponUsages).values({
+          couponId: couponData.id,
+          userId,
+          bookingId: booking.id,
+          discountAmount: couponDiscount.toFixed(2),
+        });
+
+        // Increment coupon usage count
+        await db
+          .update(coupons)
+          .set({ 
+            currentUses: await db.select({ currentUses: coupons.currentUses })
+              .from(coupons)
+              .where(eq(coupons.id, couponData.id))
+              .then(rows => (rows[0]?.currentUses || 0) + 1)
+          })
+          .where(eq(coupons.id, couponData.id));
       }
 
       // Increment subscription usage if active subscription was used

@@ -36,12 +36,21 @@ export class PaymentsController {
         });
       }
 
-      const { order_id, amount } = req.body;
+      const { order_id, amount, use_credits, credits_amount } = req.body;
 
       if (!order_id || !amount || amount <= 0) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('validation.invalid_payment_data', userLanguage)
+        });
+      }
+
+      // Validate positive credits_amount
+      if (credits_amount && credits_amount < 0) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('validation.invalid_amount', userLanguage),
+          message_ar: bilingual.getErrorMessage('validation.invalid_amount', 'ar')
         });
       }
 
@@ -54,7 +63,76 @@ export class PaymentsController {
         });
       }
 
-      // Validate wallet balance BEFORE transaction (restore 400 error handling)
+      // Process credit deduction if requested
+      let creditsUsed = 0;
+      let creditTransaction = null;
+      let remainingAmount = amount;
+
+      if (use_credits && credits_amount > 0) {
+        const db = await import('../db').then(m => m.db);
+        const { loyaltySettings, creditTransactions } = await import('../../shared/schema');
+        const { sql, and, eq } = await import('drizzle-orm');
+
+        // Get loyalty settings
+        const settings = await db.query.loyaltySettings.findFirst({
+          where: eq(loyaltySettings.isActive, true)
+        });
+
+        const maxCreditPercentage = settings ? parseFloat(settings.maxCreditPercentage) : 30;
+        const minBookingForCredit = settings ? parseFloat(settings.minBookingForCredit) : 50;
+
+        // Validate minimum booking amount
+        if (amount < minBookingForCredit) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('credits.min_amount_required', userLanguage),
+            error: `Minimum booking amount of ${minBookingForCredit} SAR required to use credits`,
+            data: {
+              booking_amount: amount,
+              required: minBookingForCredit
+            }
+          });
+        }
+
+        // Calculate maximum allowed credit usage
+        const maxAllowedCredits = (amount * maxCreditPercentage) / 100;
+
+        // Get user's available credit balance
+        const creditBalance = await db
+          .select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
+          .from(creditTransactions)
+          .where(
+            and(
+              eq(creditTransactions.userId, userId),
+              eq(creditTransactions.isExpired, false)
+            )
+          );
+
+        const availableCredits = parseFloat(creditBalance[0]?.total?.toString() || '0');
+
+        // Determine actual credits to use
+        creditsUsed = Math.max(0, Math.min(credits_amount || 0, maxAllowedCredits, availableCredits, amount));
+
+        if (creditsUsed > 0) {
+          try {
+            const creditResult = await PaymentTransactions.deductCredits({
+              userId,
+              amount: creditsUsed,
+              bookingId: order_id
+            });
+            creditTransaction = creditResult.transaction;
+            remainingAmount = amount - creditsUsed;
+          } catch (error: any) {
+            return res.status(400).json({
+              success: false,
+              message: bilingual.getErrorMessage('credits.deduction_failed', userLanguage),
+              error: error.message
+            });
+          }
+        }
+      }
+
+      // Validate wallet balance for remaining amount
       const wallet = await this.storage.getWallet(userId);
       if (!wallet) {
         return res.status(400).json({
@@ -64,14 +142,15 @@ export class PaymentsController {
       }
 
       const walletBalance = parseFloat(wallet.balance);
-      if (walletBalance < amount) {
+      if (walletBalance < remainingAmount) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('wallet.insufficient_balance', userLanguage),
           data: {
-            required: amount,
+            required: remainingAmount,
             available: walletBalance,
-            shortfall: amount - walletBalance
+            shortfall: remainingAmount - walletBalance,
+            credits_used: creditsUsed
           }
         });
       }
@@ -79,7 +158,7 @@ export class PaymentsController {
       const result = await PaymentTransactions.processWalletPayment({
         orderId: order_id,
         userId,
-        amount
+        amount: remainingAmount
       });
 
       await this.storage.createPaymentAuditLog({
@@ -98,11 +177,14 @@ export class PaymentsController {
         data: {
           payment_id: result.payment.id,
           order_id: order_id,
-          amount: amount,
+          total_amount: amount,
+          credits_used: creditsUsed,
+          wallet_amount: remainingAmount,
           currency: 'SAR',
           method: 'wallet',
           status: 'paid',
           wallet_transaction_id: result.walletTransaction.id,
+          credit_transaction_id: creditTransaction?.id || null,
           new_wallet_balance: result.newBalance,
           created_at: result.payment.createdAt
         }
@@ -135,13 +217,32 @@ export class PaymentsController {
         wallet_amount, 
         gateway_amount, 
         payment_method, 
-        payment_source 
+        payment_source,
+        use_credits,
+        credits_amount
       } = req.body;
 
       if (!order_id || !total_amount || !wallet_amount || !gateway_amount) {
         return res.status(400).json({
           success: false,
           message: bilingual.getErrorMessage('validation.invalid_payment_data', userLanguage)
+        });
+      }
+
+      // Validate positive amounts
+      if (total_amount < 0) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('validation.invalid_amount', userLanguage),
+          message_ar: bilingual.getErrorMessage('validation.invalid_amount', 'ar')
+        });
+      }
+
+      if (credits_amount && credits_amount < 0) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('validation.invalid_amount', userLanguage),
+          message_ar: bilingual.getErrorMessage('validation.invalid_amount', 'ar')
         });
       }
 
@@ -161,23 +262,105 @@ export class PaymentsController {
         });
       }
 
-      // Check wallet balance
+      // Process credit deduction if requested
+      let creditsUsed = 0;
+      let creditTransaction = null;
+      let remainingWalletAmount = wallet_amount;
+      let remainingGatewayAmount = gateway_amount;
+
+      if (use_credits && credits_amount > 0) {
+        const db = await import('../db').then(m => m.db);
+        const { loyaltySettings, creditTransactions } = await import('../../shared/schema');
+        const { sql, and, eq } = await import('drizzle-orm');
+
+        // Get loyalty settings
+        const settings = await db.query.loyaltySettings.findFirst({
+          where: eq(loyaltySettings.isActive, true)
+        });
+
+        const maxCreditPercentage = settings ? parseFloat(settings.maxCreditPercentage) : 30;
+        const minBookingForCredit = settings ? parseFloat(settings.minBookingForCredit) : 50;
+
+        // Validate minimum booking amount
+        if (total_amount < minBookingForCredit) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getErrorMessage('credits.min_amount_required', userLanguage),
+            error: `Minimum booking amount of ${minBookingForCredit} SAR required to use credits`,
+            data: {
+              booking_amount: total_amount,
+              required: minBookingForCredit
+            }
+          });
+        }
+
+        // Calculate maximum allowed credit usage
+        const maxAllowedCredits = (total_amount * maxCreditPercentage) / 100;
+
+        // Get user's available credit balance
+        const creditBalance = await db
+          .select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
+          .from(creditTransactions)
+          .where(
+            and(
+              eq(creditTransactions.userId, userId),
+              eq(creditTransactions.isExpired, false)
+            )
+          );
+
+        const availableCredits = parseFloat(creditBalance[0]?.total?.toString() || '0');
+
+        // Determine actual credits to use
+        creditsUsed = Math.max(0, Math.min(credits_amount || 0, maxAllowedCredits, availableCredits, total_amount));
+
+        if (creditsUsed > 0) {
+          try {
+            const creditResult = await PaymentTransactions.deductCredits({
+              userId,
+              amount: creditsUsed,
+              bookingId: order_id
+            });
+            creditTransaction = creditResult.transaction;
+
+            // Deduct credits from wallet first, then gateway
+            if (creditsUsed <= wallet_amount) {
+              remainingWalletAmount = wallet_amount - creditsUsed;
+            } else {
+              remainingWalletAmount = 0;
+              remainingGatewayAmount = gateway_amount - (creditsUsed - wallet_amount);
+            }
+          } catch (error: any) {
+            return res.status(400).json({
+              success: false,
+              message: bilingual.getErrorMessage('credits.deduction_failed', userLanguage),
+              error: error.message
+            });
+          }
+        }
+      }
+
+      // Check wallet balance for remaining wallet amount
       const walletBalance = await this.storage.getUserWalletBalance(userId);
-      if (walletBalance < wallet_amount) {
+      if (walletBalance < remainingWalletAmount) {
         return res.status(400).json({
           success: false,
-          message: bilingual.getErrorMessage('wallet.insufficient_balance', userLanguage)
+          message: bilingual.getErrorMessage('wallet.insufficient_balance', userLanguage),
+          data: {
+            required: remainingWalletAmount,
+            available: walletBalance,
+            credits_used: creditsUsed
+          }
         });
       }
 
       let gatewayPaymentResult: any = null;
       let gatewayTransactionId: string | null = null;
 
-      // Process gateway payment first
-      if (gateway_amount > 0) {
+      // Process gateway payment first (using remaining amount after credit deduction)
+      if (remainingGatewayAmount > 0) {
         if (payment_method === 'moyasar') {
           const moyasarResult = await moyasarService.createPayment({
-            amount: moyasarService.convertToHalalas(gateway_amount),
+            amount: moyasarService.convertToHalalas(remainingGatewayAmount),
             currency: 'SAR',
             description: `Hybrid payment for order ${order_id} (Gateway portion)`,
             source: payment_source,
@@ -186,7 +369,8 @@ export class PaymentsController {
               order_id,
               user_id: userId,
               payment_type: 'hybrid',
-              wallet_amount: wallet_amount.toString()
+              wallet_amount: remainingWalletAmount.toString(),
+              credits_used: creditsUsed.toString()
             }
           });
 
@@ -216,7 +400,7 @@ export class PaymentsController {
 
           const tabbyResult = await tabbyService.createCheckout({
             payment: {
-              amount: gateway_amount.toString(),
+              amount: remainingGatewayAmount.toString(),
               currency: 'SAR',
               buyer: {
                 phone: user.phone || '',
@@ -229,12 +413,12 @@ export class PaymentsController {
                   title: 'Cleaning Service (Gateway portion)',
                   description: 'Part of hybrid payment',
                   quantity: 1,
-                  unit_price: gateway_amount.toString(),
+                  unit_price: remainingGatewayAmount.toString(),
                   category: 'Services'
                 }],
                 tax_amount: '0.00',
                 shipping_amount: '0.00',
-                discount_amount: '0.00'
+                discount_amount: creditsUsed.toString()
               }
             },
             lang: userLanguage as 'ar' | 'en',
@@ -262,8 +446,8 @@ export class PaymentsController {
         orderId: order_id,
         userId,
         totalAmount: total_amount,
-        walletAmount: wallet_amount,
-        gatewayAmount: gateway_amount,
+        walletAmount: remainingWalletAmount,
+        gatewayAmount: remainingGatewayAmount,
         paymentMethod: payment_method,
         gatewayTransactionId,
         gatewayResponse: gatewayPaymentResult
@@ -277,11 +461,13 @@ export class PaymentsController {
         newStatus: result.payment.status,
         amount: total_amount.toString(),
         details: {
-          wallet_amount,
-          gateway_amount,
+          credits_used: creditsUsed,
+          wallet_amount: remainingWalletAmount,
+          gateway_amount: remainingGatewayAmount,
           gateway_method: payment_method,
           gateway_transaction_id: gatewayTransactionId,
-          wallet_transaction_id: result.walletTransaction?.id
+          wallet_transaction_id: result.walletTransaction?.id,
+          credit_transaction_id: creditTransaction?.id
         },
         userId
       });
@@ -290,11 +476,13 @@ export class PaymentsController {
         payment_id: result.payment.id,
         order_id: order_id,
         total_amount: total_amount,
-        wallet_amount: wallet_amount,
-        gateway_amount: gateway_amount,
+        credits_used: creditsUsed,
+        wallet_amount: remainingWalletAmount,
+        gateway_amount: remainingGatewayAmount,
         currency: 'SAR',
         status: result.payment.status,
         wallet_transaction_id: result.walletTransaction?.id,
+        credit_transaction_id: creditTransaction?.id || null,
         new_wallet_balance: result.newBalance,
         created_at: result.payment.createdAt
       };

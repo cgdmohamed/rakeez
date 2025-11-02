@@ -23,6 +23,9 @@ export const createBookingSchema = z.object({
   referral_code: z.string().transform(val => val?.trim() || undefined).optional().refine(val => !val || (val.length >= 1 && val.length <= 20), {
     message: 'Referral code must be between 1 and 20 characters'
   }),
+  coupon_code: z.string().transform(val => val?.trim() || undefined).optional().refine(val => !val || (val.length >= 1 && val.length <= 50), {
+    message: 'Coupon code must be between 1 and 50 characters'
+  }),
 });
 
 // Quotation validation schema

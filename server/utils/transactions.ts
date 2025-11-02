@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { wallets, walletTransactions, payments, referrals, bookings } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { wallets, walletTransactions, payments, referrals, bookings, creditTransactions } from '@shared/schema';
+import { eq, sql, and } from 'drizzle-orm';
 
 export interface HybridPaymentData {
   orderId: string;
@@ -23,6 +23,12 @@ export interface ReferralRewardData {
   referralId: string;
   inviterId: string;
   rewardAmount: number;
+  bookingId: string;
+}
+
+export interface CreditDeductionData {
+  userId: string;
+  amount: number;
   bookingId: string;
 }
 
@@ -317,6 +323,54 @@ export class PaymentTransactions {
         walletTransaction,
         newBalance
       };
+    });
+  }
+
+  static async deductCredits(data: CreditDeductionData) {
+    return await db.transaction(async (tx) => {
+      // Validate positive amount
+      if (data.amount <= 0) {
+        throw new Error('Credit deduction amount must be positive');
+      }
+
+      // Get available credit balance
+      const creditBalance = await tx
+        .select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
+        .from(creditTransactions)
+        .where(
+          and(
+            eq(creditTransactions.userId, data.userId),
+            eq(creditTransactions.isExpired, false)
+          )
+        );
+      
+      const available = parseFloat(creditBalance[0]?.total?.toString() || '0');
+      
+      if (available < data.amount) {
+        throw new Error('Insufficient credit balance');
+      }
+      
+      // Calculate new balance
+      const newBalance = available - data.amount;
+      
+      // Insert deduction transaction
+      const [transaction] = await tx
+        .insert(creditTransactions)
+        .values({
+          userId: data.userId,
+          type: 'booking_deduction',
+          amount: data.amount.toFixed(2),
+          balance: newBalance.toFixed(2),
+          reason: { en: `Used for booking #${data.bookingId}`, ar: `مستخدم للحجز #${data.bookingId}` },
+          referenceType: 'booking',
+          referenceId: data.bookingId,
+          isExpired: false,
+          expiresAt: null,
+          createdAt: new Date()
+        })
+        .returning();
+      
+      return { transaction, newBalance };
     });
   }
 

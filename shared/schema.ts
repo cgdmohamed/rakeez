@@ -237,6 +237,8 @@ export const bookings = pgTable("bookings", {
   referralCode: varchar("referral_code", { length: 20 }),
   referralDiscount: decimal("referral_discount", { precision: 10, scale: 2 }).default('0').notNull(),
   subscriptionDiscount: decimal("subscription_discount", { precision: 10, scale: 2 }).default('0').notNull(), // Discount from active subscription
+  couponCode: varchar("coupon_code", { length: 50 }),
+  couponDiscount: decimal("coupon_discount", { precision: 10, scale: 2 }).default('0').notNull(),
   sparePartsCost: decimal("spare_parts_cost", { precision: 10, scale: 2 }).default('0').notNull(),
   vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
