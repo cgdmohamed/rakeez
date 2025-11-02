@@ -1686,6 +1686,162 @@ Content-Type: application/json
 
 ---
 
+### Get Active Subscriptions
+
+Retrieve all active and expired subscriptions for the current user.
+
+**Endpoint:** `GET /api/v2/subscriptions`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Query Parameters:**
+- `status`: Optional, filter by status (`active`, `expired`, `cancelled`)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "subscription-uuid-1",
+      "package_id": "sub-pkg-uuid-1",
+      "package_name": "Home Care Basic",
+      "package_name_ar": "العناية المنزلية الأساسية",
+      "status": "active",
+      "start_date": "2025-12-01",
+      "end_date": "2026-03-01",
+      "remaining_days": 45,
+      "auto_renewal": true,
+      "total_services": 7,
+      "used_services": 3,
+      "services": [
+        {
+          "service_id": "service-uuid-1",
+          "service_name": "AC Cleaning",
+          "service_name_ar": "تنظيف المكيفات",
+          "included_units": 4,
+          "used_units": 2,
+          "remaining_units": 2
+        },
+        {
+          "service_id": "service-uuid-2",
+          "service_name": "General Cleaning",
+          "service_name_ar": "التنظيف العام",
+          "included_units": 3,
+          "used_units": 1,
+          "remaining_units": 2
+        }
+      ],
+      "created_at": "2025-11-15T10:00:00.000Z"
+    },
+    {
+      "id": "subscription-uuid-2",
+      "package_name": "Premium Care",
+      "package_name_ar": "العناية المميزة",
+      "status": "expired",
+      "start_date": "2025-06-01",
+      "end_date": "2025-09-01",
+      "auto_renewal": false,
+      "total_services": 12,
+      "used_services": 12,
+      "created_at": "2025-05-20T14:30:00.000Z"
+    }
+  ]
+}
+```
+
+**Possible Status Values:**
+- `active`: Subscription is currently active
+- `expired`: Subscription has ended
+- `cancelled`: Subscription was cancelled before expiry
+
+---
+
+### Cancel Subscription
+
+Cancel an active subscription with optional prorated refund.
+
+**Endpoint:** `POST /api/v2/subscriptions/:id/cancel`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Accept-Language: en | ar
+```
+
+**Request Body:**
+```json
+{
+  "reason": "Financial constraints",
+  "reason_ar": "قيود مالية",
+  "request_refund": true
+}
+```
+
+**Validation Rules:**
+- Only `active` subscriptions can be cancelled
+- `reason`: Optional, cancellation reason
+- `request_refund`: Optional boolean, defaults to false
+- Refund is prorated based on unused time and services
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Subscription cancelled successfully",
+  "message_ar": "تم إلغاء الاشتراك بنجاح",
+  "data": {
+    "subscription_id": "subscription-uuid-1",
+    "status": "cancelled",
+    "cancelled_at": "2025-11-15T16:30:00.000Z",
+    "refund": {
+      "eligible": true,
+      "amount": 450.00,
+      "method": "wallet",
+      "processed_at": "2025-11-15T16:30:00.000Z",
+      "wallet_balance": 450.00
+    },
+    "services_used": 3,
+    "services_remaining": 4
+  }
+}
+```
+
+**Response (200 OK - No Refund):**
+```json
+{
+  "success": true,
+  "message": "Subscription cancelled successfully. No refund applicable due to usage policy.",
+  "message_ar": "تم إلغاء الاشتراك بنجاح. لا يوجد استرداد مطبق بسبب سياسة الاستخدام.",
+  "data": {
+    "subscription_id": "subscription-uuid-1",
+    "status": "cancelled",
+    "cancelled_at": "2025-11-15T16:30:00.000Z",
+    "refund": {
+      "eligible": false,
+      "reason": "More than 50% of services used",
+      "reason_ar": "تم استخدام أكثر من 50٪ من الخدمات"
+    }
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Cannot cancel expired subscription",
+  "message_ar": "لا يمكن إلغاء اشتراك منتهي"
+}
+```
+
+---
+
 ## Referrals & Rewards
 
 ### Validate Referral Code
