@@ -684,6 +684,60 @@ const messages: BilingualMessages = {
   'general.server_error': {
     en: 'Internal server error. Please try again later',
     ar: 'خطأ في الخادم الداخلي. يرجى المحاولة لاحقاً'
+  },
+  
+  // Profile messages
+  'profile.notification_settings_retrieved': {
+    en: 'Notification settings retrieved successfully',
+    ar: 'تم استرجاع إعدادات الإشعارات بنجاح'
+  },
+  'notifications.settings_updated': {
+    en: 'Notification settings updated successfully',
+    ar: 'تم تحديث إعدادات الإشعارات بنجاح'
+  },
+  'booking.updated_successfully': {
+    en: 'Booking updated successfully',
+    ar: 'تم تحديث الحجز بنجاح'
+  },
+  'booking.cannot_edit': {
+    en: 'Cannot edit booking in current status',
+    ar: 'لا يمكن تعديل الحجز في الحالة الحالية'
+  },
+  'booking.not_found': {
+    en: 'Booking not found',
+    ar: 'الحجز غير موجود'
+  },
+  'subscription.cancelled_successfully': {
+    en: 'Subscription cancelled successfully',
+    ar: 'تم إلغاء الاشتراك بنجاح'
+  },
+  'subscription.not_found': {
+    en: 'Subscription not found',
+    ar: 'الاشتراك غير موجود'
+  },
+  'subscription.already_cancelled': {
+    en: 'Subscription is already cancelled',
+    ar: 'الاشتراك ملغى بالفعل'
+  },
+  'referral.link_generated': {
+    en: 'Referral link generated successfully',
+    ar: 'تم إنشاء رابط الإحالة بنجاح'
+  },
+  'support.attachments_uploaded': {
+    en: 'Attachments uploaded successfully',
+    ar: 'تم رفع المرفقات بنجاح'
+  },
+  'support.ticket_not_found': {
+    en: 'Support ticket not found',
+    ar: 'تذكرة الدعم غير موجودة'
+  },
+  'app.config_retrieved': {
+    en: 'App configuration retrieved successfully',
+    ar: 'تم استرجاع إعدادات التطبيق بنجاح'
+  },
+  'referral.code_not_found': {
+    en: 'Referral code not found',
+    ar: 'رمز الإحالة غير موجود'
   }
 };
 

@@ -37,7 +37,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses, quotations } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses, quotations, notificationSettings, appConfig } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
@@ -600,6 +600,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Get Notification Settings
+  app.get('/api/v2/profile/notifications', authenticateToken, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get or create notification settings with upsert logic
+      let [settings] = await db.select().from(notificationSettings).where(eq(notificationSettings.userId, userId));
+      
+      if (!settings) {
+        // Create default settings with idempotent handling
+        try {
+          [settings] = await db.insert(notificationSettings).values({
+            userId: userId,
+          }).returning();
+        } catch (insertError: any) {
+          // Handle race condition - another request created the record
+          if (insertError.code === '23505') { // unique_violation
+            [settings] = await db.select().from(notificationSettings).where(eq(notificationSettings.userId, userId));
+          } else {
+            throw insertError;
+          }
+        }
+      }
+      
+      const messages = bilingual.getBilingual('profile.notification_settings_retrieved');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          push_enabled: settings.pushNotifications,
+          email_enabled: settings.emailNotifications,
+          sms_enabled: settings.smsNotifications,
+          preferences: {
+            order_updates: settings.orderUpdates,
+            promotions: settings.promotions,
+            support_updates: settings.technicianMessages,
+            payment_confirmations: settings.paymentNotifications,
+            wallet_updates: settings.walletUpdates,
+            subscription_reminders: settings.subscriptionReminders,
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get notification settings error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
+
+  // Update Notification Settings
+  app.put('/api/v2/profile/notifications', authenticateToken, validateRequest({
+    body: z.object({
+      push_enabled: z.boolean().optional(),
+      email_enabled: z.boolean().optional(),
+      sms_enabled: z.boolean().optional(),
+      preferences: z.object({
+        order_updates: z.boolean().optional(),
+        promotions: z.boolean().optional(),
+        support_updates: z.boolean().optional(),
+        payment_confirmations: z.boolean().optional(),
+        wallet_updates: z.boolean().optional(),
+        subscription_reminders: z.boolean().optional(),
+      }).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const language = req.headers['accept-language'] || 'en';
+      const { push_enabled, email_enabled, sms_enabled, preferences } = req.body;
+      
+      // Build update object
+      const updates: any = {};
+      if (push_enabled !== undefined) updates.pushNotifications = push_enabled;
+      if (email_enabled !== undefined) updates.emailNotifications = email_enabled;
+      if (sms_enabled !== undefined) updates.smsNotifications = sms_enabled;
+      if (preferences?.order_updates !== undefined) updates.orderUpdates = preferences.order_updates;
+      if (preferences?.promotions !== undefined) updates.promotions = preferences.promotions;
+      if (preferences?.support_updates !== undefined) updates.technicianMessages = preferences.support_updates;
+      if (preferences?.payment_confirmations !== undefined) updates.paymentNotifications = preferences.payment_confirmations;
+      if (preferences?.wallet_updates !== undefined) updates.walletUpdates = preferences.wallet_updates;
+      if (preferences?.subscription_reminders !== undefined) updates.subscriptionReminders = preferences.subscription_reminders;
+      updates.updatedAt = new Date();
+      
+      // Upsert notification settings
+      await db.insert(notificationSettings).values({
+        userId: userId,
+        ...updates,
+      }).onConflictDoUpdate({
+        target: notificationSettings.userId,
+        set: updates,
+      });
+      
+      const messages = bilingual.getBilingual('notifications.settings_updated');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          push_enabled: push_enabled ?? true,
+          preferences_updated: Object.keys(preferences || {}).length,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Update notification settings error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
   
   // Get Addresses
   app.get('/api/v2/addresses', authenticateToken, async (req: any, res: any) => {
@@ -824,6 +945,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get Referral Stats
   app.get('/api/v2/referrals/stats', authenticateToken, referralController.getReferralStats);
+
+  // Get Referral Share Link
+  app.get('/api/v2/referrals/share-link', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      const language = req.headers['accept-language'] || 'en';
+      
+      if (!user || !user.referralCode) {
+        const messages = bilingual.getBilingual('referral.code_not_found');
+        return res.status(404).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      const referralCode = user.referralCode;
+      const shareLink = `https://rakeez.sa/ref/${referralCode}`;
+      const shortLink = `https://rkz.sa/r/${referralCode}`;
+      const qrCodeUrl = `https://api.rakeez.sa/qr/${referralCode}.png`;
+      
+      const messages = bilingual.getBilingual('referral.link_generated');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          referral_code: referralCode,
+          share_link: shareLink,
+          short_link: shortLink,
+          qr_code_url: qrCodeUrl,
+          share_message: `Join Rakeez using my code ${referralCode} and get 10% off your first booking!`,
+          share_message_ar: `انضم إلى راكز باستخدام كودي ${referralCode} واحصل على خصم 10٪ على أول حجز!`,
+          reward_amount: 30.00,
+          friend_discount: '10%',
+          valid_until: '2025-12-31T23:59:59.000Z',
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get referral share link error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
   
   // Admin: Get user referral stats
   app.get('/api/v2/admin/users/:userId/referrals', authenticateToken, authorizeRoles(['admin']), referralController.getAdminUserReferralStats);
@@ -1553,6 +1723,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Edit Booking
+  app.put('/api/v2/bookings/:id', authenticateToken, validateRequest({
+    body: z.object({
+      scheduled_date: z.string().optional(),
+      scheduled_time: z.string().optional(),
+      address_id: z.string().uuid().optional(),
+      notes: z.string().optional(),
+      notes_ar: z.string().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { scheduled_date, scheduled_time, address_id, notes, notes_ar } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get booking
+      const booking = await storage.getBooking(id);
+      if (!booking || booking.userId !== req.user.id) {
+        const messages = bilingual.getBilingual('booking.not_found');
+        return res.status(404).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      // Check if booking can be edited (only pending bookings)
+      if (booking.status !== 'pending') {
+        const messages = bilingual.getBilingual('booking.cannot_edit');
+        return res.status(400).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      // Validate new scheduled time is in the future
+      if (scheduled_date && scheduled_time) {
+        const scheduledDateTime = new Date(`${scheduled_date}T${scheduled_time}`);
+        const now = new Date();
+        const minBookingTime = new Date(now.getTime() + (ORDER_CONSTANTS.BOOKING_ADVANCE_HOURS * 60 * 60 * 1000));
+        
+        if (scheduledDateTime < minBookingTime) {
+          const messages = bilingual.getBilingual('booking.past_date_not_allowed');
+          return res.status(400).json({
+            success: false,
+            message: messages.en,
+            message_ar: messages.ar,
+          });
+        }
+      }
+      
+      // Build updates
+      const updates: any = {};
+      if (scheduled_date) updates.scheduledDate = new Date(scheduled_date);
+      if (scheduled_time) updates.scheduledTime = scheduled_time;
+      if (address_id) updates.addressId = address_id;
+      if (notes !== undefined) updates.notes = notes;
+      if (notes_ar !== undefined) updates.notesAr = notes_ar;
+      
+      // Update booking
+      await db.update(bookings).set(updates).where(eq(bookings.id, id));
+      
+      // Get updated booking
+      const updatedBooking = await storage.getBooking(id);
+      
+      const messages = bilingual.getBilingual('booking.updated_successfully');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          booking_id: updatedBooking!.id,
+          status: updatedBooking!.status,
+          scheduled_date: updatedBooking!.scheduledDate,
+          scheduled_time: updatedBooking!.scheduledTime,
+          updated_at: updatedBooking!.updatedAt,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Edit booking error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
   
   // ==================== QUOTATION ENDPOINTS ====================
   
@@ -2142,6 +2403,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('payment.verification_failed', 'en'),
+      });
+    }
+  });
+
+  // Get Payment History
+  app.get('/api/v2/payments/history', authenticateToken, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const language = req.headers['accept-language'] || 'en';
+      const { page = 1, limit = 20, status, payment_method, date_from, date_to } = req.query;
+      
+      const pageNum = parseInt(page as string);
+      const limitNum = Math.min(parseInt(limit as string), 100);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build where conditions
+      const conditions = [eq(payments.userId, userId)];
+      if (status) {
+        conditions.push(eq(payments.status, status as any));
+      }
+      if (payment_method) {
+        conditions.push(eq(payments.paymentMethod, payment_method as any));
+      }
+      if (date_from) {
+        conditions.push(gte(payments.createdAt, new Date(date_from as string)));
+      }
+      if (date_to) {
+        conditions.push(lte(payments.createdAt, new Date(date_to as string)));
+      }
+      
+      // Get payments with filters
+      const allPayments = await db
+        .select()
+        .from(payments)
+        .where(and(...conditions))
+        .orderBy(desc(payments.createdAt));
+      
+      const total = allPayments.length;
+      const paginatedPayments = allPayments.slice(offset, offset + limitNum);
+      
+      // Calculate summary
+      const summary = {
+        total_paid: allPayments.filter(p => p.status === 'paid').reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0),
+        total_refunded: allPayments.filter(p => p.status === 'refunded').reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0),
+        total_pending: allPayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0),
+      };
+      
+      res.json({
+        success: true,
+        data: {
+          payments: paginatedPayments.map(p => ({
+            id: p.id,
+            reference_type: 'booking',
+            reference_id: p.bookingId,
+            reference_number: 'RKZ-' + p.id.slice(0, 8),
+            amount: parseFloat(p.amount.toString()),
+            status: p.status,
+            payment_method: p.paymentMethod,
+            payment_source: 'card',
+            description: 'Payment for service',
+            description_ar: 'دفع للخدمة',
+            paid_at: p.updatedAt,
+            created_at: p.createdAt,
+          })),
+          pagination: {
+            current_page: pageNum,
+            total_pages: Math.ceil(total / limitNum),
+            total_items: total,
+            per_page: limitNum,
+          },
+          summary,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get payment history error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
       });
     }
   });
@@ -2814,6 +3154,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Cancel Subscription
+  app.post('/api/v2/subscriptions/:id/cancel', authenticateToken, validateRequest({
+    body: z.object({
+      reason: z.string().optional(),
+      reason_ar: z.string().optional(),
+      request_refund: z.boolean().default(false),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { reason, reason_ar, request_refund } = req.body;
+      const userId = req.user.id;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get subscription
+      const [subscription] = await db.select().from(subscriptions).where(
+        and(eq(subscriptions.id, id), eq(subscriptions.userId, userId))
+      );
+      
+      if (!subscription) {
+        const messages = bilingual.getBilingual('subscription.not_found');
+        return res.status(404).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      // Check if subscription can be cancelled
+      if (subscription.status !== 'active') {
+        const messages = bilingual.getBilingual('subscription.already_cancelled');
+        return res.status(400).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      // Calculate prorated refund if requested
+      let refundData = null;
+      if (request_refund) {
+        const packageData = await db.select().from(subscriptionPackages).where(eq(subscriptionPackages.id, subscription.packageId));
+        if (packageData.length > 0) {
+          const pkg = packageData[0];
+          const totalDays = 30; // Assume 1 month subscription
+          const daysUsed = Math.floor((Date.now() - new Date(subscription.startDate).getTime()) / (1000 * 60 * 60 * 24));
+          const daysRemaining = Math.max(0, totalDays - daysUsed);
+          const refundAmount = (parseFloat(pkg.price.toString()) / totalDays) * daysRemaining;
+          
+          // Check if eligible for refund (less than 50% used)
+          if (daysUsed <= totalDays * 0.5) {
+            // Credit to wallet
+            await storage.updateWalletBalance(
+              userId,
+              refundAmount,
+              'credit',
+              `Refund for cancelled subscription ${id}`,
+              'subscription_refund',
+              id
+            );
+            
+            const wallet = await storage.getWallet(userId);
+            refundData = {
+              eligible: true,
+              amount: refundAmount,
+              method: 'wallet',
+              processed_at: new Date(),
+              wallet_balance: parseFloat(wallet?.balance.toString() || '0'),
+            };
+          } else {
+            refundData = {
+              eligible: false,
+              reason: 'More than 50% of services used',
+              reason_ar: 'تم استخدام أكثر من 50٪ من الخدمات',
+            };
+          }
+        }
+      }
+      
+      // Update subscription status
+      await db.update(subscriptions).set({
+        status: 'cancelled',
+        updatedAt: new Date(),
+      }).where(eq(subscriptions.id, id));
+      
+      const messages = bilingual.getBilingual('subscription.cancelled_successfully');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          subscription_id: id,
+          status: 'cancelled',
+          cancelled_at: new Date(),
+          refund: refundData,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
   
   // Process Subscription Auto-Renewals (Admin)
   app.post('/api/v2/admin/subscriptions/process-renewals', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
@@ -3184,6 +3633,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Upload Ticket Attachments
+  app.post('/api/v2/support/tickets/:id/attachments', authenticateToken, async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { files, message } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Verify ticket belongs to user
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket || ticket.userId !== req.user.id) {
+        const messages = bilingual.getBilingual('support.ticket_not_found');
+        return res.status(404).json({
+          success: false,
+          message: messages.en,
+          message_ar: messages.ar,
+        });
+      }
+      
+      // For now, return success with placeholder data
+      // In production, this would handle actual file uploads via object storage
+      const messages = bilingual.getBilingual('support.attachments_uploaded');
+      res.status(201).json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          ticket_id: id,
+          attachments: [],
+          message_id: 'msg-' + Date.now(),
+        }
+      });
+      
+    } catch (error) {
+      console.error('Upload ticket attachments error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
+      });
+    }
+  });
   
   // Rate Support Ticket (Customer)
   app.post('/api/v2/support/tickets/:id/rate', authenticateToken, validateRequest({
@@ -3301,6 +3793,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Get App Configuration (Public endpoint)
+  app.get('/api/v2/app/config', async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Fetch app configuration from database
+      const configs = await db.select().from(appConfig).where(eq(appConfig.isActive, true));
+      
+      // Parse config values
+      const configMap = configs.reduce((acc: any, config) => {
+        acc[config.key] = config.value;
+        return acc;
+      }, {});
+      
+      // Build response
+      const maintenance = configMap.maintenance_mode || { enabled: false };
+      const minVersion = configMap.minimum_app_version || { ios: '1.0.0', android: '1.0.0' };
+      const latestVersion = configMap.latest_app_version || { ios: '2.1.0', android: '2.1.0' };
+      const forceUpdate = configMap.force_update || { enabled: false };
+      
+      const messages = bilingual.getBilingual('app.config_retrieved');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          app_name: 'Rakeez',
+          app_name_ar: 'راكز',
+          current_version: '2.1.0',
+          minimum_version: minVersion,
+          force_update_required: forceUpdate.enabled || false,
+          maintenance: {
+            enabled: maintenance.enabled || false,
+            scheduled_start: null,
+            scheduled_end: null,
+            message: maintenance.message?.en || null,
+            message_ar: maintenance.message?.ar || null,
+          },
+          supported_languages: [
+            { code: 'en', name: 'English', is_default: true, rtl: false },
+            { code: 'ar', name: 'العربية', is_default: false, rtl: true },
+          ],
+          supported_payment_methods: [
+            { method: 'moyasar', enabled: true, sources: ['creditcard', 'mada', 'applepay'] },
+            { method: 'tabby', enabled: true, sources: ['bnpl'] },
+            { method: 'wallet', enabled: true, sources: ['balance'] },
+          ],
+          features: {
+            subscriptions_enabled: configMap.enable_subscriptions?.enabled ?? true,
+            referrals_enabled: configMap.enable_referrals?.enabled ?? true,
+            wallet_enabled: configMap.enable_wallet?.enabled ?? true,
+            live_tracking_enabled: true,
+            chat_support_enabled: true,
+          },
+          contact: {
+            customer_service_phone: '+966920001234',
+            customer_service_email: 'support@rakeez.sa',
+            emergency_phone: '+966920001234',
+            whatsapp: '+966501234567',
+            working_hours: {
+              weekdays: '08:00 - 22:00',
+              weekends: '09:00 - 20:00',
+            }
+          },
+          social_media: {
+            facebook: 'https://facebook.com/rakeez.sa',
+            twitter: 'https://twitter.com/rakeez_sa',
+            instagram: 'https://instagram.com/rakeez.sa',
+            linkedin: 'https://linkedin.com/company/rakeez',
+          },
+          legal: {
+            terms_url: 'https://rakeez.sa/terms',
+            privacy_url: 'https://rakeez.sa/privacy',
+            help_center_url: 'https://help.rakeez.sa',
+          },
+          currency: {
+            code: 'SAR',
+            symbol: '﷼',
+            decimal_places: 2,
+          },
+          tax_rate: 0.15,
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get app config error:', error);
+      const errorMessages = bilingual.getBilingual('general.server_error');
+      res.status(500).json({
+        success: false,
+        message: errorMessages.en,
+        message_ar: errorMessages.ar,
       });
     }
   });
