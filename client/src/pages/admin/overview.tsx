@@ -22,7 +22,10 @@ import {
   ArrowRight,
   Bell,
   Clock,
-  Zap
+  Zap,
+  Percent,
+  Gift,
+  Heart
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -77,6 +80,35 @@ interface AnalyticsData {
     completedOrders: number;
     totalRevenue: number;
     avgRating: number;
+  };
+  marketing?: {
+    coupons: {
+      totalCoupons: number;
+      activeCoupons: number;
+      totalRedemptions: number;
+      totalDiscountDistributed: number;
+      uniqueUsers: number;
+      avgDiscountPerUse: number;
+      topCoupons: any[];
+    };
+    credits: {
+      totalGranted: number;
+      totalUsed: number;
+      totalExpired: number;
+      activeBalance: number;
+      activeUsers: number;
+      byType: any[];
+    };
+    loyalty: {
+      isEnabled: boolean;
+      totalRewardsDistributed?: number;
+      activeUsersWithCredits?: number;
+      totalActiveBalance?: number;
+      avgCustomerLifetimeValue?: number;
+      rewardsByType?: any[];
+      settings?: any;
+      message?: string;
+    };
   };
   topServices: any[];
   technicianPerformance: any[];
@@ -184,6 +216,33 @@ export default function AdminOverview() {
     expiredSubscriptions: 0,
     cancelledSubscriptions: 0,
     totalSubscriptionRevenue: 0,
+  };
+  const marketingStats = stats?.data?.marketing || {
+    coupons: {
+      totalCoupons: 0,
+      activeCoupons: 0,
+      totalRedemptions: 0,
+      totalDiscountDistributed: 0,
+      uniqueUsers: 0,
+      avgDiscountPerUse: 0,
+      topCoupons: [],
+    },
+    credits: {
+      totalGranted: 0,
+      totalUsed: 0,
+      totalExpired: 0,
+      activeBalance: 0,
+      activeUsers: 0,
+      byType: [],
+    },
+    loyalty: {
+      isEnabled: false,
+      totalRewardsDistributed: 0,
+      activeUsersWithCredits: 0,
+      totalActiveBalance: 0,
+      avgCustomerLifetimeValue: 0,
+      rewardsByType: [],
+    },
   };
 
   const activeOrdersValue = (orderStats.inProgressOrders || 0) * (revenueStats.totalRevenue / Math.max(orderStats.totalOrders, 1) || 0);
@@ -502,6 +561,85 @@ export default function AdminOverview() {
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>Total number of subscriptions created</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
+
+        {/* Marketing & Loyalty */}
+        {marketingStats && (
+          <>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="h-px bg-border flex-1" />
+              <h3 className="text-sm font-medium text-muted-foreground">Marketing & Loyalty</h3>
+              <div className="h-px bg-border flex-1" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {/* Coupon Redemptions */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/coupons">
+                    <Card data-testid="card-coupon-redemptions" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-purple-500/30 bg-purple-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-purple-600">Coupon Redemptions</CardTitle>
+                        <Percent className="h-4 w-4 text-purple-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-purple-600" data-testid="text-coupon-redemptions">
+                          {marketingStats.coupons.totalRedemptions}
+                        </div>
+                        <p className="text-xs text-foreground/80">{marketingStats.coupons.totalDiscountDistributed.toLocaleString()} SAR saved</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total coupon redemptions and savings</TooltipContent>
+              </Tooltip>
+
+              {/* Active Credits */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/loyalty-settings">
+                    <Card data-testid="card-active-credits" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-accent/30 bg-accent/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-accent">Active Credits</CardTitle>
+                        <Gift className="h-4 w-4 text-accent" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-accent" data-testid="text-active-credits">
+                          {marketingStats.credits.activeBalance.toLocaleString()} SAR
+                        </div>
+                        <p className="text-xs text-foreground/80">{marketingStats.credits.activeUsers} active users</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Total active promotional credits balance</TooltipContent>
+              </Tooltip>
+
+              {/* Loyalty Rewards */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin/loyalty-settings">
+                    <Card data-testid="card-loyalty-rewards" className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-pink-500/30 bg-pink-500/5">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-pink-600">Loyalty Rewards</CardTitle>
+                        <Heart className="h-4 w-4 text-pink-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-pink-600" data-testid="text-loyalty-rewards">
+                          {marketingStats.loyalty.isEnabled ? `${(marketingStats.loyalty.totalRewardsDistributed || 0).toLocaleString()} SAR` : 'Disabled'}
+                        </div>
+                        <p className="text-xs text-foreground/80">
+                          {marketingStats.loyalty.isEnabled ? `${marketingStats.loyalty.activeUsersWithCredits} users with credits` : 'Enable in settings'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {marketingStats.loyalty.isEnabled ? 'Total rewards distributed to customers' : 'Loyalty program is currently disabled'}
+                </TooltipContent>
               </Tooltip>
             </div>
           </>
