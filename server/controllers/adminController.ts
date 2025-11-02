@@ -259,12 +259,22 @@ export class AdminController {
 
       const technicianStats = await this.storage.getTechnicianStats();
 
+      // Get marketing analytics
+      const couponStats = await this.storage.getCouponStats(startDate, endDate);
+      const creditStats = await this.storage.getCreditStats(startDate, endDate);
+      const loyaltyMetrics = await this.storage.getLoyaltyMetrics();
+
       const analytics = {
         summary: {
           ...orderStats,
           ...revenueStats
         },
         technician_performance: technicianStats,
+        marketing: {
+          coupons: couponStats,
+          credits: creditStats,
+          loyalty: loyaltyMetrics
+        },
         period: {
           start_date: startDate?.toISOString() || null,
           end_date: endDate?.toISOString() || null,

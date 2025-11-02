@@ -4,6 +4,7 @@ import {
   wallets, walletTransactions, referrals, notifications, supportTickets, 
   supportMessages, faqs, reviews, promotions, auditLogs, webhookEvents, 
   orderStatusLogs, invoices, subscriptions, homeSliderImages, homeBanner,
+  coupons, creditTransactions, loyaltySettings,
   type Role, type InsertRole, type User, type InsertUser, type Address, type InsertAddress,
   type ServiceCategory, type InsertServiceCategory, type Service, type InsertService,
   type ServiceTier, type InsertServiceTier, type SubscriptionPackage, type InsertSubscriptionPackage,
@@ -19,7 +20,7 @@ import {
   type HomeSliderImage, type InsertHomeSliderImage, type HomeBanner, type InsertHomeBanner
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, gte, lte, like, ilike, sql, count } from "drizzle-orm";
+import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // Roles (Custom Role Management)
@@ -195,6 +196,9 @@ export interface IStorage {
   getRevenueStats(startDate?: Date, endDate?: Date): Promise<any>;
   getTechnicianStats(technicianId?: string): Promise<any>;
   getTopServices(): Promise<any>;
+  getCouponStats(startDate?: Date, endDate?: Date): Promise<any>;
+  getCreditStats(startDate?: Date, endDate?: Date): Promise<any>;
+  getLoyaltyMetrics(): Promise<any>;
   
   // Customer Management
   getCustomerOverview(userId: string): Promise<any>;
@@ -1626,6 +1630,237 @@ export class DatabaseStorage implements IStorage {
       orders: Number(service.orders) || 0,
       revenue: Number(service.revenue) || 0,
     }));
+  }
+
+  async getCouponStats(startDate?: Date, endDate?: Date): Promise<any> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(coupons.createdAt, startDate));
+    if (endDate) conditions.push(lte(coupons.createdAt, endDate));
+
+    // Get overall coupon statistics
+    const totalCoupons = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(coupons)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    const activeCoupons = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(coupons)
+      .where(
+        conditions.length > 0 
+          ? and(eq(coupons.isActive, true), ...conditions)
+          : eq(coupons.isActive, true)
+      );
+
+    // Get coupon usage stats from bookings
+    const usageConditions = [sql`${bookings.couponCode} IS NOT NULL`];
+    if (startDate) usageConditions.push(gte(bookings.createdAt, startDate));
+    if (endDate) usageConditions.push(lte(bookings.createdAt, endDate));
+
+    const usageStats = await db
+      .select({
+        totalRedemptions: sql<number>`COUNT(*)::int`,
+        totalDiscount: sql<number>`COALESCE(SUM(${bookings.couponDiscount}::decimal), 0)`,
+        uniqueUsers: sql<number>`COUNT(DISTINCT ${bookings.userId})::int`,
+        avgDiscount: sql<number>`COALESCE(AVG(${bookings.couponDiscount}::decimal), 0)`,
+      })
+      .from(bookings)
+      .where(and(...usageConditions));
+
+    // Get top performing coupons
+    const topCoupons = await db
+      .select({
+        code: bookings.couponCode,
+        redemptions: sql<number>`COUNT(*)::int`,
+        totalDiscount: sql<number>`COALESCE(SUM(${bookings.couponDiscount}::decimal), 0)`,
+        uniqueUsers: sql<number>`COUNT(DISTINCT ${bookings.userId})::int`,
+      })
+      .from(bookings)
+      .where(and(...usageConditions))
+      .groupBy(bookings.couponCode)
+      .orderBy(desc(sql<number>`COUNT(*)::int`))
+      .limit(5);
+
+    return {
+      totalCoupons: Number(totalCoupons[0]?.count) || 0,
+      activeCoupons: Number(activeCoupons[0]?.count) || 0,
+      totalRedemptions: Number(usageStats[0]?.totalRedemptions) || 0,
+      totalDiscountDistributed: Number(usageStats[0]?.totalDiscount) || 0,
+      uniqueUsers: Number(usageStats[0]?.uniqueUsers) || 0,
+      avgDiscountPerUse: Number(usageStats[0]?.avgDiscount) || 0,
+      topCoupons: topCoupons.map((c: any) => ({
+        code: c.code,
+        redemptions: Number(c.redemptions) || 0,
+        totalDiscount: Number(c.totalDiscount) || 0,
+        uniqueUsers: Number(c.uniqueUsers) || 0,
+      })),
+    };
+  }
+
+  async getCreditStats(startDate?: Date, endDate?: Date): Promise<any> {
+    const conditions = [];
+    if (startDate) conditions.push(gte(creditTransactions.createdAt, startDate));
+    if (endDate) conditions.push(lte(creditTransactions.createdAt, endDate));
+
+    // Get credit stats by type
+    const creditsByType = await db
+      .select({
+        type: creditTransactions.type,
+        totalAmount: sql<number>`COALESCE(SUM(${creditTransactions.amount}::decimal), 0)`,
+        count: sql<number>`COUNT(*)::int`,
+        uniqueUsers: sql<number>`COUNT(DISTINCT ${creditTransactions.userId})::int`,
+      })
+      .from(creditTransactions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .groupBy(creditTransactions.type);
+
+    // Get overall credit statistics
+    const overallStats = await db
+      .select({
+        totalGranted: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.amount} > 0 THEN ${creditTransactions.amount}::decimal ELSE 0 END), 0)`,
+        totalUsed: sql<number>`COALESCE(ABS(SUM(CASE WHEN ${creditTransactions.amount} < 0 THEN ${creditTransactions.amount}::decimal ELSE 0 END)), 0)`,
+        totalExpired: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.type} = 'expiration' THEN ABS(${creditTransactions.amount}::decimal) ELSE 0 END), 0)`,
+        activeUsers: sql<number>`COUNT(DISTINCT ${creditTransactions.userId})::int`,
+      })
+      .from(creditTransactions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    // Get current active credits balance (non-expired)
+    const activeBalance = await db
+      .select({
+        totalBalance: sql<number>`COALESCE(SUM(${creditTransactions.amount}::decimal), 0)`,
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          or(
+            sql`${creditTransactions.expiresAt} IS NULL`,
+            gte(creditTransactions.expiresAt, new Date())
+          )
+        )
+      );
+
+    return {
+      totalGranted: Number(overallStats[0]?.totalGranted) || 0,
+      totalUsed: Number(overallStats[0]?.totalUsed) || 0,
+      totalExpired: Number(overallStats[0]?.totalExpired) || 0,
+      activeBalance: Number(activeBalance[0]?.totalBalance) || 0,
+      activeUsers: Number(overallStats[0]?.activeUsers) || 0,
+      byType: creditsByType.map((row: any) => ({
+        type: row.type,
+        totalAmount: Number(row.totalAmount) || 0,
+        count: Number(row.count) || 0,
+        uniqueUsers: Number(row.uniqueUsers) || 0,
+      })),
+    };
+  }
+
+  async getLoyaltyMetrics(): Promise<any> {
+    // Get loyalty settings
+    const settings = await db.select().from(loyaltySettings).limit(1);
+    const loyaltyConfig = settings[0];
+
+    if (!loyaltyConfig || !loyaltyConfig.isActive) {
+      return {
+        isEnabled: false,
+        message: 'Loyalty program is not enabled',
+      };
+    }
+
+    // Get total rewards distributed by type
+    const rewardsByType = await db
+      .select({
+        type: creditTransactions.type,
+        totalAmount: sql<number>`COALESCE(SUM(${creditTransactions.amount}::decimal), 0)`,
+        count: sql<number>`COUNT(*)::int`,
+        uniqueUsers: sql<number>`COUNT(DISTINCT ${creditTransactions.userId})::int`,
+      })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.type} IN ('welcome_bonus', 'first_booking_bonus', 'referral_inviter', 'referral_invitee', 'loyalty_cashback')`
+      )
+      .groupBy(creditTransactions.type);
+
+    // Get total rewards distributed (all time)
+    const totalRewards = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${creditTransactions.amount}::decimal), 0)`,
+      })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.type} IN ('welcome_bonus', 'first_booking_bonus', 'referral_inviter', 'referral_invitee', 'loyalty_cashback')`
+      );
+
+    // Get users with credits
+    const usersWithCredits = await db
+      .select({
+        userId: creditTransactions.userId,
+        balance: sql<number>`COALESCE(SUM(${creditTransactions.amount}::decimal), 0)`,
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          or(
+            sql`${creditTransactions.expiresAt} IS NULL`,
+            gte(creditTransactions.expiresAt, new Date())
+          )
+        )
+      )
+      .groupBy(creditTransactions.userId)
+      .having(sql`SUM(${creditTransactions.amount}::decimal) > 0`);
+
+    // Calculate average customer lifetime value for users with loyalty rewards
+    const loyaltyUserIds = await db
+      .selectDistinct({ userId: creditTransactions.userId })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.type} IN ('welcome_bonus', 'first_booking_bonus', 'referral_inviter', 'referral_invitee', 'loyalty_cashback')`
+      );
+
+    let avgLifetimeValue = 0;
+    if (loyaltyUserIds.length > 0) {
+      const userIds = loyaltyUserIds.map(u => u.userId);
+      const lifetimeValues = await db
+        .select({
+          avgValue: sql<number>`COALESCE(AVG(total_spent), 0)`,
+        })
+        .from(
+          sql`(
+            SELECT 
+              ${bookings.userId},
+              SUM(${bookings.totalAmount}::decimal) as total_spent
+            FROM ${bookings}
+            WHERE ${bookings.userId} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})
+              AND ${bookings.status} = 'completed'
+            GROUP BY ${bookings.userId}
+          ) as user_spending`
+        );
+      avgLifetimeValue = Number(lifetimeValues[0]?.avgValue) || 0;
+    }
+
+    return {
+      isEnabled: true,
+      totalRewardsDistributed: Number(totalRewards[0]?.total) || 0,
+      activeUsersWithCredits: usersWithCredits.length,
+      totalActiveBalance: usersWithCredits.reduce((sum, u) => sum + Number(u.balance || 0), 0),
+      avgCustomerLifetimeValue: avgLifetimeValue,
+      rewardsByType: rewardsByType.map((row: any) => ({
+        type: row.type,
+        totalAmount: Number(row.totalAmount) || 0,
+        count: Number(row.count) || 0,
+        uniqueUsers: Number(row.uniqueUsers) || 0,
+      })),
+      settings: {
+        welcomeBonusAmount: Number(loyaltyConfig.welcomeBonusAmount) || 0,
+        firstBookingBonusAmount: Number(loyaltyConfig.firstBookingBonusAmount) || 0,
+        referrerRewardAmount: Number(loyaltyConfig.referrerRewardAmount) || 0,
+        refereeRewardAmount: Number(loyaltyConfig.refereeRewardAmount) || 0,
+        cashbackPercentage: Number(loyaltyConfig.cashbackPercentage) || 0,
+        creditExpiryDays: loyaltyConfig.creditExpiryDays || 90,
+        maxCreditUsagePercentage: Number(loyaltyConfig.maxCreditPercentage) || 30,
+        minBookingAmountForCredits: Number(loyaltyConfig.minBookingForCredit) || 50,
+      },
+    };
   }
 
   async getCustomerOverview(userId: string): Promise<any> {
