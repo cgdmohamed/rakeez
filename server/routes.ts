@@ -5749,6 +5749,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Comprehensive System Report (Admin)
+  app.get('/api/v2/admin/reports/system', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { start_date, end_date } = req.query;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      const report = await storage.getSystemReport(startDate, endDate);
+      
+      res.status(200).json({
+        success: true,
+        message: bilingual.getMessage('admin.system_report_retrieved', language),
+        data: report,
+      });
+      
+    } catch (error) {
+      console.error('Get system report error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Customer Personal Report
+  app.get('/api/v2/customer/reports', authenticateToken, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const { start_date, end_date } = req.query;
+      const language = req.headers['accept-language'] || req.user.language || 'en';
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      const report = await storage.getCustomerReport(userId, startDate, endDate);
+      
+      res.status(200).json({
+        success: true,
+        message: bilingual.getMessage('customer.report_retrieved', language),
+        data: report,
+      });
+      
+    } catch (error) {
+      console.error('Get customer report error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+
+  // Customer Report Export (PDF)
+  app.get('/api/v2/customer/reports/export', authenticateToken, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const { start_date, end_date } = req.query;
+      const language = req.headers['accept-language'] || req.user.language || 'en';
+      
+      const startDate = start_date ? new Date(start_date as string) : undefined;
+      const endDate = end_date ? new Date(end_date as string) : undefined;
+      
+      const report = await storage.getCustomerReport(userId, startDate, endDate);
+      
+      // Generate PDF using pdfService
+      const pdfBuffer = await pdfService.generateCustomerReport(report, language);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=customer_report_${new Date().toISOString().split('T')[0]}.pdf`);
+      res.send(pdfBuffer);
+      
+    } catch (error) {
+      console.error('Export customer report error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
   
   // Create Service (Admin)
   app.post('/api/v2/admin/services', authenticateToken, authorizeRoles(['admin']), validateRequest({

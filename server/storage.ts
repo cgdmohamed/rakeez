@@ -218,6 +218,10 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getBookings(startDate?: Date, endDate?: Date): Promise<Booking[]>;
   
+  // Reports
+  getSystemReport(startDate?: Date, endDate?: Date): Promise<any>;
+  getCustomerReport(userId: string, startDate?: Date, endDate?: Date): Promise<any>;
+  
   // Invoices
   createInvoice(invoice: any): Promise<any>;
   getInvoice(invoiceNumber: string): Promise<any>;
@@ -793,6 +797,279 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(bookings.createdAt));
+  }
+
+  async getSystemReport(startDate?: Date, endDate?: Date): Promise<any> {
+    // Get comprehensive system statistics
+    const orderStats = await this.getOrderStats(startDate, endDate);
+    const revenueStats = await this.getRevenueStats(startDate, endDate);
+    const technicianStats = await this.getTechnicianStats();
+    const couponStats = await this.getCouponStats(startDate, endDate);
+    const creditStats = await this.getCreditStats(startDate, endDate);
+    const loyaltyMetrics = await this.getLoyaltyMetrics();
+    
+    // Get user statistics
+    const totalUsers = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users);
+    
+    const customerCount = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.role, 'customer'));
+    
+    const technicianCount = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.role, 'technician'));
+    
+    // Get booking status breakdown
+    const bookingsByStatus = await db
+      .select({
+        status: bookings.status,
+        count: sql<number>`count(*)::int`
+      })
+      .from(bookings)
+      .groupBy(bookings.status);
+    
+    // Get subscription stats
+    const activeSubscriptions = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(subscriptions)
+      .where(eq(subscriptions.status, 'active'));
+    
+    // Get support ticket stats
+    const ticketsByStatus = await db
+      .select({
+        status: sql<string>`status`,
+        count: sql<number>`count(*)::int`
+      })
+      .from(sql`support_tickets`)
+      .groupBy(sql`status`);
+    
+    return {
+      period: {
+        start_date: startDate?.toISOString() || null,
+        end_date: endDate?.toISOString() || null,
+        generated_at: new Date().toISOString()
+      },
+      users: {
+        total: totalUsers[0]?.count || 0,
+        customers: customerCount[0]?.count || 0,
+        technicians: technicianCount[0]?.count || 0
+      },
+      bookings: {
+        ...orderStats,
+        by_status: bookingsByStatus
+      },
+      revenue: revenueStats,
+      technicians: technicianStats,
+      marketing: {
+        coupons: couponStats,
+        credits: creditStats,
+        loyalty: loyaltyMetrics
+      },
+      subscriptions: {
+        active: activeSubscriptions[0]?.count || 0
+      },
+      support: {
+        tickets_by_status: ticketsByStatus
+      }
+    };
+  }
+
+  async getCustomerReport(userId: string, startDate?: Date, endDate?: Date): Promise<any> {
+    // Get customer basic info
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Get booking conditions
+    const bookingConditions = [eq(bookings.userId, userId)];
+    if (startDate) bookingConditions.push(gte(bookings.createdAt, startDate));
+    if (endDate) bookingConditions.push(lte(bookings.createdAt, endDate));
+    
+    // Get customer bookings
+    const customerBookings = await db
+      .select()
+      .from(bookings)
+      .where(and(...bookingConditions))
+      .orderBy(desc(bookings.createdAt));
+    
+    // Calculate booking statistics
+    const totalBookings = customerBookings.length;
+    const completedBookings = customerBookings.filter(b => b.status === 'completed').length;
+    const cancelledBookings = customerBookings.filter(b => b.status === 'cancelled').length;
+    const totalSpent = customerBookings
+      .filter(b => b.paymentStatus === 'paid')
+      .reduce((sum, b) => sum + parseFloat(b.totalAmount), 0);
+    
+    // Get payment history
+    const paymentConditions = [eq(payments.userId, userId)];
+    if (startDate) paymentConditions.push(gte(payments.createdAt, startDate));
+    if (endDate) paymentConditions.push(lte(payments.createdAt, endDate));
+    
+    const customerPayments = await db
+      .select()
+      .from(payments)
+      .where(and(...paymentConditions))
+      .orderBy(desc(payments.createdAt));
+    
+    const paymentsByMethod = customerPayments.reduce((acc: any, p) => {
+      const method = p.method;
+      acc[method] = (acc[method] || 0) + parseFloat(p.amount);
+      return acc;
+    }, {});
+    
+    // Get wallet info
+    const wallet = await db.query.wallets.findFirst({
+      where: eq(wallets.userId, userId)
+    });
+    
+    // Get wallet transactions
+    const walletTxns = await db
+      .select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.userId, userId))
+      .orderBy(desc(walletTransactions.createdAt))
+      .limit(50);
+    
+    // Get credit info
+    const creditTxns = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, userId))
+      .orderBy(desc(creditTransactions.createdAt))
+      .limit(50);
+    
+    const totalCreditsEarned = creditTxns
+      .filter(c => parseFloat(c.amount) > 0)
+      .reduce((sum, c) => sum + parseFloat(c.amount), 0);
+    
+    const totalCreditsUsed = creditTxns
+      .filter(c => parseFloat(c.amount) < 0)
+      .reduce((sum, c) => sum + Math.abs(parseFloat(c.amount)), 0);
+    
+    // Get coupon usage
+    const couponUsage = await db
+      .select()
+      .from(couponUsages)
+      .where(eq(couponUsages.userId, userId))
+      .orderBy(desc(couponUsages.usedAt));
+    
+    const totalCouponSavings = couponUsage.reduce((sum, c) => sum + parseFloat(c.discountAmount), 0);
+    
+    // Get referral data
+    const customerReferrals = await db
+      .select()
+      .from(referrals)
+      .where(eq(referrals.inviterId, userId));
+    
+    const totalReferrals = customerReferrals.length;
+    const rewardedReferrals = customerReferrals.filter(r => r.status === 'rewarded').length;
+    const totalReferralRewards = customerReferrals
+      .filter(r => r.status === 'rewarded')
+      .reduce((sum, r) => sum + parseFloat(r.inviterReward), 0);
+    
+    // Get subscriptions
+    const customerSubscriptions = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
+    
+    return {
+      period: {
+        start_date: startDate?.toISOString() || null,
+        end_date: endDate?.toISOString() || null,
+        generated_at: new Date().toISOString()
+      },
+      customer: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        language: user.language,
+        member_since: user.createdAt
+      },
+      bookings: {
+        total: totalBookings,
+        completed: completedBookings,
+        cancelled: cancelledBookings,
+        total_spent: totalSpent,
+        list: customerBookings.slice(0, 20).map(b => ({
+          id: b.id,
+          service_cost: parseFloat(b.serviceCost),
+          total_amount: parseFloat(b.totalAmount),
+          status: b.status,
+          payment_status: b.paymentStatus,
+          scheduled_date: b.scheduledDate,
+          created_at: b.createdAt
+        }))
+      },
+      payments: {
+        total: customerPayments.length,
+        total_amount: customerPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0),
+        by_method: paymentsByMethod,
+        list: customerPayments.slice(0, 20).map(p => ({
+          id: p.id,
+          amount: parseFloat(p.amount),
+          method: p.method,
+          status: p.status,
+          created_at: p.createdAt
+        }))
+      },
+      wallet: {
+        balance: wallet ? parseFloat(wallet.balance) : 0,
+        total_earned: wallet ? parseFloat(wallet.totalEarned) : 0,
+        total_spent: wallet ? parseFloat(wallet.totalSpent) : 0,
+        recent_transactions: walletTxns.slice(0, 10).map(t => ({
+          type: t.type,
+          amount: parseFloat(t.amount),
+          balance: parseFloat(t.balance),
+          description: t.description,
+          created_at: t.createdAt
+        }))
+      },
+      credits: {
+        total_earned: totalCreditsEarned,
+        total_used: totalCreditsUsed,
+        current_balance: totalCreditsEarned - totalCreditsUsed,
+        transactions: creditTxns.slice(0, 10).map(c => ({
+          type: c.type,
+          amount: parseFloat(c.amount),
+          balance: parseFloat(c.balance),
+          reason: c.reason,
+          created_at: c.createdAt
+        }))
+      },
+      coupons: {
+        total_used: couponUsage.length,
+        total_savings: totalCouponSavings,
+        recent_usage: couponUsage.slice(0, 10).map(c => ({
+          coupon_code: c.couponCode,
+          discount_amount: parseFloat(c.discountAmount),
+          used_at: c.usedAt
+        }))
+      },
+      referrals: {
+        total: totalReferrals,
+        rewarded: rewardedReferrals,
+        total_rewards: totalReferralRewards
+      },
+      subscriptions: {
+        total: customerSubscriptions.length,
+        active: customerSubscriptions.filter(s => s.status === 'active').length,
+        list: customerSubscriptions.map(s => ({
+          id: s.id,
+          start_date: s.startDate,
+          end_date: s.endDate,
+          status: s.status,
+          total_amount: parseFloat(s.totalAmount)
+        }))
+      }
+    };
   }
 
   async updateBookingStatus(id: string, status: string, updatedBy?: string): Promise<void> {
