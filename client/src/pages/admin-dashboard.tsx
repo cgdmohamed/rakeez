@@ -28,6 +28,8 @@ import {
   CalendarDays,
   Moon,
   Sun,
+  Heart,
+  Percent,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -60,6 +62,8 @@ import AdminMobileContent from './admin/mobile-content';
 import AdminSubscriptions from './admin/subscriptions';
 import AdminSubscriptionPackages from './admin/subscription-packages';
 import AdminMyProfile from './admin/my-profile';
+import AdminCoupons from './admin/coupons';
+import AdminLoyaltySettings from './admin/loyalty-settings';
 
 interface NavigationItem {
   name: string;
@@ -117,6 +121,8 @@ const navigationGroups: NavigationGroup[] = [
     section: 'Marketing',
     items: [
       { name: 'Promos', href: '/admin/promos', icon: Gift },
+      { name: 'Coupons', href: '/admin/coupons', icon: Percent },
+      { name: 'Loyalty Settings', href: '/admin/loyalty-settings', icon: Heart },
       { name: 'Mobile Content', href: '/admin/mobile-content', icon: Smartphone },
     ],
     defaultOpen: false,
@@ -404,6 +410,8 @@ export default function AdminDashboard() {
         <Route path="/admin/subscriptions" component={AdminSubscriptions} />
         <Route path="/admin/subscription-packages" component={AdminSubscriptionPackages} />
         <Route path="/admin/promos" component={AdminPromos} />
+        <Route path="/admin/coupons" component={AdminCoupons} />
+        <Route path="/admin/loyalty-settings" component={AdminLoyaltySettings} />
         <Route path="/admin/mobile-content" component={AdminMobileContent} />
         <Route path="/admin/analytics" component={AdminAnalytics} />
       </Switch>

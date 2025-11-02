@@ -37,6 +37,18 @@ const passwordChangeSchema = z.object({
 type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 type PasswordChange = z.infer<typeof passwordChangeSchema>;
 
+interface UserProfile {
+  data: {
+    nameEn?: string;
+    nameAr?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    status?: string;
+    createdAt?: string;
+  };
+}
+
 export default function AdminMyProfile() {
   const { toast } = useToast();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -47,7 +59,7 @@ export default function AdminMyProfile() {
 
   const userId = localStorage.getItem('user_id');
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['/api/v2/admin/users', userId],
     enabled: !!userId,
   });
