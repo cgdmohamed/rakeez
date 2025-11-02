@@ -1001,6 +1001,77 @@ Accept-Language: en | ar
 
 ---
 
+### Edit Booking
+
+Modify a pending booking before technician assignment.
+
+**Endpoint:** `PUT /api/v2/bookings/:id`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Accept-Language: en | ar
+```
+
+**Request Body:**
+```json
+{
+  "scheduled_date": "2025-11-16",
+  "scheduled_time": "10:00",
+  "address_id": "addr-uuid-2",
+  "notes": "Updated instructions",
+  "notes_ar": "تعليمات محدثة"
+}
+```
+
+**Validation Rules:**
+- Only bookings with status `pending` can be edited
+- Cannot edit after technician has been assigned
+- `scheduled_date`: Optional, date in YYYY-MM-DD format (future date)
+- `scheduled_time`: Optional, time in HH:MM format (must be available)
+- `address_id`: Optional, valid saved address
+- `notes`: Optional, updated booking instructions
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Booking updated successfully",
+  "message_ar": "تم تحديث الحجز بنجاح",
+  "data": {
+    "booking_id": "booking-uuid-1",
+    "booking_number": "RKZ-2025-001234",
+    "status": "pending",
+    "scheduled_date": "2025-11-16",
+    "scheduled_time": "10:00",
+    "service_name": "Split AC Cleaning",
+    "total_amount": 270.00,
+    "updated_at": "2025-11-10T15:45:00.000Z"
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Cannot edit booking after technician assignment",
+  "message_ar": "لا يمكن تعديل الحجز بعد تعيين الفني"
+}
+```
+
+**Error Response (409 Conflict):**
+```json
+{
+  "success": false,
+  "message": "Selected time slot is no longer available",
+  "message_ar": "الوقت المحدد لم يعد متاحًا"
+}
+```
+
+---
+
 ### Get Booking Details
 
 Retrieve details of a specific booking.
