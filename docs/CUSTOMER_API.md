@@ -1539,6 +1539,201 @@ Accept-Language: en | ar
 
 ---
 
+### Wallet Top-Up
+
+Add funds to wallet via payment gateway.
+
+**Endpoint:** `POST /api/v2/wallet/top-up`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Accept-Language: en | ar
+```
+
+**Request Body:**
+```json
+{
+  "amount": 500.00,
+  "payment_method": "moyasar",
+  "payment_source": "creditcard",
+  "callback_url": "myapp://wallet-top-up-callback"
+}
+```
+
+**Validation Rules:**
+- `amount`: Required, minimum 50.00 SAR, maximum 5000.00 SAR
+- `payment_method`: Required, `moyasar` or `tabby`
+- `payment_source`: Required for Moyasar, `creditcard`, `mada`, or `applepay`
+- `callback_url`: Required, deep link for payment completion
+
+**Response (200 OK - Moyasar):**
+```json
+{
+  "success": true,
+  "message": "Top-up initiated successfully",
+  "message_ar": "تم بدء تعبئة المحفظة بنجاح",
+  "data": {
+    "transaction_id": "txn-uuid-1",
+    "amount": 500.00,
+    "status": "pending",
+    "payment_method": "moyasar",
+    "moyasar": {
+      "payment_url": "https://checkout.moyasar.com/...",
+      "payment_id": "moyasar-id-456",
+      "publishable_api_key": "pk_test_..."
+    },
+    "expires_at": "2025-11-15T23:59:59.000Z"
+  }
+}
+```
+
+**Response (200 OK - Tabby BNPL):**
+```json
+{
+  "success": true,
+  "message": "Top-up initiated successfully",
+  "message_ar": "تم بدء تعبئة المحفظة بنجاح",
+  "data": {
+    "transaction_id": "txn-uuid-2",
+    "amount": 500.00,
+    "status": "pending",
+    "payment_method": "tabby",
+    "tabby": {
+      "payment_url": "https://checkout.tabby.ai/...",
+      "session_id": "tabby-session-123"
+    },
+    "expires_at": "2025-11-15T23:59:59.000Z"
+  }
+}
+```
+
+**Usage Notes:**
+- After successful payment, funds are automatically added to wallet balance
+- Failed top-ups do not affect wallet balance
+- Transaction history is updated automatically
+- Email receipt is sent upon successful top-up
+
+---
+
+### Get Payment History
+
+Retrieve complete payment transaction history.
+
+**Endpoint:** `GET /api/v2/payments/history`
+
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 20, max: 100)
+- `status`: Filter by status (`paid`, `pending`, `failed`, `refunded`)
+- `payment_method`: Filter by method (`moyasar`, `tabby`, `wallet`)
+- `date_from`: Start date (YYYY-MM-DD)
+- `date_to`: End date (YYYY-MM-DD)
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Example Request:**
+```
+GET /api/v2/payments/history?page=1&limit=20&status=paid
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "payments": [
+      {
+        "id": "payment-uuid-1",
+        "reference_type": "booking",
+        "reference_id": "booking-uuid-1",
+        "reference_number": "RKZ-2025-001234",
+        "amount": 414.00,
+        "status": "paid",
+        "payment_method": "moyasar",
+        "payment_source": "creditcard",
+        "description": "Payment for AC Cleaning service",
+        "description_ar": "دفع لخدمة تنظيف المكيف",
+        "paid_at": "2025-11-10T14:35:00.000Z",
+        "created_at": "2025-11-10T14:30:00.000Z"
+      },
+      {
+        "id": "payment-uuid-2",
+        "reference_type": "subscription",
+        "reference_id": "subscription-uuid-1",
+        "reference_number": "Home Care Basic",
+        "amount": 918.85,
+        "status": "paid",
+        "payment_method": "tabby",
+        "payment_source": "bnpl",
+        "description": "Subscription package payment",
+        "description_ar": "دفع باقة الاشتراك",
+        "paid_at": "2025-11-01T10:00:00.000Z",
+        "created_at": "2025-11-01T09:55:00.000Z"
+      },
+      {
+        "id": "payment-uuid-3",
+        "reference_type": "wallet_top_up",
+        "reference_id": "txn-uuid-5",
+        "reference_number": "Top-up",
+        "amount": 500.00,
+        "status": "paid",
+        "payment_method": "moyasar",
+        "payment_source": "mada",
+        "description": "Wallet top-up",
+        "description_ar": "تعبئة المحفظة",
+        "paid_at": "2025-10-28T16:20:00.000Z",
+        "created_at": "2025-10-28T16:18:00.000Z"
+      },
+      {
+        "id": "payment-uuid-4",
+        "reference_type": "booking",
+        "reference_id": "booking-uuid-3",
+        "reference_number": "RKZ-2025-001150",
+        "amount": 270.00,
+        "status": "refunded",
+        "payment_method": "moyasar",
+        "payment_source": "creditcard",
+        "description": "Payment refunded due to cancellation",
+        "description_ar": "تم استرداد المبلغ بسبب الإلغاء",
+        "refunded_at": "2025-10-25T11:30:00.000Z",
+        "paid_at": "2025-10-20T14:00:00.000Z",
+        "created_at": "2025-10-20T13:58:00.000Z"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 3,
+      "total_items": 48,
+      "per_page": 20
+    },
+    "summary": {
+      "total_paid": 8450.00,
+      "total_refunded": 540.00,
+      "total_pending": 0.00
+    }
+  }
+}
+```
+
+**Payment Status Values:**
+- `pending`: Payment initiated, awaiting completion
+- `paid`: Payment completed successfully
+- `failed`: Payment failed
+- `refunded`: Payment was refunded
+
+**Reference Types:**
+- `booking`: Single service booking payment
+- `subscription`: Subscription package purchase
+- `wallet_top_up`: Wallet balance top-up
+
+---
+
 ## Subscriptions
 
 ### Get Subscription Packages
