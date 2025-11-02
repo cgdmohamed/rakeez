@@ -2335,6 +2335,215 @@ await Share.share(shareData);
 
 ---
 
+## Credits & Coupons
+
+### Get Credit Balance
+View your available promotional credits.
+
+**Endpoint:** `GET /api/v2/credits/balance`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Credit balance retrieved successfully",
+  "message_ar": "تم استرداد رصيد النقاط بنجاح",
+  "data": {
+    "available_balance": 150.50,
+    "expired_balance": 50.00,
+    "expiring_soon": 30.00,
+    "expiring_soon_date": "2025-12-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Get Credit History
+View your credit transaction history.
+
+**Endpoint:** `GET /api/v2/credits/history`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Query Parameters:**
+- `limit`: Results per page (default: 50)
+- `offset`: Pagination offset (default: 0)
+- `type`: Filter by type (optional)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Credit history retrieved successfully",
+  "message_ar": "تم استرداد سجل النقاط بنجاح",
+  "data": {
+    "transactions": [
+      {
+        "id": "trans-uuid-1",
+        "type": "welcome_bonus",
+        "amount": 20.00,
+        "reason": "Welcome bonus",
+        "reason_ar": "مكافأة الترحيب",
+        "balance": 20.00,
+        "is_expired": false,
+        "expires_at": "2026-02-01T00:00:00.000Z",
+        "created_at": "2025-11-02T06:00:00.000Z"
+      }
+    ],
+    "total": 5,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+**Transaction Types:**
+- `welcome_bonus`: Initial signup bonus (20 SAR default)
+- `referral_reward`: Referral program reward
+- `loyalty_cashback`: Percentage back on completed bookings
+- `admin_credit`: Manual credit from admin
+- `used`: Credit used for booking payment
+
+---
+
+### Validate Coupon
+Check if a coupon code is valid for your booking.
+
+**Endpoint:** `POST /api/v2/coupons/validate`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Accept-Language: en | ar
+```
+
+**Request Body:**
+```json
+{
+  "code": "WELCOME20",
+  "service_id": "service-uuid-1",
+  "order_amount": 200.00
+}
+```
+
+**Validation Rules:**
+- Coupon must be active and not expired
+- Usage limits not exceeded (total and per-user)
+- Service must be eligible (if serviceIds specified)
+- Order amount must meet minimum requirement
+- First-time only restriction (if applicable)
+
+**Response (200 OK - Valid Coupon):**
+```json
+{
+  "success": true,
+  "message": "Coupon applied successfully",
+  "message_ar": "تم تطبيق الكوبون بنجاح",
+  "data": {
+    "coupon_id": "coupon-uuid-1",
+    "code": "WELCOME20",
+    "discount_type": "percentage",
+    "discount_value": 20.00,
+    "discount_amount": 40.00,
+    "min_order_amount": 100.00,
+    "final_amount": 160.00,
+    "original_amount": 200.00,
+    "savings": 40.00
+  }
+}
+```
+
+**Response (400 Bad Request - Invalid Coupon):**
+```json
+{
+  "success": false,
+  "message": "Coupon has expired",
+  "message_ar": "انتهت صلاحية الكوبون"
+}
+```
+
+**Common Error Messages:**
+- `coupon.not_found`: Coupon code doesn't exist
+- `coupon.not_active`: Coupon is deactivated
+- `coupon.expired`: Coupon validity period has passed
+- `coupon.usage_limit_reached`: Maximum uses exceeded
+- `coupon.first_time_only`: Only valid for first-time users
+- `coupon.not_for_service`: Not valid for selected service
+- `coupon.min_order_not_met`: Order amount below minimum
+
+---
+
+### Using Credits & Coupons in Booking
+
+**During Booking Creation:**
+Include the `coupon_code` in your booking request:
+
+```json
+{
+  "service_id": "service-uuid-1",
+  "tier_id": "tier-uuid-1",
+  "address_id": "addr-uuid-1",
+  "scheduled_date": "2025-11-15",
+  "scheduled_time": "09:00",
+  "coupon_code": "WELCOME20"
+}
+```
+
+The coupon discount will be applied automatically and reflected in the booking total.
+
+**During Payment:**
+Use your promotional credits by including these fields:
+
+```json
+{
+  "booking_id": "booking-uuid-1",
+  "payment_method": "moyasar",
+  "use_credits": true,
+  "credits_amount": 50.00,
+  "wallet_amount": 100.00
+}
+```
+
+**Payment Order:**
+1. Promotional credits applied first (max 30% of booking)
+2. Wallet balance deducted second
+3. Remaining amount charged via payment gateway
+
+**Credit Limits:**
+- Maximum credit usage: 30% of booking amount
+- Minimum booking for credits: 50 SAR
+- Credits expire after 90 days (configurable)
+
+---
+
+### Automated Rewards
+
+You automatically earn promotional credits for:
+
+| Event | Reward | Trigger |
+|-------|--------|---------|
+| New Account | 20 SAR | Upon successful registration |
+| First Booking | 30 SAR | When first booking is completed |
+| Loyalty Cashback | 2% of amount | On every completed booking |
+| Referral (Inviter) | 50 SAR | When referee completes first booking |
+| Referral (Invitee) | 30 SAR | When you complete your first booking with referral code |
+
+All rewards are added to your credit balance automatically and expire after 90 days.
+
+---
+
 ## Support & Help
 
 ### Get FAQs

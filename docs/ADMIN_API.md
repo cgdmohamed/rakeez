@@ -1519,6 +1519,272 @@ Update campaign details.
 
 ---
 
+## Marketing & Loyalty
+
+### Coupon Management
+
+#### Create Coupon
+Create a new discount coupon.
+
+**Endpoint:** `POST /api/v2/admin/coupons`
+
+**Request Body:**
+```json
+{
+  "code": "WELCOME20",
+  "type": "percentage",
+  "value": 20.00,
+  "description_en": "20% off for new customers",
+  "description_ar": "خصم 20% للعملاء الجدد",
+  "validFrom": "2025-01-01T00:00:00.000Z",
+  "validUntil": "2025-12-31T23:59:59.000Z",
+  "maxUsesTotal": 1000,
+  "maxUsesPerUser": 1,
+  "minOrderAmount": 100.00,
+  "maxDiscountAmount": 50.00,
+  "serviceIds": ["service-uuid-1", "service-uuid-2"],
+  "firstTimeOnly": true,
+  "isActive": true
+}
+```
+
+**Validation:**
+- `code`: Required, 3-50 characters, uppercase alphanumeric
+- `type`: Required, "percentage" or "fixed_amount"
+- `value`: Required, > 0
+- `validFrom`: Required, ISO date
+- `validUntil`: Optional, ISO date (must be after validFrom)
+- `maxUsesTotal`: Optional, > 0
+- `maxUsesPerUser`: Optional, > 0
+- `minOrderAmount`: Optional, >= 0
+- `serviceIds`: Optional, array of service UUIDs
+- `firstTimeOnly`: Optional, boolean
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Coupon created successfully",
+  "data": {
+    "id": "coupon-uuid-1",
+    "code": "WELCOME20",
+    "type": "percentage",
+    "value": 20.00,
+    "currentUses": 0,
+    "isActive": true,
+    "createdAt": "2025-11-02T06:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### Get All Coupons
+Retrieve all coupons with filtering.
+
+**Endpoint:** `GET /api/v2/admin/coupons`
+
+**Query Parameters:**
+- `status`: "active", "expired", or "all" (default: "all")
+- `search`: Search by code or description
+- `limit`: Results per page (default: 50)
+- `offset`: Pagination offset (default: 0)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Coupons retrieved successfully",
+  "data": {
+    "coupons": [...],
+    "total": 25,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+---
+
+#### Get Coupon Details
+Get detailed coupon information with usage statistics.
+
+**Endpoint:** `GET /api/v2/admin/coupons/:id`
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Coupon retrieved successfully",
+  "data": {
+    "id": "coupon-uuid-1",
+    "code": "WELCOME20",
+    "type": "percentage",
+    "value": 20.00,
+    "currentUses": 150,
+    "maxUsesTotal": 1000,
+    "totalDiscountGiven": 1250.50,
+    "uniqueUsers": 145,
+    "isActive": true
+  }
+}
+```
+
+---
+
+#### Update Coupon
+Update an existing coupon.
+
+**Endpoint:** `PUT /api/v2/admin/coupons/:id`
+
+**Request Body:** Same as create (all fields optional)
+
+---
+
+#### Delete Coupon
+Soft delete a coupon (marks as inactive).
+
+**Endpoint:** `DELETE /api/v2/admin/coupons/:id`
+
+---
+
+#### Get Coupon Usage
+View coupon usage history.
+
+**Endpoint:** `GET /api/v2/admin/coupons/:id/usage`
+
+**Query Parameters:**
+- `limit`: Results per page (default: 50)
+- `offset`: Pagination offset (default: 0)
+
+---
+
+### Credit Management
+
+#### Add Credits to User
+Admin grants promotional credits to a user.
+
+**Endpoint:** `POST /api/v2/admin/credits/add`
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid-1",
+  "amount": 100.00,
+  "reason_en": "Promotional credit for loyal customer",
+  "reason_ar": "رصيد ترويجي للعميل المخلص",
+  "expiresAt": "2025-12-31T23:59:59.000Z"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Credit added successfully",
+  "data": {
+    "transactionId": "trans-uuid-1",
+    "userId": "user-uuid-1",
+    "amount": 100.00,
+    "newBalance": 150.50,
+    "expiresAt": "2025-12-31T23:59:59.000Z"
+  }
+}
+```
+
+---
+
+#### Deduct Credits from User
+Admin deducts credits from a user.
+
+**Endpoint:** `POST /api/v2/admin/credits/deduct`
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid-1",
+  "amount": 50.00,
+  "reason_en": "Correction for duplicate credit",
+  "reason_ar": "تصحيح لرصيد مكرر"
+}
+```
+
+---
+
+#### View User Credits
+Get detailed credit information for any user.
+
+**Endpoint:** `GET /api/v2/admin/credits/users/:userId`
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Credit balance retrieved successfully",
+  "data": {
+    "userId": "user-uuid-1",
+    "userName": "Ahmed Ali",
+    "userEmail": "ahmed@example.com",
+    "available_balance": 150.50,
+    "expired_balance": 50.00,
+    "expiring_soon": 30.00,
+    "expiring_soon_date": "2025-12-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Loyalty Settings
+
+#### Get Loyalty Settings
+Retrieve current loyalty program configuration.
+
+**Endpoint:** `GET /api/v2/admin/loyalty-settings`
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Loyalty settings retrieved successfully",
+  "data": {
+    "welcome_bonus_amount": 20.00,
+    "first_booking_bonus_amount": 30.00,
+    "referrer_reward_amount": 50.00,
+    "referee_reward_amount": 30.00,
+    "cashback_percentage": 2.00,
+    "credit_expiry_days": 90,
+    "max_credit_percentage": 30.00,
+    "min_booking_for_credit": 50.00,
+    "is_active": true
+  }
+}
+```
+
+---
+
+#### Update Loyalty Settings
+Modify loyalty program parameters.
+
+**Endpoint:** `PUT /api/v2/admin/loyalty-settings`
+
+**Request Body:** (all fields optional)
+```json
+{
+  "welcome_bonus_amount": 25.00,
+  "cashback_percentage": 3.00,
+  "max_credit_percentage": 40.00
+}
+```
+
+**Validation:**
+- All amount fields: >= 0, <= 10000
+- `cashback_percentage`: >= 0, <= 50
+- `credit_expiry_days`: >= 1, <= 365
+- `max_credit_percentage`: >= 0, <= 100
+
+---
+
 ## Mobile Content
 
 ### Get Home Slider Images
