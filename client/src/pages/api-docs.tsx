@@ -172,6 +172,35 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           message: 'OTP resent successfully'
         }
       }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/auth/change-password',
+      title: 'Change Password',
+      titleAr: 'تغيير كلمة المرور',
+      description: 'Change password for authenticated user with strong validation',
+      descriptionAr: 'تغيير كلمة المرور للمستخدم المصادق عليه مع التحقق القوي',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          current_password: 'OldPass123!',
+          new_password: 'NewPass456!',
+          confirm_password: 'NewPass456!'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Password changed successfully',
+          message_ar: 'تم تغيير كلمة المرور بنجاح'
+        },
+        error: {
+          success: false,
+          message: 'Current password is incorrect',
+          message_ar: 'كلمة المرور الحالية غير صحيحة'
+        }
+      }
     }
   ],
   profile: [
