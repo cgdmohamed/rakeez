@@ -1,0 +1,49 @@
+Extend the existing Rakeez Customer API (v2) to include the missing endpoints required for the full mobile application experience. Follow the same RESTful structure, naming conventions, authentication, and response format defined in the current documentation.
+
+Specifically, design and document the following new API endpoints:
+
+Change Password:
+POST /api/v2/auth/change-password — requires authentication and accepts current_password, new_password, and confirm_new_password. Validate the old password and update securely.
+
+Edit Booking:
+PUT /api/v2/bookings/:id — allows modifying date, time, notes, and address for pending bookings before technician assignment. Returns updated booking details.
+
+Active Subscriptions:
+GET /api/v2/subscriptions — returns a list of customer’s active and expired subscriptions with package name, start/end dates, and renewal status.
+
+Cancel Subscription:
+POST /api/v2/subscriptions/:id/cancel — cancels a current subscription and optionally issues a prorated refund to the wallet.
+
+Wallet Top-Up:
+POST /api/v2/wallet/top-up — creates a Moyasar or Tabby payment link to add funds to the user’s wallet. Includes callback URL, amount, and payment method.
+
+Payment History:
+GET /api/v2/payments/history — lists past payment transactions with booking or subscription references, payment method, and status.
+
+Notification Settings:
+GET /api/v2/profile/notifications and PUT /api/v2/profile/notifications — manage push notification preferences such as order updates, promotions, and support alerts.
+
+Referral Sharing:
+GET /api/v2/referrals/share-link — generates a short shareable referral link or QR code tied to the user’s referral code.
+
+Support Ticket Attachments:
+POST /api/v2/support/tickets/:id/attachments — allows users to upload files (images, PDFs) to an existing ticket. Returns attachment URLs.
+
+App Configuration & Maintenance Status:
+GET /api/v2/app/config — provides global configuration such as supported languages, maintenance flag, minimum app version, and contact info.
+
+Ensure all endpoints:
+
+Use JWT Bearer authentication for protected routes.
+
+Return bilingual responses (message / message_ar).
+
+Include consistent success/error structures and validation rules.
+
+Support pagination where applicable.
+
+Maintain the same tone, clarity, and JSON schema style as existing sections.
+
+Include at least one example request and response for each new endpoint.
+
+Output the result as a well-formatted Markdown API documentation section ready to be appended to the current file.
