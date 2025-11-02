@@ -717,7 +717,7 @@ export default function CustomerProfile() {
                         <TableCell>{ticket.subject}</TableCell>
                         <TableCell>{getStatusBadge(ticket.priority)}</TableCell>
                         <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                        <TableCell>{format(new Date(ticket.createdAt), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>{ticket.createdAt ? format(new Date(ticket.createdAt), 'MMM dd, yyyy') : '-'}</TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"
