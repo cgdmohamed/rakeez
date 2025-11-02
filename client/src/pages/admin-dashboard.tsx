@@ -193,7 +193,21 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
   };
 
   const toggleGroup = (section: string) => {
-    setOpenGroups(prev => ({ ...prev, [section]: !prev[section] }));
+    setOpenGroups(prev => {
+      // If the clicked section is already open, close it
+      const currentlyOpen = prev[section];
+      
+      // Create new state with all groups closed
+      const newState = Object.keys(prev).reduce((acc, key) => {
+        acc[key] = false;
+        return acc;
+      }, {} as Record<string, boolean>);
+      
+      // Open the clicked section only if it was previously closed
+      newState[section] = !currentlyOpen;
+      
+      return newState;
+    });
   };
 
   const user = userProfile?.data;
