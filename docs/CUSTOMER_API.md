@@ -715,6 +715,122 @@ Authorization: Bearer <access_token>
 
 ---
 
+### Get Notification Settings
+
+Retrieve user's notification preferences.
+
+**Endpoint:** `GET /api/v2/profile/notifications`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "push_enabled": true,
+    "email_enabled": true,
+    "sms_enabled": false,
+    "preferences": {
+      "order_updates": true,
+      "order_confirmed": true,
+      "technician_assigned": true,
+      "technician_on_way": true,
+      "service_started": true,
+      "service_completed": true,
+      "order_cancelled": false,
+      "promotions": true,
+      "new_offers": true,
+      "subscription_reminders": true,
+      "subscription_expiring": true,
+      "subscription_renewed": false,
+      "support_updates": true,
+      "ticket_reply": true,
+      "ticket_closed": false,
+      "payment_confirmations": true,
+      "payment_successful": true,
+      "payment_failed": true,
+      "wallet_updates": true,
+      "wallet_credited": true,
+      "wallet_debited": false
+    },
+    "quiet_hours": {
+      "enabled": false,
+      "start_time": "22:00",
+      "end_time": "08:00"
+    }
+  }
+}
+```
+
+---
+
+### Update Notification Settings
+
+Manage push notification preferences.
+
+**Endpoint:** `PUT /api/v2/profile/notifications`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "push_enabled": true,
+  "email_enabled": true,
+  "sms_enabled": false,
+  "preferences": {
+    "order_updates": true,
+    "promotions": false,
+    "support_updates": true,
+    "payment_confirmations": true,
+    "wallet_updates": false
+  },
+  "quiet_hours": {
+    "enabled": true,
+    "start_time": "23:00",
+    "end_time": "07:00"
+  }
+}
+```
+
+**Validation Rules:**
+- `push_enabled`: Optional boolean, enable/disable all push notifications
+- `email_enabled`: Optional boolean, enable/disable email notifications
+- `sms_enabled`: Optional boolean, enable/disable SMS notifications
+- `preferences`: Optional object, specific notification preferences
+- `quiet_hours`: Optional object, do-not-disturb schedule
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Notification settings updated successfully",
+  "message_ar": "تم تحديث إعدادات الإشعارات بنجاح",
+  "data": {
+    "push_enabled": true,
+    "preferences_updated": 5
+  }
+}
+```
+
+**Preference Categories:**
+- **Order Updates**: Booking confirmations, technician assignments, service status
+- **Promotions**: Marketing offers, new services, special deals
+- **Subscription Reminders**: Package expiration, renewal notifications
+- **Support**: Ticket replies, ticket status changes
+- **Payment**: Payment confirmations, wallet transactions
+
+---
+
 ## Service Discovery
 
 ### Get Service Categories
@@ -2156,6 +2272,55 @@ Accept-Language: en | ar
     ]
   }
 }
+```
+
+---
+
+### Get Referral Share Link
+
+Generate a shareable referral link or QR code.
+
+**Endpoint:** `GET /api/v2/referrals/share-link`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Accept-Language: en | ar
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "referral_code": "AHMED2025",
+    "share_link": "https://rakeez.sa/ref/AHMED2025",
+    "short_link": "https://rkz.sa/r/AHMED2025",
+    "qr_code_url": "https://api.rakeez.sa/qr/AHMED2025.png",
+    "share_message": "Join Rakeez using my code AHMED2025 and get 10% off your first booking!",
+    "share_message_ar": "انضم إلى راكز باستخدام كودي AHMED2025 واحصل على خصم 10٪ على أول حجز!",
+    "reward_amount": 30.00,
+    "friend_discount": "10%",
+    "valid_until": "2025-12-31T23:59:59.000Z"
+  }
+}
+```
+
+**Usage Notes:**
+- Share link can be shared via social media, WhatsApp, SMS, or email
+- QR code can be saved and shared as an image
+- The referral code is automatically applied when friends register via the link
+- Both referrer and referee earn rewards when the first booking is completed
+
+**Integration Example:**
+```javascript
+// Mobile app sharing
+const shareData = {
+  title: 'Join Rakeez',
+  message: response.data.share_message,
+  url: response.data.short_link
+};
+await Share.share(shareData);
 ```
 
 ---
