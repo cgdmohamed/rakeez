@@ -703,10 +703,6 @@ const messages: BilingualMessages = {
     en: 'Cannot edit booking in current status',
     ar: 'لا يمكن تعديل الحجز في الحالة الحالية'
   },
-  'booking.not_found': {
-    en: 'Booking not found',
-    ar: 'الحجز غير موجود'
-  },
   'subscription.cancelled_successfully': {
     en: 'Subscription cancelled successfully',
     ar: 'تم إلغاء الاشتراك بنجاح'
@@ -726,10 +722,6 @@ const messages: BilingualMessages = {
   'support.attachments_uploaded': {
     en: 'Attachments uploaded successfully',
     ar: 'تم رفع المرفقات بنجاح'
-  },
-  'support.ticket_not_found': {
-    en: 'Support ticket not found',
-    ar: 'تذكرة الدعم غير موجودة'
   },
   'app.config_retrieved': {
     en: 'App configuration retrieved successfully',
