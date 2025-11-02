@@ -4,17 +4,27 @@
 - [Introduction](#introduction)
 - [Base URL & Conventions](#base-url--conventions)
 - [Authentication](#authentication)
+  - [Change Password](#change-password)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
 - [Account Management](#account-management)
 - [Profile & Addresses](#profile--addresses)
+  - [Notification Settings](#get-notification-settings)
 - [Service Discovery](#service-discovery)
 - [Booking & Scheduling](#booking--scheduling)
+  - [Edit Booking](#edit-booking)
 - [Orders & Tracking](#orders--tracking)
 - [Payments & Wallet](#payments--wallet)
+  - [Wallet Top-Up](#wallet-top-up)
+  - [Payment History](#get-payment-history)
 - [Subscriptions](#subscriptions)
+  - [Active Subscriptions](#get-active-subscriptions)
+  - [Cancel Subscription](#cancel-subscription)
 - [Referrals & Rewards](#referrals--rewards)
+  - [Referral Sharing](#get-referral-share-link)
 - [Support & Help](#support--help)
+  - [Upload Attachments](#upload-ticket-attachments)
+- [App Configuration](#app-configuration)
 
 ---
 
@@ -2537,6 +2547,106 @@ Content-Type: application/json
 
 ---
 
+### Upload Ticket Attachments
+
+Upload files (images, PDFs) to an existing support ticket.
+
+**Endpoint:** `POST /api/v2/support/tickets/:id/attachments`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Request Body (Form Data):**
+- `files`: File(s) to upload (max 5 files per request)
+- `message`: Optional message accompanying the attachments
+
+**Validation Rules:**
+- Maximum 5 files per request
+- Supported formats: JPG, PNG, PDF, HEIC
+- Maximum file size: 10MB per file
+- Total request size: 50MB maximum
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Attachments uploaded successfully",
+  "message_ar": "تم رفع المرفقات بنجاح",
+  "data": {
+    "ticket_id": "ticket-uuid-1",
+    "attachments": [
+      {
+        "id": "attachment-uuid-1",
+        "file_name": "screenshot.jpg",
+        "file_type": "image/jpeg",
+        "file_size": 245780,
+        "file_url": "https://storage.rakeez.sa/support/ticket-uuid-1/screenshot.jpg",
+        "thumbnail_url": "https://storage.rakeez.sa/support/ticket-uuid-1/thumb_screenshot.jpg",
+        "uploaded_at": "2025-11-10T17:00:00.000Z"
+      },
+      {
+        "id": "attachment-uuid-2",
+        "file_name": "payment_receipt.pdf",
+        "file_type": "application/pdf",
+        "file_size": 156420,
+        "file_url": "https://storage.rakeez.sa/support/ticket-uuid-1/payment_receipt.pdf",
+        "uploaded_at": "2025-11-10T17:00:00.000Z"
+      }
+    ],
+    "message_id": "msg-uuid-4"
+  }
+}
+```
+
+**Error Response (413 Payload Too Large):**
+```json
+{
+  "success": false,
+  "message": "File size exceeds maximum allowed size of 10MB",
+  "message_ar": "حجم الملف يتجاوز الحد الأقصى المسموح به وهو 10 ميجابايت"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Unsupported file format. Allowed formats: JPG, PNG, PDF, HEIC",
+  "message_ar": "صيغة الملف غير مدعومة. الصيغ المسموحة: JPG, PNG, PDF, HEIC"
+}
+```
+
+**Usage Notes:**
+- Attachments are automatically associated with the ticket
+- Support agents are notified when new attachments are uploaded
+- Files are securely stored and accessible only to ticket participants
+- Attachments remain available for 90 days after ticket closure
+
+**Mobile Integration Example:**
+```javascript
+// React Native example
+const formData = new FormData();
+formData.append('files', {
+  uri: imageUri,
+  type: 'image/jpeg',
+  name: 'screenshot.jpg'
+});
+formData.append('message', 'Payment screenshot attached');
+
+await fetch(`/api/v2/support/tickets/${ticketId}/attachments`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  },
+  body: formData
+});
+```
+
+---
+
 ### Rate Support Ticket
 
 Provide feedback on resolved ticket.
@@ -2568,6 +2678,168 @@ Content-Type: application/json
   "success": true,
   "message": "Thank you for your feedback",
   "message_ar": "شكراً لملاحظاتك"
+}
+```
+
+---
+
+## App Configuration
+
+### Get App Configuration
+
+Retrieve global application configuration including supported languages, maintenance status, minimum app version, and contact information.
+
+**Endpoint:** `GET /api/v2/app/config`
+
+**Request Headers:**
+```http
+Accept-Language: en | ar (optional)
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "app_name": "Rakeez",
+    "app_name_ar": "راكز",
+    "current_version": "2.1.0",
+    "minimum_version": {
+      "ios": "2.0.0",
+      "android": "2.0.0"
+    },
+    "force_update_required": false,
+    "maintenance": {
+      "enabled": false,
+      "scheduled_start": null,
+      "scheduled_end": null,
+      "message": null,
+      "message_ar": null
+    },
+    "supported_languages": [
+      {
+        "code": "en",
+        "name": "English",
+        "is_default": true,
+        "rtl": false
+      },
+      {
+        "code": "ar",
+        "name": "العربية",
+        "is_default": false,
+        "rtl": true
+      }
+    },
+    "supported_payment_methods": [
+      {
+        "method": "moyasar",
+        "enabled": true,
+        "sources": ["creditcard", "mada", "applepay"]
+      },
+      {
+        "method": "tabby",
+        "enabled": true,
+        "sources": ["bnpl"]
+      },
+      {
+        "method": "wallet",
+        "enabled": true,
+        "sources": ["balance"]
+      }
+    ],
+    "features": {
+      "subscriptions_enabled": true,
+      "referrals_enabled": true,
+      "wallet_enabled": true,
+      "live_tracking_enabled": true,
+      "chat_support_enabled": true
+    },
+    "contact": {
+      "customer_service_phone": "+966920001234",
+      "customer_service_email": "support@rakeez.sa",
+      "emergency_phone": "+966920001234",
+      "whatsapp": "+966501234567",
+      "working_hours": {
+        "weekdays": "08:00 - 22:00",
+        "weekends": "09:00 - 20:00"
+      }
+    },
+    "social_media": {
+      "facebook": "https://facebook.com/rakeez.sa",
+      "twitter": "https://twitter.com/rakeez_sa",
+      "instagram": "https://instagram.com/rakeez.sa",
+      "linkedin": "https://linkedin.com/company/rakeez"
+    },
+    "legal": {
+      "terms_url": "https://rakeez.sa/terms",
+      "privacy_url": "https://rakeez.sa/privacy",
+      "help_center_url": "https://help.rakeez.sa"
+    },
+    "currency": {
+      "code": "SAR",
+      "symbol": "﷼",
+      "decimal_places": 2
+    },
+    "tax_rate": 0.15
+  }
+}
+```
+
+**Response (503 Service Unavailable - Maintenance Mode):**
+```json
+{
+  "success": false,
+  "message": "App is currently under maintenance. We'll be back soon!",
+  "message_ar": "التطبيق قيد الصيانة حالياً. سنعود قريباً!",
+  "maintenance": {
+    "enabled": true,
+    "scheduled_start": "2025-11-15T02:00:00.000Z",
+    "scheduled_end": "2025-11-15T06:00:00.000Z",
+    "message": "Scheduled maintenance for system upgrades",
+    "message_ar": "صيانة مجدولة لترقية النظام"
+  }
+}
+```
+
+**Usage Notes:**
+- This endpoint does NOT require authentication
+- Should be called on app startup to check for updates and maintenance
+- Cache the configuration locally and refresh periodically (e.g., once per hour)
+- Check `force_update_required` to prompt users to update the app
+- Display maintenance message when `maintenance.enabled` is true
+- Use `minimum_version` to enforce app updates for compatibility
+
+**Integration Example:**
+```javascript
+// Check app configuration on startup
+async function initializeApp() {
+  try {
+    const config = await fetch('/api/v2/app/config');
+    
+    // Check maintenance mode
+    if (config.maintenance.enabled) {
+      showMaintenanceScreen(config.maintenance);
+      return;
+    }
+    
+    // Check for required updates
+    const currentVersion = '2.0.5';
+    if (compareVersions(currentVersion, config.minimum_version.ios) < 0) {
+      if (config.force_update_required) {
+        forceAppUpdate();
+      } else {
+        showOptionalUpdateDialog();
+      }
+    }
+    
+    // Cache configuration
+    await AsyncStorage.setItem('app_config', JSON.stringify(config));
+    
+    // Continue app initialization
+    initializeFeatures(config.features);
+  } catch (error) {
+    // Handle error
+  }
 }
 ```
 
