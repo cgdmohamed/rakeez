@@ -369,6 +369,55 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           message: 'Avatar updated successfully'
         }
       }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/profile/notifications',
+      title: 'Get Notification Settings',
+      titleAr: 'إعدادات الإشعارات',
+      description: 'Get current notification preferences for push, SMS, and email',
+      descriptionAr: 'الحصول على تفضيلات الإشعارات الحالية للدفع والرسائل القصيرة والبريد الإلكتروني',
+      auth: true,
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            push_enabled: true,
+            sms_enabled: true,
+            email_enabled: false,
+            booking_updates: true,
+            promotions: false,
+            support_updates: true
+          }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/profile/notifications',
+      title: 'Update Notification Settings',
+      titleAr: 'تحديث إعدادات الإشعارات',
+      description: 'Update notification preferences',
+      descriptionAr: 'تحديث تفضيلات الإشعارات',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          push_enabled: true,
+          sms_enabled: false,
+          email_enabled: true,
+          booking_updates: true,
+          promotions: false,
+          support_updates: true
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Notification settings updated',
+          message_ar: 'تم تحديث إعدادات الإشعارات'
+        }
+      }
     }
   ],
   services: [
@@ -544,6 +593,70 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           }
         }
       }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/subscriptions/active',
+      title: 'Get Active Subscriptions',
+      titleAr: 'الاشتراكات النشطة',
+      description: 'Get all active subscription packages for authenticated customer',
+      descriptionAr: 'الحصول على جميع باقات الاشتراكات النشطة للعميل',
+      auth: true,
+      responseExample: {
+        success: {
+          success: true,
+          data: [
+            {
+              subscription_id: 'sub_123',
+              package_name: 'Premium Cleaning Package',
+              package_name_ar: 'باقة التنظيف المميزة',
+              status: 'active',
+              start_date: '2025-01-01',
+              end_date: '2025-01-31',
+              remaining_services: 5,
+              total_services: 10,
+              total_paid: '500.00'
+            }
+          ]
+        }
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v2/subscriptions/:id',
+      title: 'Cancel Subscription',
+      titleAr: 'إلغاء الاشتراك',
+      description: 'Cancel an active subscription with prorated refund based on usage',
+      descriptionAr: 'إلغاء اشتراك نشط مع استرداد تناسبي بناءً على الاستخدام',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          reason: 'Not satisfied with service',
+          reason_ar: 'غير راضٍ عن الخدمة'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Subscription cancelled successfully',
+          message_ar: 'تم إلغاء الاشتراك بنجاح',
+          data: {
+            subscription_id: 'sub_123',
+            status: 'cancelled',
+            refund: {
+              eligible: true,
+              amount: 250.00,
+              method: 'wallet'
+            }
+          }
+        },
+        error: {
+          success: false,
+          message: 'No refund applicable due to usage policy',
+          message_ar: 'لا يوجد استرداد مطبق بسبب سياسة الاستخدام'
+        }
+      }
     }
   ],
   bookings: [
@@ -648,6 +761,41 @@ const endpoints: Record<string, ApiEndpoint[]> = {
               phone: '+966501234567'
             }
           }
+        }
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/api/v2/bookings/:id',
+      title: 'Edit Booking',
+      titleAr: 'تعديل الحجز',
+      description: 'Edit booking details including date, time, address, and notes (before technician assignment)',
+      descriptionAr: 'تعديل تفاصيل الحجز بما في ذلك التاريخ والوقت والعنوان والملاحظات (قبل تعيين الفني)',
+      auth: true,
+      requestBody: {
+        type: 'object',
+        example: {
+          scheduled_date: '2024-01-25',
+          scheduled_time: '14:00',
+          address_id: 'addr_456',
+          notes: 'Updated cleaning instructions'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Booking updated successfully',
+          message_ar: 'تم تحديث الحجز بنجاح',
+          data: {
+            booking_id: 'bkg_123',
+            scheduled_date: '2024-01-25',
+            scheduled_time: '14:00'
+          }
+        },
+        error: {
+          success: false,
+          message: 'Cannot edit booking after technician is assigned',
+          message_ar: 'لا يمكن تعديل الحجز بعد تعيين الفني'
         }
       }
     },
@@ -828,6 +976,57 @@ const endpoints: Record<string, ApiEndpoint[]> = {
           message: 'Payment captured successfully'
         }
       }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/payments/history',
+      title: 'Get Payment History',
+      titleAr: 'سجل المدفوعات',
+      description: 'Get complete payment transaction history with filters',
+      descriptionAr: 'الحصول على سجل معاملات الدفع الكامل مع الفلاتر',
+      auth: true,
+      queryParams: [
+        {
+          name: 'status',
+          type: 'string',
+          required: false,
+          description: 'Filter by status (pending, completed, failed, refunded)',
+          descriptionAr: 'التصفية حسب الحالة (معلق، مكتمل، فاشل، مسترد)'
+        },
+        {
+          name: 'method',
+          type: 'string',
+          required: false,
+          description: 'Filter by payment method (moyasar, tabby, wallet)',
+          descriptionAr: 'التصفية حسب طريقة الدفع (ميسر، تابي، محفظة)'
+        }
+      ],
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            payments: [
+              {
+                id: 'pay_123',
+                booking_id: 'bkg_123',
+                amount: 500.00,
+                currency: 'SAR',
+                status: 'completed',
+                method: 'moyasar',
+                payment_date: '2025-01-15T10:00:00Z',
+                description: 'Deep Cleaning Service',
+                description_ar: 'خدمة التنظيف العميق'
+              }
+            ],
+            total_spent: 2500.00,
+            pagination: {
+              current_page: 1,
+              total_pages: 3,
+              total_items: 25
+            }
+          }
+        }
+      }
     }
   ],
   wallet: [
@@ -972,6 +1171,30 @@ const endpoints: Record<string, ApiEndpoint[]> = {
                 created_at: '2024-01-15T10:00:00Z'
               }
             ]
+          }
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/api/v2/referrals/share-link',
+      title: 'Get Referral Share Link',
+      titleAr: 'رابط مشاركة الإحالة',
+      description: 'Generate shareable referral link and QR code',
+      descriptionAr: 'إنشاء رابط إحالة قابل للمشاركة ورمز QR',
+      auth: true,
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            referral_code: 'AHMED2025',
+            share_link: 'https://rakeez.sa/ref/AHMED2025',
+            short_link: 'https://rkz.sa/r/AHMED2025',
+            qr_code_url: 'https://api.rakeez.sa/qr/AHMED2025.png',
+            share_message: 'Join Rakeez using my code AHMED2025 and get 10% off your first booking!',
+            share_message_ar: 'انضم إلى راكز باستخدام كودي AHMED2025 واحصل على خصم 10٪ على أول حجز!',
+            reward_amount: 30.00,
+            friend_discount: '10%'
           }
         }
       }
@@ -1166,6 +1389,46 @@ const endpoints: Record<string, ApiEndpoint[]> = {
         success: {
           success: true,
           message: 'Message sent successfully'
+        }
+      }
+    },
+    {
+      method: 'POST',
+      path: '/api/v2/support/tickets/:id/attachments',
+      title: 'Upload Ticket Attachments',
+      titleAr: 'رفع مرفقات التذكرة',
+      description: 'Upload files (images, PDFs) to support ticket',
+      descriptionAr: 'رفع ملفات (صور، ملفات PDF) إلى تذكرة الدعم',
+      auth: true,
+      requestBody: {
+        type: 'multipart/form-data',
+        example: {
+          files: 'File(s) to upload (max 5)',
+          message: 'Optional message with attachments'
+        }
+      },
+      responseExample: {
+        success: {
+          success: true,
+          message: 'Attachments uploaded successfully',
+          message_ar: 'تم رفع المرفقات بنجاح',
+          data: {
+            ticket_id: 'tkt_123',
+            attachments: [
+              {
+                id: 'att_123',
+                file_name: 'screenshot.jpg',
+                file_type: 'image/jpeg',
+                file_size: 245780,
+                file_url: 'https://storage.rakeez.sa/support/tkt_123/screenshot.jpg'
+              }
+            ]
+          }
+        },
+        error: {
+          success: false,
+          message: 'File size exceeds maximum allowed size of 10MB',
+          message_ar: 'حجم الملف يتجاوز الحد الأقصى المسموح به وهو 10 ميجابايت'
         }
       }
     }
@@ -2612,6 +2875,63 @@ const endpoints: Record<string, ApiEndpoint[]> = {
         }
       }
     }
+  ],
+  config: [
+    {
+      method: 'GET',
+      path: '/api/v2/app/config',
+      title: 'Get App Configuration',
+      titleAr: 'تكوين التطبيق',
+      description: 'Get global app configuration including maintenance status, version management, feature toggles, and contact information',
+      descriptionAr: 'الحصول على تكوين التطبيق العام بما في ذلك حالة الصيانة وإدارة الإصدار وميزات التبديل ومعلومات الاتصال',
+      auth: false,
+      responseExample: {
+        success: {
+          success: true,
+          data: {
+            app_name: 'Rakeez',
+            app_name_ar: 'راكز',
+            current_version: '2.1.0',
+            minimum_version: {
+              ios: '2.0.0',
+              android: '2.0.0'
+            },
+            force_update_required: false,
+            maintenance: {
+              enabled: false,
+              scheduled_start: null,
+              scheduled_end: null
+            },
+            supported_languages: [
+              { code: 'en', name: 'English', is_default: true },
+              { code: 'ar', name: 'العربية', is_default: false, rtl: true }
+            ],
+            features: {
+              subscriptions_enabled: true,
+              referrals_enabled: true,
+              wallet_enabled: true,
+              live_tracking_enabled: true
+            },
+            contact: {
+              customer_service_phone: '+966920001234',
+              customer_service_email: 'support@rakeez.sa',
+              whatsapp: '+966501234567'
+            },
+            currency: {
+              code: 'SAR',
+              symbol: '﷼',
+              decimal_places: 2
+            },
+            tax_rate: 0.15
+          }
+        },
+        error: {
+          success: false,
+          message: 'App is currently under maintenance',
+          message_ar: 'التطبيق قيد الصيانة حالياً'
+        }
+      }
+    }
   ]
 };
 
@@ -2645,7 +2965,8 @@ export default function ApiDocs() {
     notifications: { en: 'Notifications', ar: 'الإشعارات' },
     technician: { en: 'Technician', ar: 'الفني' },
     admin: { en: 'Admin', ar: 'الإدارة' },
-    uploads: { en: 'File Uploads', ar: 'رفع الملفات' }
+    uploads: { en: 'File Uploads', ar: 'رفع الملفات' },
+    config: { en: 'App Configuration', ar: 'تكوين التطبيق' }
   };
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -2738,7 +3059,7 @@ export default function ApiDocs() {
                   {isArabic ? 'توثيق واجهة برمجة التطبيقات - راكيز' : 'Rakeez API Documentation'}
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {isArabic ? 'الإصدار 2.0 - تفاعلي' : 'v2.0 Interactive'}
+                  {isArabic ? 'الإصدار 2.1 - تفاعلي' : 'v2.1 Interactive'}
                 </p>
               </div>
             </div>
