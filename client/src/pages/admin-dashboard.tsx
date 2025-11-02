@@ -155,7 +155,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
 
   const userId = localStorage.getItem('user_id');
   
-  const { data: userProfile } = useQuery<{ data: { nameEn?: string; nameAr?: string; email?: string } }>({
+  const { data: userProfile } = useQuery<{ data: { nameEn?: string; nameAr?: string; email?: string; avatar?: string; role?: string } }>({
     queryKey: ['/api/v2/admin/users', userId],
     enabled: !!userId,
   });

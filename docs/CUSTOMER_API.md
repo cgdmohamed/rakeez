@@ -365,6 +365,70 @@ Authorization: Bearer <access_token>
 
 ---
 
+### Change Password
+
+Change user's password (requires authentication).
+
+**Endpoint:** `POST /api/v2/auth/change-password`
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "current_password": "OldSecurePass123!",
+  "new_password": "NewSecurePass456!",
+  "confirm_new_password": "NewSecurePass456!"
+}
+```
+
+**Validation Rules:**
+- `current_password`: Required
+- `new_password`: Required, minimum 8 characters, must contain uppercase, lowercase, number, and special character
+- `confirm_new_password`: Required, must match `new_password`
+- New password must be different from current password
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Password changed successfully",
+  "message_ar": "تم تغيير كلمة المرور بنجاح"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Current password is incorrect",
+  "message_ar": "كلمة المرور الحالية غير صحيحة"
+}
+```
+
+**Error Response (422 Validation Error):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "message_ar": "فشل التحقق من صحة البيانات",
+  "errors": [
+    {
+      "field": "new_password",
+      "message": "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+    }
+  ]
+}
+```
+
+**Rate Limit:** 5 requests per 15 minutes
+
+---
+
 ## Error Handling
 
 ### HTTP Status Codes
