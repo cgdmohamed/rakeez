@@ -32,9 +32,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    hmr: process.env.REPL_ID 
-      ? { clientPort: 443 }  // On Replit: use secure websocket port
-      : true,                 // Locally or production: use default Vite HMR
+    hmr: process.env.REPL_ID
+      ? {
+          clientPort: 443,
+          host: process.env.REPLIT_DEV_DOMAIN || "localhost",
+        }
+      : true, // Locally or production: use default Vite HMR
     fs: {
       strict: true,
       deny: ["**/.*"],
