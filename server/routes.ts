@@ -37,7 +37,7 @@ import {
 import { VALID_PERMISSIONS } from "@shared/permissions";
 import * as referralController from "./controllers/referralController";
 import { db } from "./db";
-import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses, quotations, notificationSettings, appConfig } from "@shared/schema";
+import { bookings, payments, users, insertSubscriptionSchema, subscriptionPackages, serviceTiers, subscriptionPackageServices, services, subscriptions, addresses, quotations, notificationSettings, appConfig, coupons, couponUsages, walletTransactions, creditTransactions, loyaltySettings, wallets, referrals } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql, asc } from "drizzle-orm";
 
 const app = express();
@@ -206,6 +206,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language,
         deviceToken: device_token,
       });
+      
+      // Grant welcome bonus credit
+      try {
+        const [settings] = await db.select().from(loyaltySettings).where(eq(loyaltySettings.isActive, true)).limit(1);
+        
+        if (settings && Number(settings.welcomeBonusAmount) > 0) {
+          const amount = Number(settings.welcomeBonusAmount);
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+          
+          // For new users, balance equals the welcome bonus amount
+          await db.insert(creditTransactions).values({
+            userId: user.id,
+            type: 'welcome_bonus',
+            amount: amount.toFixed(2),
+            balance: amount.toFixed(2),
+            reason: { en: "Welcome bonus", ar: "مكافأة الترحيب" },
+            expiresAt: expiresAt,
+          });
+          
+          console.log(`Welcome bonus ${amount} SAR granted to user ${user.id}`);
+        }
+      } catch (creditError) {
+        // Log error but don't break registration flow
+        console.error('Failed to grant welcome bonus:', creditError);
+      }
       
       // Generate and send OTP
       const otp = twilioService.generateOTP();
@@ -3504,6 +3530,1211 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ==================== COUPON MANAGEMENT ENDPOINTS ====================
+  
+  // Create Coupon (Admin)
+  app.post('/api/v2/admin/coupons', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      code: z.string().min(3).max(50).toUpperCase(),
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }),
+      description: z.object({
+        en: z.string().optional(),
+        ar: z.string().optional(),
+      }).optional(),
+      type: z.enum(['percentage', 'fixed_amount']),
+      value: z.string().or(z.number()),
+      minOrderAmount: z.string().or(z.number()).optional(),
+      maxDiscountAmount: z.string().or(z.number()).optional(),
+      maxUsesTotal: z.number().int().positive().optional(),
+      maxUsesPerUser: z.number().int().positive().default(1),
+      serviceIds: z.array(z.string().uuid()).optional(),
+      firstTimeOnly: z.boolean().default(false),
+      validFrom: z.string().datetime().or(z.date()),
+      validUntil: z.string().datetime().or(z.date()).optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const couponData = req.body;
+      
+      // Check code uniqueness
+      const existingCoupon = await db.select().from(coupons).where(eq(coupons.code, couponData.code.toUpperCase())).limit(1);
+      
+      if (existingCoupon.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.code_already_exists', language),
+        });
+      }
+      
+      // Create the coupon
+      const [newCoupon] = await db.insert(coupons).values({
+        code: couponData.code.toUpperCase(),
+        name: couponData.name,
+        description: couponData.description || null,
+        type: couponData.type,
+        value: couponData.value.toString(),
+        minOrderAmount: couponData.minOrderAmount?.toString() || null,
+        maxDiscountAmount: couponData.maxDiscountAmount?.toString() || null,
+        maxUsesTotal: couponData.maxUsesTotal || null,
+        maxUsesPerUser: couponData.maxUsesPerUser,
+        serviceIds: couponData.serviceIds || null,
+        firstTimeOnly: couponData.firstTimeOnly,
+        validFrom: new Date(couponData.validFrom),
+        validUntil: couponData.validUntil ? new Date(couponData.validUntil) : null,
+        createdBy: req.user.id,
+      }).returning();
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'coupon_created',
+        resourceType: 'coupon',
+        resourceId: newCoupon.id,
+        newValues: { code: newCoupon.code }
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('coupon.created_successfully', language),
+        data: newCoupon,
+      });
+      
+    } catch (error) {
+      console.error('Create coupon error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Get All Coupons with Filtering (Admin)
+  app.get('/api/v2/admin/coupons', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const { status, search } = req.query;
+      
+      let query = db.select().from(coupons);
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      // Filter by status
+      if (status === 'active') {
+        conditions.push(eq(coupons.isActive, true));
+        conditions.push(
+          sql`(${coupons.validUntil} IS NULL OR ${coupons.validUntil} > NOW())`
+        );
+      } else if (status === 'expired') {
+        conditions.push(
+          sql`${coupons.validUntil} IS NOT NULL AND ${coupons.validUntil} < NOW()`
+        );
+      }
+      
+      // Search by code or name
+      if (search) {
+        conditions.push(
+          sql`(
+            UPPER(${coupons.code}) LIKE UPPER(${`%${search}%`})
+            OR ${coupons.name}::text ILIKE ${`%${search}%`}
+          )`
+        );
+      }
+      
+      // Apply filters
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+      
+      const couponsList = await query.orderBy(desc(coupons.createdAt));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('coupon.list_retrieved', language),
+        data: couponsList,
+      });
+      
+    } catch (error) {
+      console.error('Get coupons error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Get Single Coupon Details (Admin)
+  app.get('/api/v2/admin/coupons/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Get coupon
+      const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+      
+      if (!coupon) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_found', language),
+        });
+      }
+      
+      // Get usage statistics
+      const usageStats = await db
+        .select({
+          totalUsages: sql<number>`COUNT(*)::int`,
+          totalDiscountAmount: sql<string>`COALESCE(SUM(${couponUsages.discountAmount}), 0)`,
+        })
+        .from(couponUsages)
+        .where(eq(couponUsages.couponId, id));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('coupon.list_retrieved', language),
+        data: {
+          ...coupon,
+          statistics: {
+            totalUsages: usageStats[0]?.totalUsages || 0,
+            totalDiscountAmount: usageStats[0]?.totalDiscountAmount || '0',
+            remainingUses: coupon.maxUsesTotal 
+              ? coupon.maxUsesTotal - (usageStats[0]?.totalUsages || 0)
+              : null,
+          },
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get coupon details error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Update Coupon (Admin)
+  app.put('/api/v2/admin/coupons/:id', authenticateToken, authorizeRoles(['admin']), validateRequest({
+    body: z.object({
+      name: z.object({
+        en: z.string().min(1),
+        ar: z.string().min(1),
+      }).optional(),
+      description: z.object({
+        en: z.string().optional(),
+        ar: z.string().optional(),
+      }).optional(),
+      type: z.enum(['percentage', 'fixed_amount']).optional(),
+      value: z.string().or(z.number()).optional(),
+      minOrderAmount: z.string().or(z.number()).optional().nullable(),
+      maxDiscountAmount: z.string().or(z.number()).optional().nullable(),
+      maxUsesTotal: z.number().int().positive().optional().nullable(),
+      maxUsesPerUser: z.number().int().positive().optional(),
+      serviceIds: z.array(z.string().uuid()).optional().nullable(),
+      firstTimeOnly: z.boolean().optional(),
+      validFrom: z.string().datetime().or(z.date()).optional(),
+      validUntil: z.string().datetime().or(z.date()).optional().nullable(),
+      isActive: z.boolean().optional(),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      const updateData = req.body;
+      
+      // Check if coupon exists
+      const [existingCoupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+      
+      if (!existingCoupon) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_found', language),
+        });
+      }
+      
+      // Prepare update object (exclude code and currentUses)
+      const updateValues: any = {
+        updatedAt: new Date(),
+      };
+      
+      if (updateData.name) updateValues.name = updateData.name;
+      if (updateData.description !== undefined) updateValues.description = updateData.description;
+      if (updateData.type) updateValues.type = updateData.type;
+      if (updateData.value !== undefined) updateValues.value = updateData.value.toString();
+      if (updateData.minOrderAmount !== undefined) updateValues.minOrderAmount = updateData.minOrderAmount?.toString() || null;
+      if (updateData.maxDiscountAmount !== undefined) updateValues.maxDiscountAmount = updateData.maxDiscountAmount?.toString() || null;
+      if (updateData.maxUsesTotal !== undefined) updateValues.maxUsesTotal = updateData.maxUsesTotal;
+      if (updateData.maxUsesPerUser !== undefined) updateValues.maxUsesPerUser = updateData.maxUsesPerUser;
+      if (updateData.serviceIds !== undefined) updateValues.serviceIds = updateData.serviceIds;
+      if (updateData.firstTimeOnly !== undefined) updateValues.firstTimeOnly = updateData.firstTimeOnly;
+      if (updateData.validFrom) updateValues.validFrom = new Date(updateData.validFrom);
+      if (updateData.validUntil !== undefined) updateValues.validUntil = updateData.validUntil ? new Date(updateData.validUntil) : null;
+      if (updateData.isActive !== undefined) updateValues.isActive = updateData.isActive;
+      
+      // Update coupon
+      const [updatedCoupon] = await db
+        .update(coupons)
+        .set(updateValues)
+        .where(eq(coupons.id, id))
+        .returning();
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'coupon_updated',
+        resourceType: 'coupon',
+        resourceId: id,
+        oldValues: existingCoupon,
+        newValues: updateValues
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('coupon.updated_successfully', language),
+        data: updatedCoupon,
+      });
+      
+    } catch (error) {
+      console.error('Update coupon error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Delete Coupon (Soft Delete - Admin)
+  app.delete('/api/v2/admin/coupons/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if coupon exists
+      const [existingCoupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+      
+      if (!existingCoupon) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_found', language),
+        });
+      }
+      
+      // Soft delete (set isActive to false)
+      const [deletedCoupon] = await db
+        .update(coupons)
+        .set({ 
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(coupons.id, id))
+        .returning();
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'coupon_deleted',
+        resourceType: 'coupon',
+        resourceId: id,
+        oldValues: { isActive: true },
+        newValues: { isActive: false }
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('coupon.deleted_successfully', language),
+        data: deletedCoupon,
+      });
+      
+    } catch (error) {
+      console.error('Delete coupon error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // Get Coupon Usage History (Admin)
+  app.get('/api/v2/admin/coupons/:id/usage', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 50;
+      const offset = (page - 1) * limit;
+      
+      // Check if coupon exists
+      const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+      
+      if (!coupon) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_found', language),
+        });
+      }
+      
+      // Get usage history with user and booking details
+      const usageHistory = await db
+        .select({
+          id: couponUsages.id,
+          discountAmount: couponUsages.discountAmount,
+          usedAt: couponUsages.createdAt,
+          user: {
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            phone: users.phone,
+          },
+          booking: {
+            id: bookings.id,
+            totalAmount: bookings.totalAmount,
+            status: bookings.status,
+            scheduledDate: bookings.scheduledDate,
+          },
+        })
+        .from(couponUsages)
+        .innerJoin(users, eq(couponUsages.userId, users.id))
+        .innerJoin(bookings, eq(couponUsages.bookingId, bookings.id))
+        .where(eq(couponUsages.couponId, id))
+        .orderBy(desc(couponUsages.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get total count for pagination
+      const [{ count }] = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(couponUsages)
+        .where(eq(couponUsages.couponId, id));
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('coupon.list_retrieved', language),
+        data: {
+          coupon: {
+            id: coupon.id,
+            code: coupon.code,
+            name: coupon.name,
+          },
+          usage: usageHistory,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(count / limit),
+            totalItems: count,
+            itemsPerPage: limit,
+          },
+        },
+      });
+      
+    } catch (error) {
+      console.error('Get coupon usage history error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // ==================== CUSTOMER COUPON ENDPOINTS ====================
+  
+  // Validate Coupon (Customer)
+  app.post('/api/v2/coupons/validate', authenticateToken, validateRequest({
+    body: z.object({
+      code: z.string().min(1),
+      serviceId: z.string().uuid(),
+      orderAmount: z.string().or(z.number()).transform(val => Number(val)),
+    })
+  }), async (req: any, res: any) => {
+    try {
+      const { code, serviceId, orderAmount } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      const userId = req.user.id;
+      
+      // 1. Find coupon by code
+      const [coupon] = await db
+        .select()
+        .from(coupons)
+        .where(eq(coupons.code, code.toUpperCase()))
+        .limit(1);
+      
+      if (!coupon) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_found', language),
+        });
+      }
+      
+      // 2. Check if coupon is active
+      if (!coupon.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.not_active', language),
+        });
+      }
+      
+      // 3. Check if coupon is expired (validFrom <= NOW() <= validUntil)
+      const now = new Date();
+      if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.expired', language),
+        });
+      }
+      
+      if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.expired', language),
+        });
+      }
+      
+      // 4. Check total usage limit
+      if (coupon.maxUsesTotal !== null && coupon.currentUses >= coupon.maxUsesTotal) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.usage_limit_reached', language),
+        });
+      }
+      
+      // 5. Check per-user usage limit
+      const [{ count: userUsageCount }] = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(couponUsages)
+        .where(
+          and(
+            eq(couponUsages.userId, userId),
+            eq(couponUsages.couponId, coupon.id)
+          )
+        );
+      
+      if (coupon.maxUsesPerUser && userUsageCount >= coupon.maxUsesPerUser) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.usage_limit_reached', language),
+        });
+      }
+      
+      // 6. Check first-time only requirement
+      if (coupon.firstTimeOnly) {
+        const [{ count: completedBookingsCount }] = await db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(bookings)
+          .where(
+            and(
+              eq(bookings.userId, userId),
+              eq(bookings.status, 'completed')
+            )
+          );
+        
+        if (completedBookingsCount > 0) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('coupon.first_time_only', language),
+          });
+        }
+      }
+      
+      // 7. Check service eligibility (if serviceIds is not null, serviceId must be in array)
+      if (coupon.serviceIds && Array.isArray(coupon.serviceIds) && coupon.serviceIds.length > 0) {
+        if (!coupon.serviceIds.includes(serviceId)) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('coupon.not_for_service', language),
+          });
+        }
+      }
+      
+      // 8. Check minimum order amount
+      const minOrderAmount = coupon.minOrderAmount ? parseFloat(coupon.minOrderAmount) : 0;
+      if (orderAmount < minOrderAmount) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('coupon.min_order_not_met', language),
+        });
+      }
+      
+      // 9. Calculate discount
+      let discountAmount = 0;
+      const couponValue = parseFloat(coupon.value);
+      
+      if (coupon.type === 'percentage') {
+        // Calculate percentage discount
+        discountAmount = (orderAmount * couponValue) / 100;
+        
+        // Cap by maxDiscountAmount if set
+        if (coupon.maxDiscountAmount) {
+          const maxDiscount = parseFloat(coupon.maxDiscountAmount);
+          discountAmount = Math.min(discountAmount, maxDiscount);
+        }
+      } else if (coupon.type === 'fixed_amount') {
+        // Fixed amount discount, not exceeding orderAmount
+        discountAmount = Math.min(couponValue, orderAmount);
+      }
+      
+      // Ensure discount doesn't exceed order amount
+      discountAmount = Math.min(discountAmount, orderAmount);
+      
+      // Round to 2 decimal places
+      discountAmount = Math.round(discountAmount * 100) / 100;
+      const finalAmount = Math.round((orderAmount - discountAmount) * 100) / 100;
+      
+      // 10. Return success response
+      const messages = bilingual.getBilingual('coupon.applied_successfully');
+      res.json({
+        success: true,
+        message: messages.en,
+        message_ar: messages.ar,
+        data: {
+          coupon_id: coupon.id,
+          code: coupon.code,
+          discount_type: coupon.type,
+          discount_value: couponValue,
+          discount_amount: discountAmount,
+          min_order_amount: minOrderAmount,
+          final_amount: finalAmount,
+          original_amount: orderAmount,
+          savings: discountAmount,
+        },
+      });
+      
+    } catch (error) {
+      console.error('Validate coupon error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+      });
+    }
+  });
+  
+  // ==================== CREDIT SYSTEM ENDPOINTS ====================
+  
+  // GET /api/v2/credits/balance - Get current credit balance
+  app.get('/api/v2/credits/balance', authenticateToken, async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Calculate available balance (non-expired credits)
+      const availableResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, req.user.id),
+          eq(creditTransactions.isExpired, false)
+        )
+      );
+      
+      const availableBalance = parseFloat(availableResult[0]?.balance || '0');
+      
+      // Calculate expired balance
+      const expiredResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, req.user.id),
+          eq(creditTransactions.isExpired, true)
+        )
+      );
+      
+      const expiredBalance = parseFloat(expiredResult[0]?.balance || '0');
+      
+      // Calculate expiring soon (within 30 days)
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      
+      const expiringSoonResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`,
+        earliestExpiry: sql<Date>`MIN(${creditTransactions.expiresAt})`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, req.user.id),
+          eq(creditTransactions.isExpired, false),
+          lte(creditTransactions.expiresAt, thirtyDaysFromNow)
+        )
+      );
+      
+      const expiringSoon = parseFloat(expiringSoonResult[0]?.balance || '0');
+      const expiringSoonDate = expiringSoonResult[0]?.earliestExpiry || null;
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('credit.balance_retrieved', language),
+        data: {
+          available_balance: availableBalance,
+          expired_balance: Math.abs(expiredBalance),
+          expiring_soon: expiringSoon,
+          expiring_soon_date: expiringSoonDate ? expiringSoonDate.toISOString().split('T')[0] : null
+        }
+      });
+      
+    } catch (error) {
+      logApiError('Get credit balance error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // GET /api/v2/credits/history - Get credit transaction history
+  app.get('/api/v2/credits/history', authenticateToken, async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const type = req.query.type as string | undefined;
+      
+      // Build query conditions
+      let query = db.select()
+        .from(creditTransactions)
+        .where(eq(creditTransactions.userId, req.user.id))
+        .orderBy(desc(creditTransactions.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Add type filter if provided
+      if (type) {
+        query = db.select()
+          .from(creditTransactions)
+          .where(
+            and(
+              eq(creditTransactions.userId, req.user.id),
+              sql`${creditTransactions.type} = ${type}`
+            )
+          )
+          .orderBy(desc(creditTransactions.createdAt))
+          .limit(limit)
+          .offset(offset);
+      }
+      
+      // Fetch transactions
+      const transactions = await query;
+      
+      // Map transactions with localized reasons
+      const mappedTransactions = transactions.map(transaction => {
+        // Get localized reason from bilingual messages
+        const reasonKey = `credit.${transaction.type}`;
+        const localizedReason = bilingual.getMessage(reasonKey, language);
+        
+        // Use custom reason if provided in transaction, otherwise use the type-based message
+        const reason = transaction.reason 
+          ? (typeof transaction.reason === 'object' ? (transaction.reason as any)[language] || localizedReason : localizedReason)
+          : localizedReason;
+        
+        return {
+          id: transaction.id,
+          type: transaction.type,
+          amount: parseFloat(transaction.amount),
+          reason: reason,
+          expiresAt: transaction.expiresAt,
+          isExpired: transaction.isExpired,
+          balance: parseFloat(transaction.balance),
+          createdAt: transaction.createdAt
+        };
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('credit.history_retrieved', language),
+        data: {
+          transactions: mappedTransactions,
+          pagination: {
+            limit,
+            offset,
+            total: mappedTransactions.length
+          }
+        }
+      });
+      
+    } catch (error) {
+      logApiError('Get credit history error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== ADMIN CREDIT ENDPOINTS ====================
+  
+  // POST /api/v2/admin/credits/add - Admin adds credit to user
+  app.post('/api/v2/admin/credits/add', 
+    authenticateToken, 
+    authorizeRoles(['admin']),
+    validateRequest({
+      body: z.object({
+        userId: z.string().uuid(),
+        amount: z.number().positive(),
+        reason_en: z.string().min(1),
+        reason_ar: z.string().min(1),
+        expiresAt: z.string().optional()
+      })
+    }), 
+    async (req: any, res: any) => {
+    try {
+      const { userId, amount, reason_en, reason_ar, expiresAt } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if user exists
+      const targetUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!targetUser.length) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      // Get loyalty settings for default expiry
+      const loyaltySettingsResult = await db.select().from(loyaltySettings).limit(1);
+      const settings = loyaltySettingsResult[0];
+      
+      // Calculate expiry date
+      let expiryDate: Date | null = null;
+      if (expiresAt) {
+        expiryDate = new Date(expiresAt);
+      } else if (settings) {
+        expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + settings.creditExpiryDays);
+      }
+      
+      // Calculate new balance
+      const currentBalanceResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.isExpired, false)
+        )
+      );
+      
+      const currentBalance = parseFloat(currentBalanceResult[0]?.balance || '0');
+      const newBalance = currentBalance + amount;
+      
+      // Insert credit transaction
+      const transaction = await db.insert(creditTransactions).values({
+        userId,
+        type: 'admin_credit',
+        amount: amount.toString(),
+        balance: newBalance.toString(),
+        reason: { en: reason_en, ar: reason_ar },
+        referenceType: 'admin',
+        referenceId: req.user.id,
+        expiresAt: expiryDate,
+        isExpired: false
+      }).returning();
+      
+      // Audit log
+      await auditLog({
+        userId: req.user.id,
+        action: 'admin_add_credit',
+        resourceType: 'credit_transaction',
+        resourceId: transaction[0].id,
+        newValues: { userId, amount, reason_en, reason_ar, newBalance }
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: bilingual.getMessage('credit.added_successfully', language),
+        data: {
+          transaction_id: transaction[0].id,
+          user_id: userId,
+          amount: amount,
+          new_balance: newBalance,
+          expires_at: expiryDate
+        }
+      });
+      
+    } catch (error) {
+      logApiError('Admin add credit error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // POST /api/v2/admin/credits/deduct - Admin deducts credit from user
+  app.post('/api/v2/admin/credits/deduct', 
+    authenticateToken, 
+    authorizeRoles(['admin']),
+    validateRequest({
+      body: z.object({
+        userId: z.string().uuid(),
+        amount: z.number().positive(),
+        reason_en: z.string().min(1),
+        reason_ar: z.string().min(1)
+      })
+    }), 
+    async (req: any, res: any) => {
+    try {
+      const { userId, amount, reason_en, reason_ar } = req.body;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if user exists
+      const targetUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!targetUser.length) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      // Calculate current balance
+      const currentBalanceResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.isExpired, false)
+        )
+      );
+      
+      const currentBalance = parseFloat(currentBalanceResult[0]?.balance || '0');
+      
+      // Check sufficient balance
+      if (currentBalance < amount) {
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getMessage('credit.insufficient_balance', language),
+          data: {
+            current_balance: currentBalance,
+            requested_amount: amount
+          }
+        });
+      }
+      
+      const newBalance = currentBalance - amount;
+      
+      // Insert credit deduction transaction (negative amount)
+      const transaction = await db.insert(creditTransactions).values({
+        userId,
+        type: 'admin_credit',
+        amount: (-amount).toString(),
+        balance: newBalance.toString(),
+        reason: { en: reason_en, ar: reason_ar },
+        referenceType: 'admin',
+        referenceId: req.user.id,
+        isExpired: false
+      }).returning();
+      
+      // Audit log
+      await auditLog({
+        userId: req.user.id,
+        action: 'admin_deduct_credit',
+        resourceType: 'credit_transaction',
+        resourceId: transaction[0].id,
+        newValues: { userId, amount, reason_en, reason_ar, newBalance }
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('credit.deducted_successfully', language),
+        data: {
+          transaction_id: transaction[0].id,
+          user_id: userId,
+          amount: amount,
+          new_balance: newBalance
+        }
+      });
+      
+    } catch (error) {
+      logApiError('Admin deduct credit error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // GET /api/v2/admin/credits/users/:userId - Admin views user's credit details
+  app.get('/api/v2/admin/credits/users/:userId', 
+    authenticateToken, 
+    authorizeRoles(['admin']), 
+    async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Check if user exists
+      const targetUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!targetUser.length) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getMessage('auth.user_not_found', language),
+        });
+      }
+      
+      // Calculate available balance (non-expired credits)
+      const availableResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.isExpired, false)
+        )
+      );
+      
+      const availableBalance = parseFloat(availableResult[0]?.balance || '0');
+      
+      // Calculate expired balance
+      const expiredResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.isExpired, true)
+        )
+      );
+      
+      const expiredBalance = parseFloat(expiredResult[0]?.balance || '0');
+      
+      // Calculate expiring soon (within 30 days)
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      
+      const expiringSoonResult = await db.select({
+        balance: sql<string>`COALESCE(SUM(${creditTransactions.amount}), 0)`,
+        earliestExpiry: sql<Date>`MIN(${creditTransactions.expiresAt})`
+      })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.isExpired, false),
+          lte(creditTransactions.expiresAt, thirtyDaysFromNow)
+        )
+      );
+      
+      const expiringSoon = parseFloat(expiringSoonResult[0]?.balance || '0');
+      const expiringSoonDate = expiringSoonResult[0]?.earliestExpiry || null;
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('credit.balance_retrieved', language),
+        data: {
+          user_id: userId,
+          user_name: targetUser[0].name,
+          user_email: targetUser[0].email,
+          user_phone: targetUser[0].phone,
+          available_balance: availableBalance,
+          expired_balance: Math.abs(expiredBalance),
+          expiring_soon: expiringSoon,
+          expiring_soon_date: expiringSoonDate ? expiringSoonDate.toISOString().split('T')[0] : null
+        }
+      });
+      
+    } catch (error) {
+      logApiError('Admin get user credit error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // ==================== LOYALTY SETTINGS ADMIN ENDPOINTS ====================
+  
+  // Get Loyalty Settings
+  app.get('/api/v2/admin/loyalty-settings', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const language = req.headers['accept-language'] || 'en';
+      
+      // Query current active loyalty settings
+      const [settings] = await db.select()
+        .from(loyaltySettings)
+        .where(eq(loyaltySettings.isActive, true))
+        .limit(1);
+      
+      // If no settings exist, return defaults
+      const responseData = settings ? {
+        welcome_bonus_amount: parseFloat(settings.welcomeBonusAmount),
+        first_booking_bonus_amount: parseFloat(settings.firstBookingBonusAmount),
+        referrer_reward_amount: parseFloat(settings.referrerRewardAmount),
+        referee_reward_amount: parseFloat(settings.refereeRewardAmount),
+        cashback_percentage: parseFloat(settings.cashbackPercentage),
+        credit_expiry_days: settings.creditExpiryDays,
+        max_credit_percentage: parseFloat(settings.maxCreditPercentage),
+        min_booking_for_credit: parseFloat(settings.minBookingForCredit),
+        is_active: settings.isActive,
+        updated_at: settings.updatedAt,
+        updated_by: settings.updatedBy
+      } : {
+        welcome_bonus_amount: 20.00,
+        first_booking_bonus_amount: 30.00,
+        referrer_reward_amount: 50.00,
+        referee_reward_amount: 30.00,
+        cashback_percentage: 2.00,
+        credit_expiry_days: 90,
+        max_credit_percentage: 30.00,
+        min_booking_for_credit: 50.00,
+        is_active: true
+      };
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('loyalty.settings_retrieved', language),
+        data: responseData
+      });
+      
+    } catch (error) {
+      logApiError('Admin get loyalty settings error', error, req);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
+  // Update Loyalty Settings
+  app.put('/api/v2/admin/loyalty-settings', 
+    authenticateToken, 
+    authorizeRoles(['admin']),
+    validateRequest({
+      body: z.object({
+        welcome_bonus_amount: z.number().min(0).max(10000).optional(),
+        first_booking_bonus_amount: z.number().min(0).max(10000).optional(),
+        referrer_reward_amount: z.number().min(0).max(10000).optional(),
+        referee_reward_amount: z.number().min(0).max(10000).optional(),
+        cashback_percentage: z.number().min(0).max(50).optional(),
+        credit_expiry_days: z.number().int().min(1).max(365).optional(),
+        max_credit_percentage: z.number().min(0).max(100).optional(),
+        min_booking_for_credit: z.number().min(0).max(10000).optional(),
+        is_active: z.boolean().optional(),
+      })
+    }),
+    async (req: any, res: any) => {
+      try {
+        const language = req.headers['accept-language'] || 'en';
+        const updates = req.body;
+        
+        // Check if settings exist
+        const [existingSettings] = await db.select()
+          .from(loyaltySettings)
+          .where(eq(loyaltySettings.isActive, true))
+          .limit(1);
+        
+        let updatedSettings;
+        
+        if (existingSettings) {
+          // Update existing settings
+          const updateData: any = {
+            updatedBy: req.user.id,
+            updatedAt: new Date(),
+          };
+          
+          if (updates.welcome_bonus_amount !== undefined) {
+            updateData.welcomeBonusAmount = updates.welcome_bonus_amount.toFixed(2);
+          }
+          if (updates.first_booking_bonus_amount !== undefined) {
+            updateData.firstBookingBonusAmount = updates.first_booking_bonus_amount.toFixed(2);
+          }
+          if (updates.referrer_reward_amount !== undefined) {
+            updateData.referrerRewardAmount = updates.referrer_reward_amount.toFixed(2);
+          }
+          if (updates.referee_reward_amount !== undefined) {
+            updateData.refereeRewardAmount = updates.referee_reward_amount.toFixed(2);
+          }
+          if (updates.cashback_percentage !== undefined) {
+            updateData.cashbackPercentage = updates.cashback_percentage.toFixed(2);
+          }
+          if (updates.credit_expiry_days !== undefined) {
+            updateData.creditExpiryDays = updates.credit_expiry_days;
+          }
+          if (updates.max_credit_percentage !== undefined) {
+            updateData.maxCreditPercentage = updates.max_credit_percentage.toFixed(2);
+          }
+          if (updates.min_booking_for_credit !== undefined) {
+            updateData.minBookingForCredit = updates.min_booking_for_credit.toFixed(2);
+          }
+          if (updates.is_active !== undefined) {
+            updateData.isActive = updates.is_active;
+          }
+          
+          [updatedSettings] = await db.update(loyaltySettings)
+            .set(updateData)
+            .where(eq(loyaltySettings.id, existingSettings.id))
+            .returning();
+            
+        } else {
+          // Create new settings with provided values + defaults
+          const insertData = {
+            welcomeBonusAmount: (updates.welcome_bonus_amount ?? 20).toFixed(2),
+            firstBookingBonusAmount: (updates.first_booking_bonus_amount ?? 30).toFixed(2),
+            referrerRewardAmount: (updates.referrer_reward_amount ?? 50).toFixed(2),
+            refereeRewardAmount: (updates.referee_reward_amount ?? 30).toFixed(2),
+            cashbackPercentage: (updates.cashback_percentage ?? 2).toFixed(2),
+            creditExpiryDays: updates.credit_expiry_days ?? 90,
+            maxCreditPercentage: (updates.max_credit_percentage ?? 30).toFixed(2),
+            minBookingForCredit: (updates.min_booking_for_credit ?? 50).toFixed(2),
+            isActive: updates.is_active ?? true,
+            updatedBy: req.user.id,
+            updatedAt: new Date(),
+          };
+          
+          [updatedSettings] = await db.insert(loyaltySettings)
+            .values(insertData)
+            .returning();
+        }
+        
+        // Audit logging
+        await auditLog({
+          userId: req.user.id,
+          action: 'loyalty_settings_updated',
+          resourceType: 'loyalty_settings',
+          resourceId: updatedSettings.id,
+          newValues: updates
+        });
+        
+        // Format response with snake_case
+        const responseData = {
+          welcome_bonus_amount: parseFloat(updatedSettings.welcomeBonusAmount),
+          first_booking_bonus_amount: parseFloat(updatedSettings.firstBookingBonusAmount),
+          referrer_reward_amount: parseFloat(updatedSettings.referrerRewardAmount),
+          referee_reward_amount: parseFloat(updatedSettings.refereeRewardAmount),
+          cashback_percentage: parseFloat(updatedSettings.cashbackPercentage),
+          credit_expiry_days: updatedSettings.creditExpiryDays,
+          max_credit_percentage: parseFloat(updatedSettings.maxCreditPercentage),
+          min_booking_for_credit: parseFloat(updatedSettings.minBookingForCredit),
+          is_active: updatedSettings.isActive,
+          updated_at: updatedSettings.updatedAt,
+          updated_by: updatedSettings.updatedBy
+        };
+        
+        res.json({
+          success: true,
+          message: bilingual.getMessage('loyalty.settings_updated', language),
+          data: responseData
+        });
+        
+      } catch (error) {
+        logApiError('Admin update loyalty settings error', error, req);
+        res.status(500).json({
+          success: false,
+          message: bilingual.getMessage('general.server_error', 'en'),
+        });
+      }
+    }
+  );
+  
   // ==================== SUPPORT ENDPOINTS ====================
   
   // Create Support Ticket
@@ -6095,6 +7326,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.updateBookingStatus(id, status, req.user.id);
       
+      // Grant rewards when booking is completed (admin endpoint)
+      if (status === 'completed') {
+        try {
+          const [settings] = await db.select().from(loyaltySettings).where(eq(loyaltySettings.isActive, true)).limit(1);
+          
+          if (settings) {
+            // Calculate current user balance from credit transactions
+            const balanceResult = await db.select({
+              balance: sql<number>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+            }).from(creditTransactions).where(eq(creditTransactions.userId, booking.userId));
+            
+            let currentBalance = Number(balanceResult[0]?.balance || 0);
+            
+            // 1. Check if this is the user's first completed booking
+            const completedCount = await db.select({ count: sql<number>`count(*)` })
+              .from(bookings)
+              .where(and(
+                eq(bookings.userId, booking.userId),
+                eq(bookings.status, 'completed')
+              ));
+            
+            const isFirstBooking = Number(completedCount[0]?.count || 0) === 1;
+            
+            if (isFirstBooking && Number(settings.firstBookingBonusAmount) > 0) {
+              const bonusAmount = Number(settings.firstBookingBonusAmount);
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+              
+              currentBalance += bonusAmount;
+              
+              await db.insert(creditTransactions).values({
+                userId: booking.userId,
+                type: 'welcome_bonus',
+                amount: bonusAmount.toFixed(2),
+                balance: currentBalance.toFixed(2),
+                reason: { en: "First booking bonus", ar: "مكافأة الحجز الأول" },
+                referenceType: 'booking',
+                referenceId: booking.id,
+                expiresAt: expiresAt,
+              });
+              
+              console.log(`First booking bonus ${bonusAmount} SAR granted to user ${booking.userId}`);
+            }
+            
+            // 2. Grant loyalty cashback
+            if (Number(settings.cashbackPercentage) > 0) {
+              const cashbackAmount = Math.round((Number(booking.totalAmount) * Number(settings.cashbackPercentage) / 100) * 100) / 100;
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+              
+              currentBalance += cashbackAmount;
+              
+              await db.insert(creditTransactions).values({
+                userId: booking.userId,
+                type: 'loyalty_cashback',
+                amount: cashbackAmount.toFixed(2),
+                balance: currentBalance.toFixed(2),
+                reason: { 
+                  en: `Loyalty cashback for booking #${booking.id}`, 
+                  ar: `استرداد نقدي للحجز #${booking.id}` 
+                },
+                referenceType: 'booking',
+                referenceId: booking.id,
+                expiresAt: expiresAt,
+              });
+              
+              console.log(`Loyalty cashback ${cashbackAmount} SAR granted to user ${booking.userId} for booking ${booking.id}`);
+            }
+            
+            // 3. Grant referral credits if booking used a referral code
+            if (booking.referralCode) {
+              const [referral] = await db.select()
+                .from(referrals)
+                .where(and(
+                  eq(referrals.inviteeId, booking.userId),
+                  eq(referrals.referralCode, booking.referralCode)
+                ))
+                .limit(1);
+              
+              if (referral && referral.status !== 'rewarded') {
+                const referrerReward = Number(settings.referrerRewardAmount);
+                const refereeReward = Number(settings.refereeRewardAmount);
+                
+                // Calculate referrer balance
+                const referrerBalanceResult = await db.select({
+                  balance: sql<number>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+                }).from(creditTransactions).where(eq(creditTransactions.userId, referral.inviterId));
+                
+                let referrerBalance = Number(referrerBalanceResult[0]?.balance || 0);
+                referrerBalance += referrerReward;
+                
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+                
+                // Grant credit to INVITER (referrer)
+                await db.insert(creditTransactions).values({
+                  userId: referral.inviterId,
+                  type: 'referral_reward',
+                  amount: referrerReward.toFixed(2),
+                  balance: referrerBalance.toFixed(2),
+                  reason: { 
+                    en: `Referral reward for inviting user`, 
+                    ar: `مكافأة الإحالة لدعوة المستخدم` 
+                  },
+                  referenceType: 'referral',
+                  referenceId: referral.id,
+                  expiresAt: expiresAt,
+                });
+                
+                console.log(`Referral reward ${referrerReward} SAR granted to inviter ${referral.inviterId}`);
+                
+                // Grant credit to INVITEE (referee) - currentBalance already calculated above
+                currentBalance += refereeReward;
+                
+                await db.insert(creditTransactions).values({
+                  userId: booking.userId,
+                  type: 'referral_reward',
+                  amount: refereeReward.toFixed(2),
+                  balance: currentBalance.toFixed(2),
+                  reason: { 
+                    en: `Referral reward for joining`, 
+                    ar: `مكافأة الإحالة للانضمام` 
+                  },
+                  referenceType: 'referral',
+                  referenceId: referral.id,
+                  expiresAt: expiresAt,
+                });
+                
+                console.log(`Referral reward ${refereeReward} SAR granted to invitee ${booking.userId}`);
+                
+                // Update referral status to 'rewarded'
+                await db.update(referrals)
+                  .set({ 
+                    status: 'rewarded',
+                    rewardDistributedAt: new Date()
+                  })
+                  .where(eq(referrals.id, referral.id));
+              }
+            }
+          }
+        } catch (rewardError) {
+          // Log error but don't break booking completion flow
+          console.error('Failed to grant booking completion rewards:', rewardError);
+        }
+      }
+      
       await auditLog({
         userId: req.user.id,
         action: 'booking_status_updated',
@@ -7729,6 +9106,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.updateBookingStatus(id, status, req.user.id);
+      
+      // Grant rewards when booking is completed
+      if (status === 'completed') {
+        try {
+          const [settings] = await db.select().from(loyaltySettings).where(eq(loyaltySettings.isActive, true)).limit(1);
+          
+          if (settings) {
+            // Calculate current user balance from credit transactions
+            const balanceResult = await db.select({
+              balance: sql<number>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+            }).from(creditTransactions).where(eq(creditTransactions.userId, booking.userId));
+            
+            let currentBalance = Number(balanceResult[0]?.balance || 0);
+            
+            // 1. Check if this is the user's first completed booking
+            const completedCount = await db.select({ count: sql<number>`count(*)` })
+              .from(bookings)
+              .where(and(
+                eq(bookings.userId, booking.userId),
+                eq(bookings.status, 'completed')
+              ));
+            
+            const isFirstBooking = Number(completedCount[0]?.count || 0) === 1;
+            
+            if (isFirstBooking && Number(settings.firstBookingBonusAmount) > 0) {
+              const bonusAmount = Number(settings.firstBookingBonusAmount);
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+              
+              currentBalance += bonusAmount;
+              
+              await db.insert(creditTransactions).values({
+                userId: booking.userId,
+                type: 'welcome_bonus',
+                amount: bonusAmount.toFixed(2),
+                balance: currentBalance.toFixed(2),
+                reason: { en: "First booking bonus", ar: "مكافأة الحجز الأول" },
+                referenceType: 'booking',
+                referenceId: booking.id,
+                expiresAt: expiresAt,
+              });
+              
+              console.log(`First booking bonus ${bonusAmount} SAR granted to user ${booking.userId}`);
+            }
+            
+            // 2. Grant loyalty cashback
+            if (Number(settings.cashbackPercentage) > 0) {
+              const cashbackAmount = Math.round((Number(booking.totalAmount) * Number(settings.cashbackPercentage) / 100) * 100) / 100;
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+              
+              currentBalance += cashbackAmount;
+              
+              await db.insert(creditTransactions).values({
+                userId: booking.userId,
+                type: 'loyalty_cashback',
+                amount: cashbackAmount.toFixed(2),
+                balance: currentBalance.toFixed(2),
+                reason: { 
+                  en: `Loyalty cashback for booking #${booking.id}`, 
+                  ar: `استرداد نقدي للحجز #${booking.id}` 
+                },
+                referenceType: 'booking',
+                referenceId: booking.id,
+                expiresAt: expiresAt,
+              });
+              
+              console.log(`Loyalty cashback ${cashbackAmount} SAR granted to user ${booking.userId} for booking ${booking.id}`);
+            }
+            
+            // 3. Grant referral credits if booking used a referral code
+            if (booking.referralCode) {
+              const [referral] = await db.select()
+                .from(referrals)
+                .where(and(
+                  eq(referrals.inviteeId, booking.userId),
+                  eq(referrals.referralCode, booking.referralCode)
+                ))
+                .limit(1);
+              
+              if (referral && referral.status !== 'rewarded') {
+                const referrerReward = Number(settings.referrerRewardAmount);
+                const refereeReward = Number(settings.refereeRewardAmount);
+                
+                // Calculate referrer balance
+                const referrerBalanceResult = await db.select({
+                  balance: sql<number>`COALESCE(SUM(${creditTransactions.amount}), 0)`
+                }).from(creditTransactions).where(eq(creditTransactions.userId, referral.inviterId));
+                
+                let referrerBalance = Number(referrerBalanceResult[0]?.balance || 0);
+                referrerBalance += referrerReward;
+                
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + settings.creditExpiryDays);
+                
+                // Grant credit to INVITER (referrer)
+                await db.insert(creditTransactions).values({
+                  userId: referral.inviterId,
+                  type: 'referral_reward',
+                  amount: referrerReward.toFixed(2),
+                  balance: referrerBalance.toFixed(2),
+                  reason: { 
+                    en: `Referral reward for inviting user`, 
+                    ar: `مكافأة الإحالة لدعوة المستخدم` 
+                  },
+                  referenceType: 'referral',
+                  referenceId: referral.id,
+                  expiresAt: expiresAt,
+                });
+                
+                console.log(`Referral reward ${referrerReward} SAR granted to inviter ${referral.inviterId}`);
+                
+                // Grant credit to INVITEE (referee) - currentBalance already calculated above
+                currentBalance += refereeReward;
+                
+                await db.insert(creditTransactions).values({
+                  userId: booking.userId,
+                  type: 'referral_reward',
+                  amount: refereeReward.toFixed(2),
+                  balance: currentBalance.toFixed(2),
+                  reason: { 
+                    en: `Referral reward for joining`, 
+                    ar: `مكافأة الإحالة للانضمام` 
+                  },
+                  referenceType: 'referral',
+                  referenceId: referral.id,
+                  expiresAt: expiresAt,
+                });
+                
+                console.log(`Referral reward ${refereeReward} SAR granted to invitee ${booking.userId}`);
+                
+                // Update referral status to 'rewarded'
+                await db.update(referrals)
+                  .set({ 
+                    status: 'rewarded',
+                    rewardDistributedAt: new Date()
+                  })
+                  .where(eq(referrals.id, referral.id));
+              }
+            }
+          }
+        } catch (rewardError) {
+          // Log error but don't break booking completion flow
+          console.error('Failed to grant booking completion rewards:', rewardError);
+        }
+      }
       
       // Broadcast status update via WebSocket
       await websocketService.broadcastBookingStatus(id, booking.userId, status);

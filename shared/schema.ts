@@ -37,6 +37,10 @@ export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', '
 export const packageTierEnum = pgEnum('package_tier', ['basic', 'premium', 'vip', 'enterprise']);
 export const addressTypeEnum = pgEnum("address_type", ["home", "office", "other"]);
 export const availabilityStatusEnum = pgEnum("availability_status", ["available", "busy", "on_job", "off_duty"]);
+export const couponTypeEnum = pgEnum('coupon_type', ['percentage', 'fixed_amount']);
+export const creditTransactionTypeEnum = pgEnum('credit_transaction_type', [
+  'welcome_bonus', 'referral_reward', 'loyalty_cashback', 'admin_credit', 'booking_deduction', 'expired'
+]);
 
 // Roles table (for custom role management)
 export const roles = pgTable("roles", {
@@ -395,6 +399,70 @@ export const referrals = pgTable("referrals", {
   completedAt: timestamp("completed_at"),
   rewardDistributedAt: timestamp("reward_distributed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Coupons table
+export const coupons = pgTable("coupons", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  name: jsonb("name").notNull(), // { "en": "New Year Sale", "ar": "تخفيضات السنة الجديدة" }
+  description: jsonb("description"),
+  type: couponTypeEnum("type").notNull(), // percentage or fixed_amount
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(), // Discount value
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }), // Minimum order to use coupon
+  maxDiscountAmount: decimal("max_discount_amount", { precision: 10, scale: 2 }), // Maximum discount for percentage coupons
+  maxUsesTotal: integer("max_uses_total"), // Total uses allowed (null = unlimited)
+  maxUsesPerUser: integer("max_uses_per_user").default(1).notNull(), // Per-user limit
+  currentUses: integer("current_uses").default(0).notNull(), // Track total uses
+  serviceIds: jsonb("service_ids"), // Array of service UUIDs (null = all services)
+  firstTimeOnly: boolean("first_time_only").default(false).notNull(), // Only for first-time users
+  isActive: boolean("is_active").default(true).notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Coupon usage tracking table
+export const couponUsages = pgTable("coupon_usages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  couponId: uuid("coupon_id").references(() => coupons.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  bookingId: uuid("booking_id").references(() => bookings.id).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Credit transactions table (for marketing credits with expiration)
+export const creditTransactions = pgTable("credit_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  type: creditTransactionTypeEnum("type").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Positive for credit, negative for deduction
+  balance: decimal("balance", { precision: 10, scale: 2 }).notNull(), // User's credit balance after this transaction
+  reason: jsonb("reason").notNull(), // { "en": "Welcome bonus", "ar": "مكافأة الترحيب" }
+  referenceType: varchar("reference_type", { length: 50 }), // booking, referral, admin
+  referenceId: uuid("reference_id"),
+  expiresAt: timestamp("expires_at"), // When this credit expires
+  isExpired: boolean("is_expired").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Loyalty settings table (system-wide configuration)
+export const loyaltySettings = pgTable("loyalty_settings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  welcomeBonusAmount: decimal("welcome_bonus_amount", { precision: 10, scale: 2 }).default('20').notNull(),
+  firstBookingBonusAmount: decimal("first_booking_bonus_amount", { precision: 10, scale: 2 }).default('30').notNull(),
+  referrerRewardAmount: decimal("referrer_reward_amount", { precision: 10, scale: 2 }).default('50').notNull(),
+  refereeRewardAmount: decimal("referee_reward_amount", { precision: 10, scale: 2 }).default('30').notNull(),
+  cashbackPercentage: decimal("cashback_percentage", { precision: 5, scale: 2 }).default('2').notNull(), // 2% cashback
+  creditExpiryDays: integer("credit_expiry_days").default(90).notNull(), // Credits expire after 90 days
+  maxCreditPercentage: decimal("max_credit_percentage", { precision: 5, scale: 2 }).default('30').notNull(), // Max 30% of booking can be credits
+  minBookingForCredit: decimal("min_booking_for_credit", { precision: 10, scale: 2 }).default('50').notNull(), // Min 50 SAR to use credits
+  isActive: boolean("is_active").default(true).notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Notification Settings table
@@ -932,6 +1000,30 @@ export const insertAppConfigSchema = createInsertSchema(appConfig).omit({
   updatedAt: true,
 });
 
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  currentUses: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCouponUsageSchema = createInsertSchema(couponUsages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
+  id: true,
+  balance: true,
+  isExpired: true,
+  createdAt: true,
+});
+
+export const insertLoyaltySettingsSchema = createInsertSchema(loyaltySettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
@@ -992,3 +1084,11 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type AppConfig = typeof appConfig.$inferSelect;
 export type InsertAppConfig = z.infer<typeof insertAppConfigSchema>;
+export type Coupon = typeof coupons.$inferSelect;
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type CouponUsage = typeof couponUsages.$inferSelect;
+export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+export type LoyaltySettings = typeof loyaltySettings.$inferSelect;
+export type InsertLoyaltySettings = z.infer<typeof insertLoyaltySettingsSchema>;

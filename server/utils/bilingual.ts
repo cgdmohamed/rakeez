@@ -730,6 +730,120 @@ const messages: BilingualMessages = {
   'referral.code_not_found': {
     en: 'Referral code not found',
     ar: 'رمز الإحالة غير موجود'
+  },
+  
+  // Coupon messages
+  'coupon.created_successfully': {
+    en: 'Coupon created successfully',
+    ar: 'تم إنشاء القسيمة بنجاح'
+  },
+  'coupon.updated_successfully': {
+    en: 'Coupon updated successfully',
+    ar: 'تم تحديث القسيمة بنجاح'
+  },
+  'coupon.deleted_successfully': {
+    en: 'Coupon deleted successfully',
+    ar: 'تم حذف القسيمة بنجاح'
+  },
+  'coupon.not_found': {
+    en: 'Coupon not found',
+    ar: 'القسيمة غير موجودة'
+  },
+  'coupon.code_already_exists': {
+    en: 'Coupon code already exists',
+    ar: 'رمز القسيمة موجود بالفعل'
+  },
+  'coupon.invalid': {
+    en: 'Invalid or expired coupon',
+    ar: 'قسيمة غير صالحة أو منتهية الصلاحية'
+  },
+  'coupon.expired': {
+    en: 'Coupon has expired',
+    ar: 'انتهت صلاحية القسيمة'
+  },
+  'coupon.not_active': {
+    en: 'Coupon is not active',
+    ar: 'القسيمة غير نشطة'
+  },
+  'coupon.usage_limit_reached': {
+    en: 'Coupon usage limit has been reached',
+    ar: 'تم الوصول إلى الحد الأقصى لاستخدام القسيمة'
+  },
+  'coupon.min_order_not_met': {
+    en: 'Minimum order amount not met for this coupon',
+    ar: 'الحد الأدنى لمبلغ الطلب غير مستوفى لهذه القسيمة'
+  },
+  'coupon.not_for_service': {
+    en: 'Coupon is not valid for this service',
+    ar: 'القسيمة غير صالحة لهذه الخدمة'
+  },
+  'coupon.first_time_only': {
+    en: 'Coupon is only for first-time users',
+    ar: 'القسيمة مخصصة للمستخدمين الجدد فقط'
+  },
+  'coupon.applied_successfully': {
+    en: 'Coupon applied successfully',
+    ar: 'تم تطبيق القسيمة بنجاح'
+  },
+  'coupon.list_retrieved': {
+    en: 'Coupons retrieved successfully',
+    ar: 'تم استرداد القسائم بنجاح'
+  },
+  
+  // Credit messages
+  'credit.insufficient_balance': {
+    en: 'Insufficient credit balance',
+    ar: 'رصيد غير كافٍ'
+  },
+  'credit.added_successfully': {
+    en: 'Credit added successfully',
+    ar: 'تمت إضافة الرصيد بنجاح'
+  },
+  'credit.deducted_successfully': {
+    en: 'Credit deducted successfully',
+    ar: 'تم خصم الرصيد بنجاح'
+  },
+  'credit.balance_retrieved': {
+    en: 'Credit balance retrieved successfully',
+    ar: 'تم استرداد رصيد الائتمان بنجاح'
+  },
+  'credit.history_retrieved': {
+    en: 'Credit history retrieved successfully',
+    ar: 'تم استرداد سجل الائتمان بنجاح'
+  },
+  'credit.welcome_bonus': {
+    en: 'Welcome bonus',
+    ar: 'مكافأة الترحيب'
+  },
+  'credit.referral_reward': {
+    en: 'Referral reward',
+    ar: 'مكافأة الإحالة'
+  },
+  'credit.loyalty_cashback': {
+    en: 'Loyalty cashback',
+    ar: 'استرداد نقدي للولاء'
+  },
+  'credit.booking_deduction': {
+    en: 'Booking payment',
+    ar: 'دفع الحجز'
+  },
+  'credit.admin_credit': {
+    en: 'Admin credit adjustment',
+    ar: 'تعديل رصيد من الإدارة'
+  },
+  'credit.expired': {
+    en: 'Credit expired',
+    ar: 'انتهت صلاحية الرصيد'
+  },
+  
+  // Loyalty settings messages
+  'loyalty.settings_retrieved': {
+    en: 'Loyalty settings retrieved successfully',
+    ar: 'تم استرداد إعدادات الولاء بنجاح'
+  },
+  'loyalty.settings_updated': {
+    en: 'Loyalty settings updated successfully',
+    ar: 'تم تحديث إعدادات الولاء بنجاح'
   }
 };
 
