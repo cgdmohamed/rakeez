@@ -71,6 +71,44 @@ Manages mobile app homepage content, including home slider images and a single h
 #### Subscription Management System
 Allows customers to purchase service packages and administrators to create, manage, and track subscriptions. This includes CRUD operations for subscription packages with bilingual naming, package tiers, service inclusions with usage limits, and integration into the booking process for subscription-based service access. Bookings can either be single-service or subscription-based, with robust validation for subscription usage.
 
+#### Marketing & Loyalty System
+A comprehensive promotional platform featuring coupon codes, credit-based rewards, and automated loyalty incentives designed to increase customer engagement, retention, and referrals.
+
+**Coupon Management:**
+- **Coupon Creation**: Admins can create time-limited coupon codes with flexible discount types (percentage or fixed amount), usage limits (total uses, per-user limits), and targeting rules (first-time users only, specific services, minimum order amount)
+- **Validation Engine**: 7-layer validation checks coupon eligibility in real-time: existence & active status, expiration dates, total usage limits, per-user usage limits, first-time customer restriction, service eligibility, and minimum order requirements
+- **Usage Tracking**: Automatic recording of coupon usage with detailed analytics showing redemptions per user, total discount distributed, and conversion rates
+- **Discount Integration**: Coupon discounts are applied in the booking price calculation chain after subscription and referral discounts but before VAT calculation
+
+**Credit System:**
+- **Virtual Balance**: Users accumulate promotional credits (separate from wallet top-ups) that can be applied toward booking payments
+- **Expiration Management**: Credits expire after 90 days (configurable via loyalty settings) with automatic expiration tracking and early warnings for expiring credits
+- **Usage Limits**: Loyalty settings enforce maximum credit usage per booking (default 30% of total amount) and minimum booking amount to use credits (default 50 SAR)
+- **Transaction History**: Complete audit trail of all credit transactions including grants, deductions, and expirations with bilingual reasons and balance snapshots
+- **Balance Calculation**: Real-time balance computed from non-expired credit transactions, supporting concurrent operations via atomic database transactions
+
+**Automated Rewards:**
+The system automatically grants promotional credits on key customer lifecycle events:
+- **Welcome Bonus** (20 SAR default): Granted immediately upon successful registration to encourage first booking
+- **First Booking Bonus** (30 SAR default): Awarded when user completes their first service booking, triggered on status change to 'completed'
+- **Loyalty Cashback** (2% default): Percentage-based cashback on every completed booking amount, encouraging repeat business
+- **Referral Rewards** (50 SAR inviter, 30 SAR invitee default): Both parties receive credits when referee completes first booking using referral code
+
+**Loyalty Settings:**
+Admin-configurable parameters controlling the entire rewards ecosystem:
+- Welcome bonus amount, First booking bonus amount, Referrer reward amount, Referee reward amount
+- Cashback percentage (applied to completed bookings)
+- Credit expiry days (default 90)
+- Maximum credit usage percentage per booking (default 30%)
+- Minimum booking amount to use credits (default 50 SAR)
+
+**Payment Integration:**
+Credits and coupons are seamlessly integrated into the booking and payment flow with security protections:
+1. **Booking Creation**: Optional coupon code validated and applied during booking creation; coupon discount calculated and usage recorded atomically
+2. **Payment Processing**: Credits applied first (respecting max percentage limit), then wallet balance, then gateway payment; triple-layer validation prevents negative amount exploitation
+3. **Discount Order**: Base price → Package discount → Subscription discount → Referral discount → Coupon discount → VAT → Final amount
+4. **Security**: All amount inputs validated as positive; credit deductions use atomic transactions; balance calculations prevent race conditions
+
 ### System Design Choices
 
 The database schema separates single-service pricing (`serviceTiers`) from multi-service bundles (`subscriptionPackages`), linked by a `subscriptionPackageServices` junction table. This enables distinct booking flows. File uploads use presigned URLs for secure direct uploads to Replit Object Storage (Google Cloud Storage), with robust security features and dual-mode authentication. API documentation is comprehensive and interactive, distinguishing between public (snake_case, localized) and admin (camelCase, bilingual objects) endpoint responses.
