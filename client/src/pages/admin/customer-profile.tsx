@@ -1685,7 +1685,7 @@ export default function CustomerProfile() {
                               {message.sender?.name || (message.isAdmin ? 'Support Team' : user?.name)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(message.created_at), 'MMM d, h:mm a')}
+                              {message.created_at ? format(new Date(message.created_at), 'MMM d, h:mm a') : 'Just now'}
                             </span>
                           </div>
                           <div
