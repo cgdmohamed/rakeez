@@ -206,15 +206,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           deviceToken: device_token,
         });
         
-        // Generate and send new OTP
-        const otp = twilioService.generateOTP();
-        const otpKey = phone || email!;
-        await redisService.setOTP(otpKey, otp, AUTH_CONSTANTS.OTP_EXPIRY);
-        
+        // Send OTP
         let otpSent = false;
         if (phone) {
-          otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(phone), otp, language);
+          // Use Twilio Verify API for phone OTP (no manual OTP generation needed)
+          otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(phone), language);
         } else if (email) {
+          // For email, use manual OTP with Redis storage
+          const otp = twilioService.generateOTP();
+          await redisService.setOTP(email, otp, AUTH_CONSTANTS.OTP_EXPIRY);
           otpSent = await emailService.sendOTPEmail(email, otp, language, name);
         }
         
@@ -279,15 +279,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Failed to grant welcome bonus:', creditError);
       }
       
-      // Generate and send OTP
-      const otp = twilioService.generateOTP();
-      const otpKey = phone || email!;
-      await redisService.setOTP(otpKey, otp, AUTH_CONSTANTS.OTP_EXPIRY);
-      
+      // Send OTP
       let otpSent = false;
       if (phone) {
-        otpSent = await twilioService.sendOTP(phone, otp, language);
+        // Use Twilio Verify API for phone OTP (no manual OTP generation needed)
+        otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(phone), language);
       } else if (email) {
+        // For email, use manual OTP with Redis storage
+        const otp = twilioService.generateOTP();
+        await redisService.setOTP(email, otp, AUTH_CONSTANTS.OTP_EXPIRY);
         otpSent = await emailService.sendOTPEmail(email, otp, language, name);
       }
       
@@ -406,34 +406,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { identifier, otp_code, language } = req.body;
       
-      // Check OTP attempts
-      const attempts = await redisService.getOTPAttempts(identifier);
-      if (attempts >= AUTH_CONSTANTS.MAX_OTP_ATTEMPTS) {
-        return res.status(429).json({
-          success: false,
-          message: bilingual.getMessage('auth.otp_max_attempts', language),
-        });
-      }
+      const isEmail = identifier.includes('@');
+      let isValid = false;
       
-      // Get stored OTP
-      const storedOTP = await redisService.getOTP(identifier);
-      if (!storedOTP) {
-        return res.status(400).json({
-          success: false,
-          message: bilingual.getMessage('auth.otp_expired', language),
-        });
-      }
-      
-      if (storedOTP !== otp_code) {
-        await redisService.incrementOTPAttempts(identifier);
-        return res.status(400).json({
-          success: false,
-          message: bilingual.getMessage('auth.otp_invalid', language),
-        });
+      if (isEmail) {
+        // Email OTP verification using Redis
+        const attempts = await redisService.getOTPAttempts(identifier);
+        if (attempts >= AUTH_CONSTANTS.MAX_OTP_ATTEMPTS) {
+          return res.status(429).json({
+            success: false,
+            message: bilingual.getMessage('auth.otp_max_attempts', language),
+          });
+        }
+        
+        const storedOTP = await redisService.getOTP(identifier);
+        if (!storedOTP) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.otp_expired', language),
+          });
+        }
+        
+        if (storedOTP !== otp_code) {
+          await redisService.incrementOTPAttempts(identifier);
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.otp_invalid', language),
+          });
+        }
+        
+        isValid = true;
+        await redisService.deleteOTP(identifier);
+      } else {
+        // Phone OTP verification using Twilio Verify API
+        const formattedPhone = HELPERS.formatSaudiPhone(identifier);
+        isValid = await twilioService.verifyOTP(formattedPhone, otp_code);
+        
+        if (!isValid) {
+          return res.status(400).json({
+            success: false,
+            message: bilingual.getMessage('auth.otp_invalid', language),
+          });
+        }
       }
       
       // Find and verify user
-      const user = identifier.includes('@')
+      const user = isEmail
         ? await storage.getUserByEmail(identifier)
         : await storage.getUserByPhone(HELPERS.formatSaudiPhone(identifier));
         
@@ -446,9 +464,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user as verified
       await storage.updateUser(user.id, { isVerified: true });
-      
-      // Clean up OTP
-      await redisService.deleteOTP(identifier);
       
       // Generate tokens
       const token = generateToken(user);
@@ -500,18 +515,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { identifier, language } = req.body;
       
-      // Generate new OTP
-      const otp = twilioService.generateOTP();
-      await redisService.setOTP(identifier, otp, AUTH_CONSTANTS.OTP_EXPIRY);
-      
       let otpSent = false;
       if (identifier.includes('@')) {
+        // Email OTP with Redis storage
+        const otp = twilioService.generateOTP();
+        await redisService.setOTP(identifier, otp, AUTH_CONSTANTS.OTP_EXPIRY);
+        
         const user = await storage.getUserByEmail(identifier);
         if (user) {
           otpSent = await emailService.sendOTPEmail(identifier, otp, language, user.name);
         }
       } else {
-        otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(identifier), otp, language);
+        // Phone OTP using Twilio Verify API (no manual OTP generation needed)
+        otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(identifier), language);
       }
       
       res.json({
