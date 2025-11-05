@@ -236,11 +236,16 @@ Verify account using OTP code.
   "message": "Account verified successfully",
   "message_ar": "تم التحقق من الحساب بنجاح",
   "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 3600,
     "user": {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "name": "Ahmed Ali",
+      "email": "ahmed@example.com",
+      "phone": "+966501234567",
+      "role": "customer",
+      "language": "ar",
       "is_verified": true
     }
   }
@@ -400,15 +405,13 @@ Content-Type: application/json
 ```json
 {
   "current_password": "OldSecurePass123!",
-  "new_password": "NewSecurePass456!",
-  "confirm_new_password": "NewSecurePass456!"
+  "new_password": "NewSecurePass456!"
 }
 ```
 
 **Validation Rules:**
 - `current_password`: Required
 - `new_password`: Required, minimum 8 characters, must contain uppercase, lowercase, number, and special character
-- `confirm_new_password`: Required, must match `new_password`
 - New password must be different from current password
 
 **Response (200 OK):**
@@ -586,12 +589,12 @@ Content-Type: application/json
 {
   "name": "Ahmed Ali Updated",
   "name_ar": "أحمد علي محدث",
-  "email": "newemail@example.com",
-  "phone": "+966501234567",
   "language": "ar",
   "device_token": "ExponentPushToken[...]"
 }
 ```
+
+**Note:** Email and phone cannot be updated through this endpoint for security reasons.
 
 **Response (200 OK):**
 ```json
@@ -625,21 +628,21 @@ Accept-Language: en | ar
 ```json
 {
   "success": true,
+  "message": "Addresses retrieved successfully",
   "data": [
     {
       "id": "addr-uuid-1",
-      "label": "Home",
-      "label_ar": "المنزل",
-      "address_line1": "123 King Fahd Road",
-      "address_line1_ar": "123 طريق الملك فهد",
-      "address_line2": "Al Olaya District",
-      "address_line2_ar": "حي العليا",
-      "city": "Riyadh",
-      "city_ar": "الرياض",
-      "postal_code": "12345",
+      "addressName": "Home",
+      "addressType": "home",
+      "streetName": "123 King Fahd Road",
+      "houseNo": "Building 5, Apt 12",
+      "district": "Al Olaya",
+      "directions": "Near City Center Mall",
       "latitude": 24.7136,
       "longitude": 46.6753,
-      "is_default": true
+      "isDefault": true,
+      "userId": "user-uuid-1",
+      "createdAt": "2025-01-15T10:30:00.000Z"
     }
   ]
 }
@@ -662,20 +665,28 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "label": "Office",
-  "label_ar": "المكتب",
-  "address_line1": "456 Olaya Street",
-  "address_line1_ar": "456 شارع العليا",
-  "address_line2": "Tower B, Floor 5",
-  "address_line2_ar": "البرج ب، الطابق 5",
-  "city": "Riyadh",
-  "city_ar": "الرياض",
-  "postal_code": "12345",
+  "addressName": "Office",
+  "addressType": "office",
+  "streetName": "456 Olaya Street",
+  "houseNo": "Tower B, Floor 5",
+  "district": "Al Olaya",
+  "directions": "Next to Kingdom Center",
   "latitude": 24.7136,
   "longitude": 46.6753,
-  "is_default": false
+  "isDefault": false
 }
 ```
+
+**Field Descriptions:**
+- `addressName`: Required, display name for the address (e.g., "Home", "Office")
+- `addressType`: Required, one of: "home", "office", "other" (default: "home")
+- `streetName`: Required, street name or main road
+- `houseNo`: Required, building/house/apartment number
+- `district`: Required, district or neighborhood name
+- `directions`: Optional, additional directions or landmarks
+- `latitude`: Optional, GPS latitude coordinate
+- `longitude`: Optional, GPS longitude coordinate
+- `isDefault`: Optional, set as default address (default: false)
 
 **Response (201 Created):**
 ```json
@@ -685,8 +696,12 @@ Content-Type: application/json
   "message_ar": "تمت إضافة العنوان بنجاح",
   "data": {
     "id": "addr-uuid-2",
-    "label": "Office",
-    "is_default": false
+    "addressName": "Office",
+    "addressType": "office",
+    "streetName": "456 Olaya Street",
+    "houseNo": "Tower B, Floor 5",
+    "district": "Al Olaya",
+    "isDefault": false
   }
 }
 ```
@@ -699,14 +714,38 @@ Update an existing address.
 
 **Endpoint:** `PUT /api/v2/addresses/:id`
 
-**Request Body:** (Same as Add Address)
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:** (All fields optional)
+```json
+{
+  "addressName": "Office Updated",
+  "addressType": "office",
+  "streetName": "456 Olaya Street",
+  "houseNo": "Tower B, Floor 5",
+  "district": "Al Olaya",
+  "directions": "Next to Kingdom Center",
+  "latitude": 24.7136,
+  "longitude": 46.6753,
+  "isDefault": true
+}
+```
 
 **Response (200 OK):**
 ```json
 {
   "success": true,
   "message": "Address updated successfully",
-  "message_ar": "تم تحديث العنوان بنجاح"
+  "message_ar": "تم تحديث العنوان بنجاح",
+  "data": {
+    "id": "addr-uuid-2",
+    "addressName": "Office Updated",
+    "isDefault": true
+  }
 }
 ```
 
@@ -750,37 +789,19 @@ Accept-Language: en | ar
 ```json
 {
   "success": true,
+  "message": "Notification settings retrieved successfully",
+  "message_ar": "تم استرجاع إعدادات الإشعارات بنجاح",
   "data": {
     "push_enabled": true,
     "email_enabled": true,
     "sms_enabled": false,
     "preferences": {
       "order_updates": true,
-      "order_confirmed": true,
-      "technician_assigned": true,
-      "technician_on_way": true,
-      "service_started": true,
-      "service_completed": true,
-      "order_cancelled": false,
       "promotions": true,
-      "new_offers": true,
-      "subscription_reminders": true,
-      "subscription_expiring": true,
-      "subscription_renewed": false,
       "support_updates": true,
-      "ticket_reply": true,
-      "ticket_closed": false,
       "payment_confirmations": true,
-      "payment_successful": true,
-      "payment_failed": true,
       "wallet_updates": true,
-      "wallet_credited": true,
-      "wallet_debited": false
-    },
-    "quiet_hours": {
-      "enabled": false,
-      "start_time": "22:00",
-      "end_time": "08:00"
+      "subscription_reminders": true
     }
   }
 }
@@ -811,12 +832,8 @@ Content-Type: application/json
     "promotions": false,
     "support_updates": true,
     "payment_confirmations": true,
-    "wallet_updates": false
-  },
-  "quiet_hours": {
-    "enabled": true,
-    "start_time": "23:00",
-    "end_time": "07:00"
+    "wallet_updates": false,
+    "subscription_reminders": true
   }
 }
 ```
@@ -825,8 +842,13 @@ Content-Type: application/json
 - `push_enabled`: Optional boolean, enable/disable all push notifications
 - `email_enabled`: Optional boolean, enable/disable email notifications
 - `sms_enabled`: Optional boolean, enable/disable SMS notifications
-- `preferences`: Optional object, specific notification preferences
-- `quiet_hours`: Optional object, do-not-disturb schedule
+- `preferences`: Optional object with specific notification preferences:
+  - `order_updates`: Booking confirmations, technician assignments, service status
+  - `promotions`: Marketing offers, new services, special deals
+  - `support_updates`: Support ticket replies and status changes
+  - `payment_confirmations`: Payment confirmations, wallet transactions
+  - `wallet_updates`: Wallet credit/debit notifications
+  - `subscription_reminders`: Package expiration, renewal notifications
 
 **Response (200 OK):**
 ```json
@@ -870,18 +892,18 @@ Accept-Language: en | ar
 **Request Body:**
 ```json
 {
-  "file_name": "profile_photo.jpg",
-  "file_type": "image/jpeg",
-  "file_size": 1024000,
-  "visibility": "public"
+  "fileName": "profile_photo.jpg",
+  "fileType": "image/jpeg",
+  "fileSize": 1024000,
+  "uploadType": "profile"
 }
 ```
 
 **Parameters:**
-- `file_name`: Name of the file to upload (required)
-- `file_type`: MIME type of the file (required)
-- `file_size`: Size in bytes (required, maximum 10MB)
-- `visibility`: `"public"` or `"private"` (default: "private")
+- `fileName`: Name of the file to upload (required)
+- `fileType`: MIME type of the file (required)
+- `fileSize`: Size in bytes (required, maximum 5MB)
+- `uploadType`: Upload category - `"profile"`, `"content"`, or `"document"` (optional, default: "profile")
 
 **Response (200 OK):**
 ```json
@@ -913,10 +935,10 @@ const response = await fetch('/api/v2/objects/upload', {
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
-    file_name: 'avatar.jpg',
-    file_type: 'image/jpeg',
-    file_size: file.size,
-    visibility: 'public'
+    fileName: 'avatar.jpg',
+    fileType: 'image/jpeg',
+    fileSize: file.size,
+    uploadType: 'profile'
   })
 });
 const { upload_url, file_url } = await response.json();
@@ -935,27 +957,30 @@ console.log('Uploaded file available at:', file_url);
 ```
 
 **File Size Limits:**
-- Maximum file size: 10MB (10,485,760 bytes)
+- Maximum file size: 5MB (5,242,880 bytes)
 - Validation enforced server-side
+- Different limits apply based on `uploadType`:
+  - **profile**: Images only (JPEG, PNG, GIF, WebP), max 5MB
+  - **content**: Images and videos, max 5MB
+  - **document**: PDFs and documents, max 5MB
 
 **Security:**
-- **Private files**: Only accessible by the owner via authenticated requests
-- **Public files**: Accessible via public URL without authentication
 - **Presigned URLs**: Expire in 1 hour for security
-- **File validation**: Type and size validation before upload
+- **File validation**: Type, size, and MIME type validation before upload
+- **Malware scanning**: Automatic security checks on uploaded files
 
 **Common Use Cases:**
-- Profile avatars
-- Support ticket attachments
-- Document uploads
-- Service-related photos
+- Profile avatars (`uploadType: "profile"`)
+- Support ticket attachments (`uploadType: "document"`)
+- Document uploads (`uploadType: "document"`)
+- App content and media (`uploadType: "content"`)
 
-**Error Response (413 Payload Too Large):**
+**Error Response (400 Bad Request - File Too Large):**
 ```json
 {
   "success": false,
-  "message": "File size exceeds maximum limit of 10MB",
-  "message_ar": "حجم الملف يتجاوز الحد الأقصى 10 ميجابايت"
+  "message": "File size exceeds maximum limit of 5MB",
+  "message_ar": "حجم الملف يتجاوز الحد الأقصى 5 ميجابايت"
 }
 ```
 
