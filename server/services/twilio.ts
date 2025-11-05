@@ -1,8 +1,14 @@
 import twilio from 'twilio';
+import { logError } from '../utils/logger';
 
 let connectionSettings: any;
 let cachedClient: ReturnType<typeof twilio> | null = null;
 let cachedPhoneNumber: string | null = null;
+
+function clearCache() {
+  cachedClient = null;
+  cachedPhoneNumber = null;
+}
 
 async function getCredentials() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -62,6 +68,11 @@ async function getTwilioFromPhoneNumber() {
   return phoneNumber;
 }
 
+function isAuthenticationError(error: any): boolean {
+  const status = error?.status || error?.code;
+  return status === 401 || status === 403 || status === 20003;
+}
+
 class TwilioService {
   async sendOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
     try {
@@ -80,8 +91,21 @@ class TwilioService {
 
       console.log(`OTP sent to ${phone}: ${result.sid}`);
       return result.status !== 'failed';
-    } catch (error) {
-      console.error('Failed to send OTP:', error);
+    } catch (error: any) {
+      if (isAuthenticationError(error)) {
+        clearCache();
+        logError('Twilio authentication failed - credentials cleared', error, {
+          context: 'sendOTP',
+          twilioErrorCode: error.code,
+          twilioStatus: error.status
+        });
+      } else {
+        logError('Failed to send OTP', error, {
+          context: 'sendOTP',
+          twilioErrorCode: error.code,
+          twilioSid: error.moreInfo
+        });
+      }
       return false;
     }
   }
@@ -102,8 +126,19 @@ class TwilioService {
       });
 
       return result.status !== 'failed';
-    } catch (error) {
-      console.error('Failed to send password reset OTP:', error);
+    } catch (error: any) {
+      if (isAuthenticationError(error)) {
+        clearCache();
+        logError('Twilio authentication failed - credentials cleared', error, {
+          context: 'sendPasswordResetOTP',
+          twilioErrorCode: error.code
+        });
+      } else {
+        logError('Failed to send password reset OTP', error, {
+          context: 'sendPasswordResetOTP',
+          twilioErrorCode: error.code
+        });
+      }
       return false;
     }
   }
@@ -140,8 +175,20 @@ class TwilioService {
       });
 
       return result.status !== 'failed';
-    } catch (error) {
-      console.error('Failed to send order update SMS:', error);
+    } catch (error: any) {
+      if (isAuthenticationError(error)) {
+        clearCache();
+        logError('Twilio authentication failed - credentials cleared', error, {
+          context: 'sendOrderUpdate',
+          twilioErrorCode: error.code
+        });
+      } else {
+        logError('Failed to send order update SMS', error, {
+          context: 'sendOrderUpdate',
+          orderNumber,
+          twilioErrorCode: error.code
+        });
+      }
       return false;
     }
   }
