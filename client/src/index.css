@@ -139,11 +139,19 @@
   input[type="date"],
   input[type="time"],
   input[type="datetime-local"],
-  textarea,
   select {
     background-color: white;
     border: 1px solid #d1d5db;
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  
+  /* Textarea - Enhanced with minimum height and better padding */
+  textarea {
+    background-color: white;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    min-height: 80px;
+    resize: vertical;
   }
   
   input[type="text"]:focus,
@@ -162,6 +170,39 @@
     outline: none;
     box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
     background-color: white;
+  }
+  
+  /* Shadcn Select Trigger - Make it look like a proper input */
+  button[role="combobox"],
+  [data-radix-select-trigger] {
+    background-color: white !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+    min-height: 40px;
+  }
+  
+  button[role="combobox"]:focus,
+  [data-radix-select-trigger]:focus,
+  button[role="combobox"][data-state="open"],
+  [data-radix-select-trigger][data-state="open"] {
+    border-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1) !important;
+    outline: none !important;
+  }
+  
+  /* Toggle/Switch - Enhanced visibility */
+  button[role="switch"] {
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  
+  button[role="switch"]:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+    outline: none;
+  }
+  
+  button[role="switch"][data-state="checked"] {
+    border-color: hsl(var(--primary));
   }
   
   /* Dark mode inputs */
@@ -198,6 +239,27 @@
     outline: none;
     box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
     background-color: #1f2937;
+  }
+  
+  /* Dark mode - Shadcn Select */
+  .dark button[role="combobox"],
+  .dark [data-radix-select-trigger] {
+    background-color: #1f2937 !important;
+    border-color: #4b5563 !important;
+    color: white;
+  }
+  
+  .dark button[role="combobox"]:focus,
+  .dark [data-radix-select-trigger]:focus,
+  .dark button[role="combobox"][data-state="open"],
+  .dark [data-radix-select-trigger][data-state="open"] {
+    border-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2) !important;
+  }
+  
+  /* Dark mode - Toggle */
+  .dark button[role="switch"] {
+    border-color: #4b5563;
   }
 }
 
