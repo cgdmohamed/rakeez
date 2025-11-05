@@ -584,7 +584,7 @@ export const promotions = pgTable("promotions", {
 // Audit logs table
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id, { onDelete: 'set null' }),
   action: varchar("action", { length: 100 }).notNull(),
   resourceType: varchar("resource_type", { length: 50 }).notNull(),
   resourceId: uuid("resource_id"),
