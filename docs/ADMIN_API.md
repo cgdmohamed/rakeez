@@ -13,6 +13,7 @@
 - [Services Management](#services-management)
 - [Subscription Packages](#subscription-packages)
 - [Promos & Referrals](#promos--referrals)
+- [Marketing Feature Controls](#marketing-feature-controls)
 - [Mobile Content](#mobile-content)
 - [Analytics & Reports](#analytics--reports)
 
@@ -113,9 +114,16 @@ Create a new user account.
 - `name`: Required, minimum 2 characters
 - `email`: Required, valid email format
 - `phone`: Required, valid phone format
-- `password`: Required, minimum 8 characters
+- `password`: Required, strong password (minimum 8 characters, at least one uppercase, one lowercase, one number, and one special character)
 - `role`: Required, one of: customer, technician, admin
 - `status`: Optional, one of: active, inactive, suspended
+
+**Password Requirements:**
+- Minimum 8 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one number (0-9)
+- At least one special character (!@#$%^&*)
 
 **Response (201 Created):**
 ```json
@@ -1298,6 +1306,7 @@ Retrieve all subscription packages.
           "usageLimit": 4
         }
       ],
+      "isPopular": true,
       "isActive": true
     }
   ]
@@ -1325,9 +1334,13 @@ Create a new subscription package.
       "usage_limit": 6
     }
   ],
+  "is_popular": false,
   "is_active": true
 }
 ```
+
+**Field Descriptions:**
+- `is_popular`: Optional boolean, marks package as "Most Popular" in mobile app (default: false)
 
 **Response (201 Created):**
 ```json
@@ -1352,9 +1365,15 @@ Update package details.
 ```json
 {
   "price": "2800.00",
+  "is_popular": true,
   "is_active": true
 }
 ```
+
+**Updatable Fields:**
+- `price`: Package price in SAR
+- `is_popular`: Mark as featured/popular package
+- `is_active`: Enable/disable package visibility
 
 **Response (200 OK):**
 ```json
@@ -1782,6 +1801,131 @@ Modify loyalty program parameters.
 - `cashback_percentage`: >= 0, <= 50
 - `credit_expiry_days`: >= 1, <= 365
 - `max_credit_percentage`: >= 0, <= 100
+
+---
+
+## Marketing Feature Controls
+
+### Get Marketing Settings
+
+Retrieve current marketing feature configuration. These settings control the availability of marketing features system-wide.
+
+**Endpoint:** `GET /api/v2/admin/marketing/settings`
+
+**Authentication:** Admin only
+
+**Request Headers:**
+```http
+Authorization: Bearer <jwt_token>
+Accept-Language: en | ar
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Marketing settings retrieved successfully",
+  "data": {
+    "couponsEnabled": true,
+    "referralsEnabled": true,
+    "creditsEnabled": true,
+    "loyaltyProgramEnabled": true,
+    "updatedAt": "2025-11-05T10:00:00.000Z"
+  }
+}
+```
+
+**Field Descriptions:**
+- `couponsEnabled`: Enable/disable coupon code validation and redemption
+- `referralsEnabled`: Enable/disable referral program functionality
+- `creditsEnabled`: Enable/disable promotional credit system
+- `loyaltyProgramEnabled`: Enable/disable loyalty rewards (welcome bonus, first booking bonus, etc.)
+
+---
+
+### Update Marketing Settings
+
+Enable or disable marketing features system-wide. Changes take effect immediately across all endpoints.
+
+**Endpoint:** `PATCH /api/v2/admin/marketing/settings`
+
+**Authentication:** Admin only
+
+**Request Headers:**
+```http
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "coupons_enabled": false,
+  "referrals_enabled": true,
+  "credits_enabled": true,
+  "loyalty_program_enabled": true
+}
+```
+
+**Parameters (all optional):**
+- `coupons_enabled`: Boolean, enable/disable coupon functionality
+- `referrals_enabled`: Boolean, enable/disable referral program
+- `credits_enabled`: Boolean, enable/disable promotional credits
+- `loyalty_program_enabled`: Boolean, enable/disable loyalty rewards
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Marketing settings updated successfully",
+  "data": {
+    "couponsEnabled": false,
+    "referralsEnabled": true,
+    "creditsEnabled": true,
+    "loyaltyProgramEnabled": true,
+    "updatedAt": "2025-11-05T12:30:00.000Z"
+  }
+}
+```
+
+**Feature Enforcement:**
+
+When a feature is disabled, the following behaviors occur:
+
+**Coupons Disabled:**
+- `POST /api/v2/coupons/validate` returns error: "Coupon feature is currently disabled"
+- Coupon codes cannot be applied to bookings
+- Existing active coupons remain in database but cannot be used
+
+**Referrals Disabled:**
+- `POST /api/v2/referrals/validate` returns error: "Referral feature is currently disabled"
+- `POST /api/v2/referrals/redeem` blocked
+- New referral codes cannot be created or used
+
+**Credits Disabled:**
+- Credit balance queries return zero balance
+- Credits cannot be added or deducted
+- Existing credits preserved but cannot be used for payments
+
+**Loyalty Program Disabled:**
+- Welcome bonuses not granted to new users
+- First booking bonuses not awarded
+- Cashback rewards not calculated
+- Existing loyalty settings preserved
+
+**Impact & Use Cases:**
+- **Maintenance Mode**: Disable features during system updates
+- **Regulatory Compliance**: Quickly disable features if legal requirements change
+- **A/B Testing**: Test app behavior with/without marketing features
+- **Budget Control**: Disable expensive features temporarily
+- **Gradual Rollout**: Enable features one by one after launch
+
+**Important Notes:**
+- Changes are **immediate** - no cache invalidation needed
+- All validation endpoints check these settings before processing
+- Backend enforcement prevents bypassing via API manipulation
+- Disabled features return bilingual error messages
+- Settings are stored in database and persist across server restarts
 
 ---
 

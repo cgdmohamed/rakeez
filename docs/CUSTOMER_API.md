@@ -10,6 +10,7 @@
 - [Account Management](#account-management)
 - [Profile & Addresses](#profile--addresses)
   - [Notification Settings](#get-notification-settings)
+- [File Upload](#file-upload)
 - [Service Discovery](#service-discovery)
 - [Booking & Scheduling](#booking--scheduling)
   - [Edit Booking](#edit-booking)
