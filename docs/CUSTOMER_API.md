@@ -224,7 +224,8 @@ Verify account using OTP code.
 ```json
 {
   "identifier": "+966501234567",
-  "otp": "123456"
+  "otp_code": "123456",
+  "language": "en"
 }
 ```
 
