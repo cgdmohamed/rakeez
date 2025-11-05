@@ -175,10 +175,20 @@ export default function AdminUsers() {
       });
       setDeletingUser(null);
     },
-    onError: (error: unknown) => {
+    onError: (error: any) => {
+      let errorMessage = 'Failed to delete user';
+      
+      if (error?.data?.data?.details) {
+        errorMessage = error.data.data.details;
+      } else if (error?.data?.message) {
+        errorMessage = error.data.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete user',
+        title: 'Cannot Delete User',
+        description: errorMessage,
         variant: 'destructive',
       });
       setDeletingUser(null);
@@ -648,9 +658,13 @@ export default function AdminUsers() {
       <AlertDialog open={deletingUser !== null} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the user <strong>{deletingUser?.name}</strong>. This action cannot be undone.
+              This will permanently delete the user <strong>{deletingUser?.name}</strong>. 
+              <br /><br />
+              <strong>Note:</strong> Users can only be deleted if they have no bookings, payments, support tickets, reviews, referrals, subscriptions, or quotations. 
+              <br />
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

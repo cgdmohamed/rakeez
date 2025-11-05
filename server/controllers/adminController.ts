@@ -552,4 +552,77 @@ export class AdminController {
       });
     }
   }
+
+  async deleteUser(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.params.id;
+      const userLanguage = req.headers['accept-language'] as string || req.user?.language || 'en';
+
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: bilingual.getErrorMessage('auth.admin_only', userLanguage)
+        });
+      }
+
+      const user = await this.storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getErrorMessage('user.not_found', userLanguage)
+        });
+      }
+
+      const { canDelete, blockers } = await this.storage.checkUserDeletionBlockers(userId, userLanguage);
+
+      if (!canDelete) {
+        const localizedBlockers = blockers.map(b => 
+          bilingual.getMessage(b.key, userLanguage).replace('{count}', String(b.count))
+        );
+        
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('admin.user_deletion_blocked', userLanguage),
+          data: {
+            blockers: localizedBlockers,
+            details: userLanguage === 'ar' 
+              ? `المستخدم لديه ${localizedBlockers.join('، ')}`
+              : `User has ${localizedBlockers.join(', ')}`
+          }
+        });
+      }
+
+      await this.storage.safeDeleteUser(userId);
+
+      await this.storage.createAuditLog({
+        userId: req.user!.id,
+        action: 'delete_user',
+        resourceType: 'users',
+        resourceId: userId,
+        oldValues: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role
+        })
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: bilingual.getMessage('admin.user_deleted', userLanguage),
+        data: {
+          user_id: userId,
+          user_name: user.name,
+          deleted_at: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Delete user error:', error);
+      return res.status(500).json({
+        success: false,
+        message: bilingual.getErrorMessage('general.server_error', req.headers['accept-language'] as string)
+      });
+    }
+  }
 }

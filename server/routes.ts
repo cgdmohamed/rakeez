@@ -9079,6 +9079,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Delete User (Admin only)
+  app.delete('/api/v2/admin/users/:id', authenticateToken, authorizeRoles(['admin']), async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const language = req.headers['accept-language'] || 'en';
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: bilingual.getErrorMessage('user.not_found', language),
+        });
+      }
+      
+      const { canDelete, blockers } = await storage.checkUserDeletionBlockers(id, language);
+      
+      if (!canDelete) {
+        const localizedBlockers = blockers.map(b => 
+          bilingual.getMessage(b.key, language).replace('{count}', String(b.count))
+        );
+        
+        return res.status(400).json({
+          success: false,
+          message: bilingual.getErrorMessage('admin.user_deletion_blocked', language),
+          data: {
+            blockers: localizedBlockers,
+            details: language === 'ar' 
+              ? `المستخدم لديه ${localizedBlockers.join('، ')}`
+              : `User has ${localizedBlockers.join(', ')}`
+          }
+        });
+      }
+      
+      await storage.safeDeleteUser(id);
+      
+      await auditLog({
+        userId: req.user.id,
+        action: 'user_deleted',
+        resourceType: 'user',
+        resourceId: id,
+        oldValues: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: bilingual.getMessage('admin.user_deleted', language),
+        data: {
+          user_id: id,
+          user_name: user.name,
+          deleted_at: new Date().toISOString()
+        }
+      });
+      
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({
+        success: false,
+        message: bilingual.getMessage('general.server_error', 'en'),
+      });
+    }
+  });
+  
   // Update User Status (Admin only)
   app.patch('/api/v2/admin/users/:id/status', authenticateToken, authorizeRoles(['admin']), validateRequest({
     body: z.object({

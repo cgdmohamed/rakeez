@@ -567,6 +567,42 @@ const messages: BilingualMessages = {
     en: 'User deleted successfully',
     ar: 'تم حذف المستخدم بنجاح'
   },
+  'admin.user_deletion_blocked': {
+    en: 'Cannot delete user with related data',
+    ar: 'لا يمكن حذف المستخدم الذي لديه بيانات مرتبطة'
+  },
+  'admin.user_has_bookings': {
+    en: '{count} booking(s)',
+    ar: '{count} حجز/حجوزات'
+  },
+  'admin.user_has_payments': {
+    en: '{count} payment(s)',
+    ar: '{count} دفعة/دفعات'
+  },
+  'admin.user_has_tickets': {
+    en: '{count} support ticket(s)',
+    ar: '{count} تذكرة/تذاكر دعم'
+  },
+  'admin.user_has_reviews': {
+    en: '{count} review(s)',
+    ar: '{count} تقييم/تقييمات'
+  },
+  'admin.user_has_referrals': {
+    en: '{count} referral(s)',
+    ar: '{count} إحالة/إحالات'
+  },
+  'admin.user_has_subscriptions': {
+    en: '{count} subscription(s)',
+    ar: '{count} اشتراك/اشتراكات'
+  },
+  'admin.user_has_credit_transactions': {
+    en: '{count} credit transaction(s)',
+    ar: '{count} معاملة/معاملات رصيد'
+  },
+  'admin.user_has_quotations': {
+    en: '{count} quotation(s)',
+    ar: '{count} عرض/عروض أسعار'
+  },
 
   // Webhook messages
   'webhooks.history_retrieved': {

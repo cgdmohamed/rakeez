@@ -44,6 +44,8 @@ export interface IStorage {
   updateUserStatus(id: string, status: string): Promise<void>;
   updateUserLastLogin(id: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
+  checkUserDeletionBlockers(id: string, language?: string): Promise<{ canDelete: boolean; blockers: Array<{ key: string; count: number }> }>;
+  safeDeleteUser(id: string): Promise<void>;
   
   // Addresses
   getUserAddresses(userId: string): Promise<Address[]>;
@@ -358,6 +360,87 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async checkUserDeletionBlockers(id: string, language: string = 'en'): Promise<{ canDelete: boolean; blockers: Array<{ key: string; count: number }> }> {
+    const blockers: Array<{ key: string; count: number }> = [];
+
+    const [bookingsCount] = await db
+      .select({ count: count() })
+      .from(bookings)
+      .where(or(eq(bookings.userId, id), eq(bookings.technicianId, id)));
+    if (bookingsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_bookings', count: Number(bookingsCount.count) });
+    }
+
+    const [paymentsCount] = await db
+      .select({ count: count() })
+      .from(payments)
+      .where(eq(payments.userId, id));
+    if (paymentsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_payments', count: Number(paymentsCount.count) });
+    }
+
+    const [ticketsCount] = await db
+      .select({ count: count() })
+      .from(supportTickets)
+      .where(eq(supportTickets.userId, id));
+    if (ticketsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_tickets', count: Number(ticketsCount.count) });
+    }
+
+    const [reviewsCount] = await db
+      .select({ count: count() })
+      .from(reviews)
+      .where(eq(reviews.userId, id));
+    if (reviewsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_reviews', count: Number(reviewsCount.count) });
+    }
+
+    const [referralsCount] = await db
+      .select({ count: count() })
+      .from(referrals)
+      .where(or(eq(referrals.inviterId, id), eq(referrals.inviteeId, id)));
+    if (referralsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_referrals', count: Number(referralsCount.count) });
+    }
+
+    const [subscriptionsCount] = await db
+      .select({ count: count() })
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, id));
+    if (subscriptionsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_subscriptions', count: Number(subscriptionsCount.count) });
+    }
+
+    const [creditTxCount] = await db
+      .select({ count: count() })
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, id));
+    if (creditTxCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_credit_transactions', count: Number(creditTxCount.count) });
+    }
+
+    const [quotationsCount] = await db
+      .select({ count: count() })
+      .from(quotations)
+      .where(eq(quotations.technicianId, id));
+    if (quotationsCount.count > 0) {
+      blockers.push({ key: 'admin.user_has_quotations', count: Number(quotationsCount.count) });
+    }
+
+    return {
+      canDelete: blockers.length === 0,
+      blockers
+    };
+  }
+
+  async safeDeleteUser(id: string): Promise<void> {
+    await db.delete(addresses).where(eq(addresses.userId, id));
+    await db.delete(notifications).where(eq(notifications.userId, id));
+    await db.delete(walletTransactions).where(eq(walletTransactions.userId, id));
+    await db.delete(wallets).where(eq(wallets.userId, id));
     await db.delete(users).where(eq(users.id, id));
   }
 
