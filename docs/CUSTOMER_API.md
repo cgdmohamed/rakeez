@@ -117,9 +117,16 @@ Accept-Language: en | ar (optional, defaults to 'en')
 - `name_ar`: Optional, Arabic name
 - `email`: Optional but recommended, valid email format
 - `phone`: Required if email not provided, Saudi format (+966XXXXXXXXX)
-- `password`: Required, minimum 6 characters
+- `password`: Required, strong password (minimum 8 characters, at least one uppercase, one lowercase, one number, and one special character)
 - `language`: Optional, `en` or `ar` (defaults to `en`)
 - `device_token`: Optional, Expo push notification token
+
+**Password Requirements:**
+- Minimum 8 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one number (0-9)
+- At least one special character (!@#$%^&*)
 
 **Response (201 Created):**
 ```json
@@ -838,6 +845,117 @@ Content-Type: application/json
 - **Subscription Reminders**: Package expiration, renewal notifications
 - **Support**: Ticket replies, ticket status changes
 - **Payment**: Payment confirmations, wallet transactions
+
+---
+
+## File Upload
+
+### Upload File to Object Storage
+
+Upload files to secure cloud storage using presigned URLs.
+
+**Endpoint:** `POST /api/v2/objects/upload`
+
+**Authentication:** Required
+
+**Request Headers:**
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Accept-Language: en | ar
+```
+
+**Request Body:**
+```json
+{
+  "file_name": "profile_photo.jpg",
+  "file_type": "image/jpeg",
+  "file_size": 1024000,
+  "visibility": "public"
+}
+```
+
+**Parameters:**
+- `file_name`: Name of the file to upload (required)
+- `file_type`: MIME type of the file (required)
+- `file_size`: Size in bytes (required, maximum 10MB)
+- `visibility`: `"public"` or `"private"` (default: "private")
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Upload URL generated successfully",
+  "message_ar": "تم إنشاء رابط الرفع بنجاح",
+  "data": {
+    "upload_url": "https://storage.googleapis.com/repl-default-bucket-xxx/presigned-url...",
+    "file_url": "https://storage.googleapis.com/repl-default-bucket-xxx/public/uuid-filename.jpg",
+    "expires_in": 3600,
+    "object_name": "public/uuid-filename.jpg"
+  }
+}
+```
+
+**Upload Process:**
+1. **Request presigned URL** from this endpoint
+2. **Upload file directly** to the `upload_url` using a PUT request with the file binary
+3. **Use the `file_url`** to reference the uploaded file in your app
+
+**Example Upload (JavaScript/TypeScript):**
+```javascript
+// Step 1: Get presigned URL
+const response = await fetch('/api/v2/objects/upload', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    file_name: 'avatar.jpg',
+    file_type: 'image/jpeg',
+    file_size: file.size,
+    visibility: 'public'
+  })
+});
+const { upload_url, file_url } = await response.json();
+
+// Step 2: Upload file to presigned URL
+await fetch(upload_url, {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'image/jpeg'
+  },
+  body: file
+});
+
+// Step 3: Use file_url in your app
+console.log('Uploaded file available at:', file_url);
+```
+
+**File Size Limits:**
+- Maximum file size: 10MB (10,485,760 bytes)
+- Validation enforced server-side
+
+**Security:**
+- **Private files**: Only accessible by the owner via authenticated requests
+- **Public files**: Accessible via public URL without authentication
+- **Presigned URLs**: Expire in 1 hour for security
+- **File validation**: Type and size validation before upload
+
+**Common Use Cases:**
+- Profile avatars
+- Support ticket attachments
+- Document uploads
+- Service-related photos
+
+**Error Response (413 Payload Too Large):**
+```json
+{
+  "success": false,
+  "message": "File size exceeds maximum limit of 10MB",
+  "message_ar": "حجم الملف يتجاوز الحد الأقصى 10 ميجابايت"
+}
+```
 
 ---
 
