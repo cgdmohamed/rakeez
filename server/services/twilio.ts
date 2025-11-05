@@ -1,24 +1,80 @@
 import twilio from 'twilio';
 
-class TwilioService {
-  private client: ReturnType<typeof twilio>;
+let connectionSettings: any;
+let cachedClient: ReturnType<typeof twilio> | null = null;
+let cachedPhoneNumber: string | null = null;
 
-  constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID || 'AC_test_account_sid';
-    const authToken = process.env.TWILIO_AUTH_TOKEN || 'test_auth_token';
-    
-    this.client = twilio(accountSid, authToken);
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken) {
+    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
+  connectionSettings = await fetch(
+    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
+    {
+      headers: {
+        'Accept': 'application/json',
+        'X_REPLIT_TOKEN': xReplitToken
+      }
+    }
+  ).then(res => res.json()).then(data => data.items?.[0]);
+
+  if (!connectionSettings || (!connectionSettings.settings.account_sid || !connectionSettings.settings.api_key || !connectionSettings.settings.api_key_secret)) {
+    throw new Error('Twilio not connected');
+  }
+  
+  return {
+    accountSid: connectionSettings.settings.account_sid,
+    apiKey: connectionSettings.settings.api_key,
+    apiKeySecret: connectionSettings.settings.api_key_secret,
+    phoneNumber: connectionSettings.settings.phone_number
+  };
+}
+
+async function getTwilioClient() {
+  if (cachedClient) {
+    return cachedClient;
+  }
+  
+  const { accountSid, apiKey, apiKeySecret } = await getCredentials();
+  cachedClient = twilio(apiKey, apiKeySecret, {
+    accountSid: accountSid
+  });
+  
+  return cachedClient;
+}
+
+async function getTwilioFromPhoneNumber() {
+  if (cachedPhoneNumber) {
+    return cachedPhoneNumber;
+  }
+  
+  const { phoneNumber } = await getCredentials();
+  cachedPhoneNumber = phoneNumber;
+  
+  return phoneNumber;
+}
+
+class TwilioService {
   async sendOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
     try {
+      const client = await getTwilioClient();
+      const fromNumber = await getTwilioFromPhoneNumber();
+      
       const message = language === 'ar' 
         ? `رمز التحقق الخاص بك هو: ${otp}. صالح لمدة 5 دقائق.`
         : `Your verification code is: ${otp}. Valid for 5 minutes.`;
 
-      const result = await this.client.messages.create({
+      const result = await client.messages.create({
         body: message,
-        from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
+        from: fromNumber,
         to: phone,
       });
 
@@ -32,13 +88,16 @@ class TwilioService {
 
   async sendPasswordResetOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
     try {
+      const client = await getTwilioClient();
+      const fromNumber = await getTwilioFromPhoneNumber();
+      
       const message = language === 'ar' 
         ? `رمز إعادة تعيين كلمة المرور: ${otp}. صالح لمدة 10 دقائق.`
         : `Your password reset code is: ${otp}. Valid for 10 minutes.`;
 
-      const result = await this.client.messages.create({
+      const result = await client.messages.create({
         body: message,
-        from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
+        from: fromNumber,
         to: phone,
       });
 
@@ -51,6 +110,9 @@ class TwilioService {
 
   async sendOrderUpdate(phone: string, orderNumber: string, status: string, language: string = 'ar'): Promise<boolean> {
     try {
+      const client = await getTwilioClient();
+      const fromNumber = await getTwilioFromPhoneNumber();
+      
       const statusMessages: Record<string, Record<string, string>> = {
         ar: {
           confirmed: 'تم تأكيد طلبك',
@@ -71,9 +133,9 @@ class TwilioService {
         ? `تحديث الطلب ${orderNumber}: ${statusText}`
         : `Order ${orderNumber} update: ${statusText}`;
 
-      const result = await this.client.messages.create({
+      const result = await client.messages.create({
         body: message,
-        from: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
+        from: fromNumber,
         to: phone,
       });
 
