@@ -33,7 +33,7 @@ The database schema separates single-service pricing from multi-service bundles,
 - Tabby (Buy Now Pay Later)
 
 **Communication Services:**
-- Twilio (SMS for OTP and notifications)
+- Twilio (SMS for OTP and notifications) - Configured via Replit Twilio Connector with API key authentication
 - Nodemailer (Email for receipts)
 - Expo Push Notifications (Mobile push notifications)
 
