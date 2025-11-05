@@ -1,15 +1,35 @@
 # Twilio Configuration Guide
 
 ## Overview
-Rakeez uses Twilio for SMS-based OTP (One-Time Password) verification and order status notifications. The integration is managed through the **Replit Twilio Connector**, which securely handles API credentials and provides automatic key rotation.
+Rakeez uses Twilio for SMS-based OTP (One-Time Password) verification and order status notifications. The integration leverages **Twilio Verify API** for OTP delivery and the **Twilio Messages API** for general notifications, all managed through the **Replit Twilio Connector** for secure credential handling.
 
 ## Setup Status
 ✅ **Twilio Connector**: Configured via Replit Integration  
-✅ **TwilioService**: Updated to use connector authentication  
+✅ **Twilio Verify API**: Enabled for OTP delivery (phone numbers)  
+✅ **TwilioService**: Uses Verify API for OTP, Messages API for notifications  
 ✅ **OTP Endpoints**: Implemented with rate limiting  
 ✅ **SMS Templates**: Bilingual (Arabic/English) support  
+✅ **Environment Variables**: TWILIO_VERIFY_SERVICE_SID configured
 
 ## Architecture
+
+### Dual API Strategy
+The system uses two Twilio APIs based on the use case:
+
+#### 1. Twilio Verify API (for OTP)
+- **Purpose**: Registration OTP, password reset OTP
+- **Advantages**: 
+  - No "From" phone number configuration needed
+  - Works internationally without geographic restrictions
+  - Built-in rate limiting and fraud detection
+  - Automatic OTP generation and expiration handling
+  - Supports multiple channels (SMS, Voice, WhatsApp)
+- **Configuration**: Requires `TWILIO_VERIFY_SERVICE_SID` environment variable
+
+#### 2. Twilio Messages API (for Notifications)
+- **Purpose**: Order status updates, general notifications
+- **Requirements**: Configured "From" phone number
+- **Use case**: Custom message content that doesn't require verification
 
 ### Authentication Method
 The Twilio integration uses **API Key Authentication** (recommended by Twilio) instead of Account SID + Auth Token for enhanced security:
@@ -17,40 +37,56 @@ The Twilio integration uses **API Key Authentication** (recommended by Twilio) i
 ```typescript
 // Credentials are fetched dynamically from Replit Connector
 const credentials = {
-  accountSid: 'ACxxxx',           // From connector settings
-  apiKey: 'SKxxxx',               // From connector settings  
-  apiKeySecret: 'xxxxx',          // From connector settings
-  phoneNumber: '+966xxxxxxxxx'     // From connector settings
+  accountSid: 'ACxxxx',                        // From connector settings
+  apiKey: 'SKxxxx',                            // From connector settings  
+  apiKeySecret: 'xxxxx',                       // From connector settings
+  phoneNumber: '+966xxxxxxxxx'                 // From connector settings (for Messages API)
 }
+
+// Additional environment variable for Verify API
+process.env.TWILIO_VERIFY_SERVICE_SID = 'VAxxxx'  // Verify Service SID
 ```
 
 ### Service Location
 - **Implementation**: `server/services/twilio.ts`
 - **Routes**: `server/routes.ts` (OTP endpoints)
-- **Storage**: `server/services/redis.ts` (OTP caching)
+- **Storage**: `server/services/redis.ts` (Email OTP caching only - phone OTPs managed by Twilio Verify)
 
 ## Features
 
-### 1. OTP Verification System
+### 1. OTP Verification System (Twilio Verify API)
+
 **Endpoints:**
 - `POST /api/v2/auth/verify-otp` - Verify OTP code (5 attempts per 5 minutes)
 - `POST /api/v2/auth/resend-otp` - Resend OTP code (3 attempts per 5 minutes)
 
+**Implementation Details:**
+- **Phone OTPs**: Managed entirely by Twilio Verify API
+  - No manual OTP generation
+  - No Redis storage required
+  - Built-in expiration (10 minutes by default)
+  - Automatic rate limiting and fraud detection
+  - Bilingual SMS templates (Arabic/English) via `locale` parameter
+  
+- **Email OTPs**: Manual generation with Redis storage (fallback)
+  - 6-digit random code generation
+  - 5-minute expiration in Redis
+  - Custom email templates
+
 **OTP Configuration** (`server/utils/constants.ts`):
 ```typescript
-OTP_EXPIRY: 300,              // 5 minutes
-MAX_OTP_ATTEMPTS: 3,          // Max verification attempts
+// These apply to email OTPs only - phone OTPs use Twilio Verify defaults
+OTP_EXPIRY: 300,              // 5 minutes (email only)
+MAX_OTP_ATTEMPTS: 3,          // Max verification attempts (email only)
 OTP_RESEND_LIMIT: 3,          // Max resends per 5 minutes
 ```
 
-**SMS Templates:**
-- **Arabic**: `رمز التحقق الخاص بك هو: {otp}. صالح لمدة 5 دقائق.`
-- **English**: `Your verification code is: {otp}. Valid for 5 minutes.`
+**Twilio Verify SMS Templates** (managed by Twilio):
+- **Arabic** (`locale: 'ar'`): Twilio's built-in Arabic verification template
+- **English** (`locale: 'en'`): Twilio's built-in English verification template
 
-### 2. Password Reset OTP
-**SMS Templates:**
-- **Arabic**: `رمز إعادة تعيين كلمة المرور: {otp}. صالح لمدة 10 دقائق.`
-- **English**: `Your password reset code is: {otp}. Valid for 10 minutes.`
+### 2. Password Reset OTP (Twilio Verify API)
+Phone password reset OTPs are handled by Twilio Verify API with the same advantages as registration OTPs. Email password reset uses manual OTP generation with custom templates.
 
 ### 3. Order Status Notifications
 **Supported Statuses:**
@@ -86,16 +122,16 @@ The system automatically formats Saudi phone numbers to E.164 format:
 | `/api/v2/auth/resend-otp` | 3 requests | 5 minutes | IP address |
 
 ### OTP Attempts
-- **Max verification attempts**: 3 per OTP code
-- **Auto-deletion**: OTP is deleted after max attempts
-- **Tracking**: Redis stores attempt count per identifier
+- **Phone OTPs**: Managed by Twilio Verify (built-in rate limiting)
+- **Email OTPs**: Max 3 verification attempts, auto-deletion after max attempts, tracked in Redis
 
 ## Testing Guide
 
 ### Prerequisites
 1. ✅ Twilio Connector is set up in Replit
-2. ✅ Twilio account has a verified phone number
-3. ✅ Twilio phone number is configured in connector settings
+2. ✅ **TWILIO_VERIFY_SERVICE_SID** environment variable configured
+3. ✅ Twilio Verify Service created in Twilio Console
+4. ✅ (Optional) Twilio phone number configured for notification SMS
 
 ### Test Scenarios
 
@@ -111,9 +147,10 @@ curl -X POST http://localhost:5000/api/v2/auth/register \
     "language": "ar"
   }'
 
-# Expected: SMS sent with 6-digit OTP
+# Expected: SMS sent with 6-digit OTP via Twilio Verify API
+# Response: {"success":true,"message":"Account created successfully. Please verify your phone number","data":{"user_id":"xxx","requires_verification":true,"verification_method":"phone"}}
 
-# Step 2: Verify OTP
+# Step 2: Verify OTP (use actual code from SMS)
 curl -X POST http://localhost:5000/api/v2/auth/verify-otp \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,6 +160,7 @@ curl -X POST http://localhost:5000/api/v2/auth/verify-otp \
   }'
 
 # Expected: JWT tokens returned, user marked as verified
+# Note: Twilio Verify API handles OTP validation automatically
 ```
 
 #### 2. OTP Resend
