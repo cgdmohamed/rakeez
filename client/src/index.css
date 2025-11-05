@@ -127,6 +127,70 @@
   }
 }
 
+@layer base {
+  /* Enhanced Input Visibility - Make all form inputs stand out clearly */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  textarea,
+  select {
+    @apply bg-white border-2 border-gray-300 shadow-sm;
+  }
+  
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="search"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  input[type="datetime-local"]:focus,
+  textarea:focus,
+  select:focus {
+    @apply border-primary ring-2 ring-primary/20 bg-white;
+  }
+  
+  /* Dark mode inputs */
+  .dark input[type="text"],
+  .dark input[type="email"],
+  .dark input[type="password"],
+  .dark input[type="number"],
+  .dark input[type="tel"],
+  .dark input[type="url"],
+  .dark input[type="search"],
+  .dark input[type="date"],
+  .dark input[type="time"],
+  .dark input[type="datetime-local"],
+  .dark textarea,
+  .dark select {
+    @apply bg-gray-800 border-gray-600 text-white;
+  }
+  
+  .dark input[type="text"]:focus,
+  .dark input[type="email"]:focus,
+  .dark input[type="password"]:focus,
+  .dark input[type="number"]:focus,
+  .dark input[type="tel"]:focus,
+  .dark input[type="url"]:focus,
+  .dark input[type="search"]:focus,
+  .dark input[type="date"]:focus,
+  .dark input[type="time"]:focus,
+  .dark input[type="datetime-local"]:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    @apply border-primary ring-2 ring-primary/30 bg-gray-800;
+  }
+}
+
 @layer utilities {
   /* Professional table styling */
   .table-row-striped:nth-child(even) {
