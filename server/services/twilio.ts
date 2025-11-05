@@ -13,6 +13,20 @@ function clearCache() {
 }
 
 async function getCredentials() {
+  const directAccountSid = process.env.TWILIO_ACCOUNT_SID;
+  const directApiKey = process.env.TWILIO_API_KEY;
+  const directApiKeySecret = process.env.TWILIO_API_KEY_SECRET;
+  const directPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+  if (directAccountSid && directApiKey && directApiKeySecret && directPhoneNumber) {
+    return {
+      accountSid: directAccountSid,
+      apiKey: directApiKey,
+      apiKeySecret: directApiKeySecret,
+      phoneNumber: directPhoneNumber
+    };
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -21,7 +35,7 @@ async function getCredentials() {
     : null;
 
   if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+    throw new Error('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_KEY_SECRET, and TWILIO_PHONE_NUMBER environment variables.');
   }
 
   connectionSettings = await fetch(
@@ -35,7 +49,7 @@ async function getCredentials() {
   ).then(res => res.json()).then(data => data.items?.[0]);
 
   if (!connectionSettings || (!connectionSettings.settings.account_sid || !connectionSettings.settings.api_key || !connectionSettings.settings.api_key_secret)) {
-    throw new Error('Twilio not connected');
+    throw new Error('Twilio not connected via Replit connector');
   }
   
   return {
