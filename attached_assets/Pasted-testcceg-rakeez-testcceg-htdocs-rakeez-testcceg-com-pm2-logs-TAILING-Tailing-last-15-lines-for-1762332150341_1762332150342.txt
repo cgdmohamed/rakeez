@@ -1,0 +1,49 @@
+testcceg-rakeez@testcceg:~/htdocs/rakeez.testcceg.com$ pm2 logs
+[TAILING] Tailing last 15 lines for [all] processes (change the value with --lines option)
+/home/testcceg-rakeez/.pm2/pm2.log last 15 lines:
+PM2        | 2025-11-05T08:35:07: PM2 log: Stopping app:rakeez id:0
+PM2        | 2025-11-05T08:35:08: PM2 log: App [rakeez:0] exited with code [0] via signal [SIGINT]
+PM2        | 2025-11-05T08:35:08: PM2 log: pid=3947080 msg=process killed
+PM2        | 2025-11-05T08:35:08: PM2 log: App [rakeez:0] starting in -fork mode-
+PM2        | 2025-11-05T08:35:08: PM2 log: App [rakeez:0] online
+PM2        | 2025-11-05T08:38:42: PM2 log: Stopping app:rakeez id:0
+PM2        | 2025-11-05T08:38:42: PM2 log: App [rakeez:0] exited with code [0] via signal [SIGINT]
+PM2        | 2025-11-05T08:38:42: PM2 log: pid=3950038 msg=process killed
+PM2        | 2025-11-05T08:38:42: PM2 log: App [rakeez:0] starting in -fork mode-
+PM2        | 2025-11-05T08:38:42: PM2 log: App [rakeez:0] online
+
+/home/testcceg-rakeez/.pm2/logs/rakeez-error.log last 15 lines:
+0|rakeez   |     at IncomingMessage.onEnd (/home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/raw-body/index.js:287:7)
+0|rakeez   |     at IncomingMessage.emit (node:events:519:28)
+0|rakeez   |     at endReadableNT (node:internal/streams/readable:1698:12)
+0|rakeez   |     at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+0|rakeez   | SyntaxError: Expected double-quoted property name in JSON at position 63 (line 4 column 3)
+0|rakeez   |     at JSON.parse (<anonymous>)
+0|rakeez   |     at parse (/home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/body-parser/lib/types/json.js:92:19)
+0|rakeez   |     at /home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/body-parser/lib/read.js:128:18
+0|rakeez   |     at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+0|rakeez   |     at invokeCallback (/home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/raw-body/index.js:238:16)
+0|rakeez   |     at done (/home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/raw-body/index.js:227:7)
+0|rakeez   |     at IncomingMessage.onEnd (/home/testcceg-rakeez/htdocs/rakeez.testcceg.com/node_modules/raw-body/index.js:287:7)
+0|rakeez   |     at IncomingMessage.emit (node:events:519:28)
+0|rakeez   |     at endReadableNT (node:internal/streams/readable:1698:12)
+0|rakeez   |     at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+
+/home/testcceg-rakeez/.pm2/logs/rakeez-out.log last 15 lines:
+0|rakeez   | [dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+0|rakeez   | Testing database connection...
+0|rakeez   | ✅ Database connection successful
+0|rakeez   | 8:38:43 AM [express] serving on port 3000
+0|rakeez   | WebSocket server initialized
+0|rakeez   | Webhook worker not started (Redis unavailable)
+0|rakeez   | 8:38:44 AM [express] GET /api/v2/admin/users 200 in 17ms :: {"success":true,"message":"Users retriev…
+0|rakeez   | 8:38:44 AM [express] GET /api/v2/admin/users 304 in 2ms :: {"success":true,"message":"Users retrieve…
+0|rakeez   | 8:38:45 AM [express] GET /api/v2/admin/users 200 in 12ms :: {"success":true,"message":"Users retriev…
+0|rakeez   | 8:38:45 AM [express] GET /api/v2/admin/users 304 in 4ms :: {"success":true,"message":"Users retrieve…
+0|rakeez   | 8:38:48 AM [express] DELETE /api/v2/admin/users/76e2f2e7-8099-4853-a38e-677a96c1bd62 200 in 14ms :: …
+0|rakeez   | 8:38:52 AM [express] POST /api/v2/auth/register 201 in 811ms :: {"success":true,"message":"Account c…
+0|rakeez   | 8:40:48 AM [express] POST /api/v2/auth/verify-otp 400 in 2ms :: {"success":false,"message":"Invalid …
+0|rakeez   | 8:41:01 AM [express] POST /api/v2/auth/verify-otp 400 in 1ms :: {"success":false,"message":"Invalid …
+0|rakeez   | 8:41:17 AM [express] POST /api/v2/auth/verify-otp 400 in 1ms :: {"success":false,"message":"Invalid …
+
+0|rakeez  | 8:42:11 AM [express] POST /api/v2/auth/verify-otp 400 in 1ms :: {"success":false,"message":"Invalid …
