@@ -160,6 +160,7 @@ export const subscriptionPackages = pgTable("subscription_packages", {
   inclusions: jsonb("inclusions").notNull(), // { "en": [...], "ar": [...] } - list of benefits
   termsAndConditions: jsonb("terms_and_conditions"),
   isActive: boolean("is_active").default(true).notNull(),
+  isPopular: boolean("is_popular").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

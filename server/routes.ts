@@ -3374,12 +3374,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             ...pkg,
             services: packageServices.map(ps => ({
-              id: ps.serviceId,
-              name: ps.service.name,
-              description: ps.service.description,
+              serviceId: ps.serviceId,
               usageLimit: ps.usageLimit,
               discountPercentage: ps.discountPercentage,
-              linkId: ps.id,
+              service: {
+                id: ps.serviceId,
+                name: ps.service.name,
+              },
             })),
           };
         })

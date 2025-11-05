@@ -30,6 +30,7 @@ interface SubscriptionPackage {
   inclusions: { en: string[]; ar: string[] };
   termsAndConditions: { en: string; ar: string } | null;
   isActive: boolean;
+  isPopular: boolean;
   createdAt: string;
   services?: Array<{
     serviceId: string;
@@ -73,6 +74,7 @@ export default function AdminSubscriptionPackages() {
     termsEn: '',
     termsAr: '',
     isActive: true,
+    isPopular: false,
     services: [] as ServiceLink[],
   });
 
@@ -210,6 +212,7 @@ export default function AdminSubscriptionPackages() {
       termsEn: '',
       termsAr: '',
       isActive: true,
+      isPopular: false,
       services: [],
     });
   };
@@ -227,6 +230,7 @@ export default function AdminSubscriptionPackages() {
       termsEn: pkg.termsAndConditions?.en || '',
       termsAr: pkg.termsAndConditions?.ar || '',
       isActive: pkg.isActive,
+      isPopular: pkg.isPopular,
       services: pkg.services?.map(s => ({
         serviceId: s.serviceId,
         usageLimit: s.usageLimit,
@@ -299,6 +303,7 @@ export default function AdminSubscriptionPackages() {
         ar: formData.termsAr,
       } : null,
       isActive: formData.isActive,
+      isPopular: formData.isPopular,
       services: formData.services.map(s => ({
         serviceId: s.serviceId,
         usageLimit: s.usageLimit,
@@ -756,16 +761,29 @@ export default function AdminSubscriptionPackages() {
                 )}
               </div>
 
-              <div className="flex items-center space-x-2 border-t pt-4">
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                  data-testid="switch-is-active"
-                />
-                <Label htmlFor="isActive" className="cursor-pointer">
-                  Active package (visible to customers)
-                </Label>
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isActive"
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                    data-testid="switch-is-active"
+                  />
+                  <Label htmlFor="isActive" className="cursor-pointer">
+                    Active package (visible to customers)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isPopular"
+                    checked={formData.isPopular}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isPopular: checked })}
+                    data-testid="switch-is-popular"
+                  />
+                  <Label htmlFor="isPopular" className="cursor-pointer">
+                    Popular package (featured/highlighted for customers)
+                  </Label>
+                </div>
               </div>
             </div>
             <DialogFooter>
