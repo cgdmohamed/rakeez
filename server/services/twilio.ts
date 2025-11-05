@@ -4,10 +4,12 @@ import { logError } from '../utils/logger';
 let connectionSettings: any;
 let cachedClient: ReturnType<typeof twilio> | null = null;
 let cachedPhoneNumber: string | null = null;
+let cachedVerifyServiceSid: string | null = null;
 
 function clearCache() {
   cachedClient = null;
   cachedPhoneNumber = null;
+  cachedVerifyServiceSid = null;
 }
 
 async function getCredentials() {
@@ -68,29 +70,42 @@ async function getTwilioFromPhoneNumber() {
   return phoneNumber;
 }
 
+async function getVerifyServiceSid(): Promise<string> {
+  if (cachedVerifyServiceSid) {
+    return cachedVerifyServiceSid;
+  }
+  
+  // Get from environment variable
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  if (!serviceSid) {
+    throw new Error('TWILIO_VERIFY_SERVICE_SID not configured');
+  }
+  
+  cachedVerifyServiceSid = serviceSid;
+  return serviceSid;
+}
+
 function isAuthenticationError(error: any): boolean {
   const status = error?.status || error?.code;
   return status === 401 || status === 403 || status === 20003;
 }
 
 class TwilioService {
-  async sendOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
+  async sendOTP(phone: string, language: string = 'ar'): Promise<boolean> {
     try {
       const client = await getTwilioClient();
-      const fromNumber = await getTwilioFromPhoneNumber();
+      const serviceSid = await getVerifyServiceSid();
       
-      const message = language === 'ar' 
-        ? `رمز التحقق الخاص بك هو: ${otp}. صالح لمدة 5 دقائق.`
-        : `Your verification code is: ${otp}. Valid for 5 minutes.`;
+      const result = await client.verify.v2
+        .services(serviceSid)
+        .verifications.create({
+          to: phone,
+          channel: 'sms',
+          locale: language === 'ar' ? 'ar' : 'en'
+        });
 
-      const result = await client.messages.create({
-        body: message,
-        from: fromNumber,
-        to: phone,
-      });
-
-      console.log(`OTP sent to ${phone}: ${result.sid}`);
-      return result.status !== 'failed';
+      console.log(`OTP sent to ${phone}: ${result.sid}, status: ${result.status}`);
+      return result.status === 'pending';
     } catch (error: any) {
       if (isAuthenticationError(error)) {
         clearCache();
@@ -110,22 +125,21 @@ class TwilioService {
     }
   }
 
-  async sendPasswordResetOTP(phone: string, otp: string, language: string = 'ar'): Promise<boolean> {
+  async sendPasswordResetOTP(phone: string, language: string = 'ar'): Promise<boolean> {
     try {
       const client = await getTwilioClient();
-      const fromNumber = await getTwilioFromPhoneNumber();
+      const serviceSid = await getVerifyServiceSid();
       
-      const message = language === 'ar' 
-        ? `رمز إعادة تعيين كلمة المرور: ${otp}. صالح لمدة 10 دقائق.`
-        : `Your password reset code is: ${otp}. Valid for 10 minutes.`;
+      const result = await client.verify.v2
+        .services(serviceSid)
+        .verifications.create({
+          to: phone,
+          channel: 'sms',
+          locale: language === 'ar' ? 'ar' : 'en'
+        });
 
-      const result = await client.messages.create({
-        body: message,
-        from: fromNumber,
-        to: phone,
-      });
-
-      return result.status !== 'failed';
+      console.log(`Password reset OTP sent to ${phone}: ${result.sid}, status: ${result.status}`);
+      return result.status === 'pending';
     } catch (error: any) {
       if (isAuthenticationError(error)) {
         clearCache();
@@ -136,6 +150,37 @@ class TwilioService {
       } else {
         logError('Failed to send password reset OTP', error, {
           context: 'sendPasswordResetOTP',
+          twilioErrorCode: error.code
+        });
+      }
+      return false;
+    }
+  }
+  
+  async verifyOTP(phone: string, code: string): Promise<boolean> {
+    try {
+      const client = await getTwilioClient();
+      const serviceSid = await getVerifyServiceSid();
+      
+      const result = await client.verify.v2
+        .services(serviceSid)
+        .verificationChecks.create({
+          to: phone,
+          code: code
+        });
+
+      console.log(`OTP verification for ${phone}: ${result.status}, valid: ${result.valid}`);
+      return result.status === 'approved' && result.valid === true;
+    } catch (error: any) {
+      if (isAuthenticationError(error)) {
+        clearCache();
+        logError('Twilio authentication failed - credentials cleared', error, {
+          context: 'verifyOTP',
+          twilioErrorCode: error.code
+        });
+      } else {
+        logError('Failed to verify OTP', error, {
+          context: 'verifyOTP',
           twilioErrorCode: error.code
         });
       }
