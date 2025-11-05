@@ -184,12 +184,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user exists
       const existingUser = email 
         ? await storage.getUserByEmail(email)
-        : await storage.getUserByPhone(phone!);
+        : await storage.getUserByPhone(HELPERS.formatSaudiPhone(phone!));
         
-      if (existingUser) {
+      // If user exists and is already verified, return error
+      if (existingUser && existingUser.isVerified) {
         return res.status(400).json({
           success: false,
           message: bilingual.getMessage('auth.user_already_exists', language),
+        });
+      }
+      
+      // If user exists but unverified, allow re-registration (resend OTP flow)
+      if (existingUser && !existingUser.isVerified) {
+        // Update password if provided
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await storage.updateUser(existingUser.id, {
+          password: hashedPassword,
+          name,
+          nameAr: name_ar,
+          language,
+          deviceToken: device_token,
+        });
+        
+        // Generate and send new OTP
+        const otp = twilioService.generateOTP();
+        const otpKey = phone || email!;
+        await redisService.setOTP(otpKey, otp, AUTH_CONSTANTS.OTP_EXPIRY);
+        
+        let otpSent = false;
+        if (phone) {
+          otpSent = await twilioService.sendOTP(HELPERS.formatSaudiPhone(phone), otp, language);
+        } else if (email) {
+          otpSent = await emailService.sendOTPEmail(email, otp, language, name);
+        }
+        
+        await auditLog({
+          userId: existingUser.id,
+          action: 'user_reregistered_unverified',
+          resourceType: 'user',
+          resourceId: existingUser.id,
+          newValues: { name, language }
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: otpSent 
+            ? bilingual.getMessage('auth.otp_resent', language)
+            : bilingual.getMessage('auth.user_created_otp_failed', language),
+          data: {
+            user_id: existingUser.id,
+            requires_verification: true,
+            verification_method: phone ? 'phone' : 'email'
+          }
         });
       }
       
