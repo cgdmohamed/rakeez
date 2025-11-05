@@ -104,7 +104,6 @@ class TwilioService {
           locale: language === 'ar' ? 'ar' : 'en'
         });
 
-      console.log(`OTP sent to ${phone}: ${result.sid}, status: ${result.status}`);
       return result.status === 'pending';
     } catch (error: any) {
       if (isAuthenticationError(error)) {
@@ -138,7 +137,6 @@ class TwilioService {
           locale: language === 'ar' ? 'ar' : 'en'
         });
 
-      console.log(`Password reset OTP sent to ${phone}: ${result.sid}, status: ${result.status}`);
       return result.status === 'pending';
     } catch (error: any) {
       if (isAuthenticationError(error)) {
@@ -169,7 +167,6 @@ class TwilioService {
           code: code
         });
 
-      console.log(`OTP verification for ${phone}: ${result.status}, valid: ${result.valid}`);
       return result.status === 'approved' && result.valid === true;
     } catch (error: any) {
       if (isAuthenticationError(error)) {
